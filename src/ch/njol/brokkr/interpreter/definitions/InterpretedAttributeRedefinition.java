@@ -91,7 +91,7 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 		for (int i = 0; i < results.size(); i++) {
 			final InterpretedResultRedefinition result = results.get(i);
 			final InterpretedTypeUse type = result.type();
-			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.nativeClass(), result.name(), type));
+			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.typeType(), result.name(), type));
 		}
 		return new InterpretedTypeTuple(entries);
 	}
@@ -102,7 +102,7 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 		for (int i = 0; i < parameters.size(); i++) {
 			final InterpretedParameterRedefinition parameter = parameters.get(i);
 			final InterpretedTypeUse type = parameter.type();
-			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.nativeClass(), parameter.name(), type));
+			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.typeType(), parameter.name(), type));
 		}
 		return new InterpretedTypeTuple(entries);
 	}

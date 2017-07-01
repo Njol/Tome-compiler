@@ -1,8 +1,10 @@
 package ch.njol.brokkr.interpreter.uses;
 
+import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.jdt.annotation.Nullable;
+
 /**
  * A type use is any use of a type apart from its own definition.
- * TODO A fully defined type use can also be an object - how? maybe make another (Java) type for those?
  */
 public interface InterpretedTypeUse {
 	
@@ -11,5 +13,9 @@ public interface InterpretedTypeUse {
 	public boolean isSubtypeOfOrEqual(InterpretedTypeUse other);
 	
 	public boolean isSupertypeOfOrEqual(InterpretedTypeUse other);
+
+	public @Nullable InterpretedMemberUse getMemberByName(String name);
+	
+	public InterpretedTypeUse typeType();
 	
 }

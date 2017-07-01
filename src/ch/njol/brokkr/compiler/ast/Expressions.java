@@ -62,6 +62,7 @@ import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedTypeTuple;
 import ch.njol.brokkr.interpreter.uses.InterpretedAndTypeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedClassObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedOrTypeUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleTypeUse;
@@ -1499,7 +1500,12 @@ public class Expressions {
 			if (!allowOps) { // i.e. only a single type (possibly with modifiers and generics)
 				if (parent.peekNext("Self"))
 					return parent.one(Self.class);
-				final TypeExpression e = parent.one(ModifierTypeUseElement.class);
+				final ModifierTypeUseModifierElement modifier = ModifierTypeUseModifierElement.tryParse(parent);
+				final TypeExpression e;
+				if (modifier != null)
+					e = parent.one(new ModifierTypeUseElement(modifier));
+				else
+					e = parent.one(SimpleTypeUseElement.class);
 				if (parent.peekNext('<'))
 					return GenericTypeUseElement.withModifiers(e, parent);
 				return e;
@@ -1532,7 +1538,7 @@ public class Expressions {
 		}
 		
 		@Override
-		public @NonNull InterpretedTypeObject interpret(final InterpreterContext context) {
+		public @NonNull InterpretedClassObject interpret(final InterpreterContext context) {
 			return context.getThisObject().nativeClass();
 		}
 		
@@ -1715,7 +1721,7 @@ public class Expressions {
 	}
 	
 	/**
-	 * A type use with modifiers, e.g. 'mod a b C', equal to 'mod (a X & b Y & C)' for the appropriate X and Y types.
+	 * A type use with modifiers, e.g. 'mod exclusive C'.
 	 */
 	public static class ModifierTypeUseElement extends AbstractElement<TypeExpression> implements TypeExpression {
 		
@@ -1724,6 +1730,11 @@ public class Expressions {
 		 * Either a {@link SimpleTypeUseElement} or a {@link GenericTypeUseElement}
 		 */
 		public @Nullable TypeExpression type;
+		
+		public ModifierTypeUseElement(final ModifierTypeUseModifierElement firstModifier) {
+			modifiers.add(firstModifier);
+			firstModifier.setParent(this);
+		}
 		
 		@Override
 		public String toString() {
@@ -1739,21 +1750,19 @@ public class Expressions {
 			// TODO is 'modifier Self' possible?
 			type = one(SimpleTypeUseElement.class);
 			
-			if (modifiers.isEmpty()) {
-				assert type != null;
-				return type;
-			}
 			return this;
 		}
 		
 		@SuppressWarnings("null")
 		@Override
 		public @Nullable InterpretedTypeObject interpret(final InterpreterContext context) {
-			InterpretedTypeObject result = type.interpret(context);
+			final InterpretedTypeObject result = type.interpret(context);
 			for (final ModifierTypeUseModifierElement mod : modifiers) {
-				final InterpretedTypeUse m = new InterpretedSimpleTypeUse(mod.modifier.get());
-				if (m != null)
-					result = new InterpretedAndTypeUse(result, m);
+				if (mod.modifiability != null) {
+					result.setModifiability(mod.modifiability);
+				} else if (mod.exclusivity != null) {
+					result.setExclusivity(mod.exclusivity);
+				}
 			}
 			return result;
 		}
@@ -1761,51 +1770,51 @@ public class Expressions {
 		@SuppressWarnings("null")
 		@Override
 		public InterpretedTypeUse staticallyKnownType() {
-			InterpretedTypeUse r = type.staticallyKnownType();
-			for (int i = modifiers.size() - 1; i >= 0; i--) {
-				r = new InterpretedAndTypeUse(modifiers.get(i).staticallyKnownType(), r);
+			final InterpretedTypeUse result = type.staticallyKnownType();
+			for (final ModifierTypeUseModifierElement mod : modifiers) {
+				if (mod.modifiability != null) {
+					result.setModifiability(mod.modifiability);
+				} else if (mod.exclusivity != null) {
+					result.setExclusivity(mod.exclusivity);
+				}
 			}
-			return r;
+			return result;
 		}
 	}
 	
 	/**
-	 * a type use modifier, either a modifiability, exclusivity, etc. or a user-defined modifier.
+	 * a type use modifier like modifiability or exclusivity, optionally copied from an expression
 	 */
-	public static class ModifierTypeUseModifierElement extends AbstractElement<ModifierTypeUseModifierElement> implements TypeUse {
+	public static class ModifierTypeUseModifierElement extends AbstractElement<ModifierTypeUseModifierElement> {
 		public @Nullable Modifiability modifiability;
 		public @Nullable Exclusivity exclusivity;
-		public final Link<InterpretedNativeTypeDefinition> modifier = new Link<InterpretedNativeTypeDefinition>(this) {
-			@SuppressWarnings("null")
-			@Override
-			protected @Nullable InterpretedNativeTypeDefinition tryLink(final String name) {
-				final ModifierTypeUseElement base = getParentOfType(ModifierTypeUseElement.class);
-				if (base == null)
-					return null;
-				final InterpretedTypeUse baseType = base.type.staticallyKnownType();
-				if (baseType == null)
-					return null;
-				final BrokkrFile file = getParentOfType(BrokkrFile.class);
-				if (file == null || file.module == null)
-					return null;
-				return file.module.getModifierType(name, baseType);
-			}
-		};
 		public @Nullable Expression from;
+		
+		public static @Nullable ModifierTypeUseModifierElement tryParse(final AbstractElement<?> parent) {
+			final Modifiability modifiability = Modifiability.parse(parent);
+			if (modifiability != null)
+				return new ModifierTypeUseModifierElement(modifiability);
+			final Exclusivity exclusivity = Exclusivity.parse(parent);
+			if (exclusivity != null)
+				return new ModifierTypeUseModifierElement(exclusivity);
+			return null;
+		}
+		
+		public ModifierTypeUseModifierElement(final Modifiability modifiability) {
+			this.modifiability = modifiability;
+		}
+		
+		public ModifierTypeUseModifierElement(final Exclusivity exclusivity) {
+			this.exclusivity = exclusivity;
+		}
 		
 		@Override
 		public String toString() {
-			return (modifiability != null ? modifiability : modifier.getName()) + (from == null ? "" : "@" + (from instanceof VariableOrUnqualifiedAttributeUse || from instanceof This ? from : "(" + from + ")"));
+			return (modifiability != null ? modifiability : exclusivity) + (from == null ? "" : "@" + (from instanceof VariableOrUnqualifiedAttributeUse || from instanceof This ? from : "(" + from + ")"));
 		}
 		
 		@Override
 		protected ModifierTypeUseModifierElement parse() throws ParseException {
-			modifiability = Modifiability.parse(this);
-			if (modifiability == null) {
-				exclusivity = Exclusivity.parse(this);
-				if (exclusivity == null)
-					modifier.setName(oneVariableIdentifierToken());
-			}
 			if (try_('@')) {
 				if (!tryGroup('(', () -> {
 					from = Expressions.parse(this);
@@ -1817,18 +1826,6 @@ public class Expressions {
 				}
 			}
 			return this;
-		}
-		
-		@SuppressWarnings("null")
-		@Override
-		public InterpretedTypeUse staticallyKnownType() {
-			return new InterpretedSimpleTypeUse(modifier.get());
-		}
-		
-		@SuppressWarnings("null")
-		@Override
-		public @NonNull InterpretedTypeUse interpret(final InterpreterContext context) {
-			return staticallyKnownType();
 		}
 	}
 	

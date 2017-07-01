@@ -20,7 +20,9 @@ import ch.njol.brokkr.interpreter.definitions.InterpretedParameterDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedParameterRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedResultDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedResultRedefinition;
-import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedAttributeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedClassObject;
+import ch.njol.brokkr.interpreter.uses.InterpretedMemberUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 
@@ -51,7 +53,7 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 			this.value = value;
 		}
 		
-		public InterpretedNativeTupleValueAndEntry(final int index, final InterpretedTypeUse type, final String name, final InterpretedObject value) {
+		public InterpretedNativeTupleValueAndEntry(final int index, final InterpretedTypeObject type, final String name, final InterpretedObject value) {
 			entry = new InterpretedTupleEntry(index, type, name);
 			this.value = value;
 		}
@@ -61,10 +63,10 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 	public static class InterpretedTupleEntry implements InterpretedAttributeDefinition, InterpretedAttributeImplementation {
 		
 		private final int index;
-		private final InterpretedTypeUse type;
+		private final InterpretedTypeObject type;
 		private final String name;
 		
-		public InterpretedTupleEntry(final int index, final InterpretedTypeUse type, final String name) {
+		public InterpretedTupleEntry(final int index, final InterpretedTypeObject type, final String name) {
 			this.index = index;
 			this.type = type;
 			this.name = name;
@@ -117,7 +119,7 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 		}
 		
 		@Override
-		public InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<InterpretedParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
+		public @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<InterpretedParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
 			if (!(thisObject instanceof InterpretedTuple))
 				throw new InterpreterException("Not a tuple");
 			for (final InterpretedNativeTupleValueAndEntry e : ((InterpretedTuple) thisObject).entries) {
@@ -138,7 +140,7 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 	}
 	
 	@Override
-	public InterpretedClassUse nativeClass() {
+	public InterpretedClassObject nativeClass() {
 		return new InterpretedTypeTuple(entries.stream().map(e -> new InterpretedNativeTupleValueAndEntry(e.entry.index, e.entry.type.nativeClass(), e.entry.name, e.entry.type)).collect(Collectors.toList()));
 	}
 	
@@ -150,8 +152,47 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 		
 	}
 	
-	// TODO split into definition and use
-	public static class InterpretedTypeTuple extends InterpretedTuple implements InterpretedClassUse, InterpretedNativeClassDefinition, InterpretedTypeObject {
+	/**
+	 * The type of a type tuple
+	 */
+	public static class InterpretedTupleType implements InterpretedNativeTypeDefinition {
+		
+		private final InterpretedTypeTuple tuple;
+		
+		public InterpretedTupleType(final InterpretedTypeTuple tuple) {
+			this.tuple = tuple;
+		}
+		
+		@Override
+		public List<? extends InterpretedMemberRedefinition> members() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		
+		@Override
+		public boolean equalsType(final InterpretedNativeTypeDefinition other) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+		
+		@Override
+		public boolean isSubtypeOfOrEqual(final InterpretedNativeTypeDefinition other) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+		
+		@Override
+		public boolean isSupertypeOfOrEqual(final InterpretedNativeTypeDefinition other) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+		
+	}
+	
+	/**
+	 * A tuple whose entries are only types
+	 */
+	public static class InterpretedTypeTuple extends InterpretedTuple implements InterpretedClassObject {
 		
 		public InterpretedTypeTuple(final List<InterpretedNativeTupleValueAndEntry> entries) {
 			super(entries);
@@ -167,10 +208,10 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 		}
 		
 		@Override
-		public @Nullable InterpretedMemberRedefinition getMemberByName(final String name) {
+		public @Nullable InterpretedMemberUse getMemberByName(final String name) {
 			for (final InterpretedNativeTupleValueAndEntry e : entries) {
 				if (e.entry.name.equals(name))
-					return e.entry;
+					return new InterpretedAttributeUse(e.entry, null, null);
 			}
 			return null;
 		}
@@ -200,24 +241,12 @@ public abstract class InterpretedTuple implements InterpretedNativeObject {
 		}
 		
 		@Override
-		public InterpretedNativeClassDefinition getBase() {
-			return this;
+		public InterpretedTypeTuple typeType() {
+			return new InterpretedTypeTuple(entries.stream().map(e -> new InterpretedNativeTupleValueAndEntry(e.entry.index, (@NonNull InterpretedTypeObject) e.entry.type.typeType(), e.entry.name, e.entry.type)).collect(Collectors.toList()));
 		}
 
 		@Override
-		public boolean equalsType(@NonNull InterpretedNativeTypeDefinition other) {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
-		@Override
-		public boolean isSubtypeOfOrEqual(@NonNull InterpretedNativeTypeDefinition other) {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
-		@Override
-		public @NonNull InterpretedClassUse nativeClass() {
+		public @NonNull InterpretedNativeClassDefinition getBase() {
 			// TODO Auto-generated method stub
 			return null;
 		}

@@ -57,6 +57,7 @@ import ch.njol.brokkr.interpreter.definitions.InterpretedParameterRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedResultRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedVariableRedefinition;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeBoolean;
+import ch.njol.brokkr.interpreter.uses.InterpretedMemberUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleTypeUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 import ch.njol.util.StringUtils;
@@ -164,7 +165,8 @@ public class Members {
 						return null;
 //					// only check parents of the containing type (otherwise this method itself would be found)
 					final InterpretedTypeUse parent = t.parentTypes();
-					return parent != null ? parent.getMemberByName(name) : null;
+					final InterpretedMemberUse member = parent.getMemberByName(name);
+					return member != null ? member.redefinition() : null;
 				}
 			}
 		};
@@ -318,7 +320,6 @@ public class Members {
 //			return a != null && a instanceof InterpretedAttributeRedefinition ? Arrays.asList((InterpretedAttributeRedefinition) a) : Collections.EMPTY_LIST;
 //		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
 			final InterpretedAttributeRedefinition interpreted = interpreted();
@@ -345,7 +346,6 @@ public class Members {
 					+ ": " + (results.size() == 0 ? "[]" : String.join(", ", results.stream().map(r -> r.toString()).toArray(i -> new String[i])));
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public InterpretedAttributeRedefinition interpreted() {
 			if (modifiers.overridden.getNameToken() != null) {
@@ -577,7 +577,6 @@ public class Members {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public InterpretedResultRedefinition interpreted() {
 			final InterpretedResultRedefinition parent = overridden.get();
@@ -667,7 +666,6 @@ public class Members {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public InterpretedError interpreted() {
 			return new InterpretedError("" + name(), parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList()));
@@ -755,19 +753,16 @@ public class Members {
 			return modifiers;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
 			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<FormalError> declaredErrors() {
 			return Collections.EMPTY_LIST; // FIXME preconditions are errors too!
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends FormalResult> declaredResults() {
 			return Collections.EMPTY_LIST; // FIXME
@@ -954,19 +949,16 @@ public class Members {
 			return modifiers;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
 			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<FormalError> declaredErrors() {
 			return Collections.EMPTY_LIST; // FIXME preconditions are errors too!
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends FormalResult> declaredResults() {
 			return Collections.EMPTY_LIST;
@@ -1162,7 +1154,6 @@ public class Members {
 				throw new InterpreterException("Failed precondition " + name + " in " + getParentOfType(FormalAttribute.class).name());
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public InterpretedError interpreted() {
 			// TODO

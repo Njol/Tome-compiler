@@ -3,6 +3,7 @@ package ch.njol.brokkr.interpreter;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeClassDefinition;
+import ch.njol.brokkr.interpreter.uses.InterpretedClassObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 
@@ -11,7 +12,7 @@ public interface InterpretedObject {
 	/**
 	 * @return The class this object is an instance of.
 	 */
-	InterpretedClassUse nativeClass();
+	InterpretedClassObject nativeClass();
 	
 	/*
 	default @Nullable InterpretedAttributeImplementation getAttributeImplementation(InterpretedAttributeDefinition definition) {

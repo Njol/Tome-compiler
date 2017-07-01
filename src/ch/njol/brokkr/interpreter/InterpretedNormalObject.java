@@ -11,7 +11,9 @@ import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeBrokkrClass;
+import ch.njol.brokkr.interpreter.uses.InterpretedClassObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
 
 /**
@@ -19,11 +21,11 @@ import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
  */
 public class InterpretedNormalObject implements InterpretedObject {
 	
-	private final InterpretedSimpleClassUse type;
+	private final InterpretedSimpleClassObject type;
 	
 	private final Map<InterpretedAttributeDefinition, @Nullable InterpretedObject> attributeValues = new HashMap<>();
 	
-	public InterpretedNormalObject(final InterpretedSimpleClassUse type) {
+	public InterpretedNormalObject(final InterpretedSimpleClassObject type) {
 		this.type = type;
 		assert type.getBase() instanceof InterpretedNativeBrokkrClass;
 		for (InterpretedMemberRedefinition m : type.members()) {
@@ -33,7 +35,7 @@ public class InterpretedNormalObject implements InterpretedObject {
 	}
 	
 	@Override
-	public InterpretedClassUse nativeClass() {
+	public InterpretedClassObject nativeClass() {
 		return type;
 	}
 	
