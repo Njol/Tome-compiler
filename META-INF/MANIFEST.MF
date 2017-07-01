@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Brokkr Compiler
+Bundle-SymbolicName: ch.njol.brokkr.compiler
+Bundle-Version: 0.1
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Require-Bundle: org.eclipse.jdt.annotation
+Export-Package: ch.njol.brokkr.compiler,
+ ch.njol.brokkr.compiler.ast,
+ ch.njol.util
