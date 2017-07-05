@@ -1,17 +1,21 @@
 package ch.njol.brokkr.interpreter.definitions;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
-import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedTypeTuple;
-import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 import ch.njol.brokkr.interpreter.InterpretedError;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterException;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedTypeTuple;
+import ch.njol.brokkr.interpreter.uses.InterpretedAttributeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedGenericTypeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedMemberUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 
 /**
  * A (re)definition of an attribute,
@@ -25,6 +29,7 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 	 * @return The next (re)definiton of this attribute up the chain, where the last one is a {@link InterpretedAttributeDefinition}. If this is already a definition, this method
 	 *         returns null.
 	 */
+	@Override
 	@Nullable
 	InterpretedAttributeRedefinition parentRedefinition();
 	
@@ -36,6 +41,8 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 	default InterpretedAttributeDefinition definition() {
 		return parentRedefinition().definition();
 	}
+	
+	InterpretedTypeUse targetType();
 	
 	/**
 	 * @return A complete list of all parameters, including inherited ones.
@@ -91,7 +98,7 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 		for (int i = 0; i < results.size(); i++) {
 			final InterpretedResultRedefinition result = results.get(i);
 			final InterpretedTypeUse type = result.type();
-			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.typeType(), result.name(), type));
+			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.nativeClass(), result.name(), type));
 		}
 		return new InterpretedTypeTuple(entries);
 	}
@@ -102,7 +109,7 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 		for (int i = 0; i < parameters.size(); i++) {
 			final InterpretedParameterRedefinition parameter = parameters.get(i);
 			final InterpretedTypeUse type = parameter.type();
-			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.typeType(), parameter.name(), type));
+			entries.add(new InterpretedNativeTupleValueAndEntry(i, type.nativeClass(), parameter.name(), type));
 		}
 		return new InterpretedTypeTuple(entries);
 	}
@@ -113,14 +120,30 @@ public interface InterpretedAttributeRedefinition extends InterpretedMemberRedef
 	boolean isModifying();
 	
 	/**
-	 * @return Whether this attribute is variable, i.e. its values may vary per object (if false, the value may only vary per class, which is used for static methods and field, as
-	 *         well as instance methods).
+	 * @return Whether this attribute is variable, i.e. its values may vary per object (if false, the value may only vary per class, which is used for static methods and fields, as
+	 *         well as "normal" methods).
 	 */
 	boolean isVariable();
 	
 	@SuppressWarnings("null")
 	default InterpretedObject interpretDispatched(final InterpretedObject thisObject, final Map<InterpretedParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
 		return thisObject.nativeClass().getAttributeImplementation(definition()).interpretImplementation(thisObject, arguments, allResults);
+	}
+	
+	@Override
+	default InterpretedMemberUse getUse(@Nullable final InterpretedTypeUse targetType, final Map<InterpretedGenericTypeDefinition, InterpretedTypeUse> genericArguments) {
+		final Map<InterpretedParameterDefinition, InterpretedTypeUse> argumentTypes = new HashMap<>();
+		for (final InterpretedParameterRedefinition p : parameters()) {
+			if (p.type() instanceof InterpretedGenericTypeUse) {
+				final InterpretedTypeUse gt = genericArguments.get(((InterpretedGenericTypeUse) p.type()).definition());
+				if (gt == null)
+					throw new InterpreterException("Unset generic type " + p.type());
+				argumentTypes.put(p.definition(), gt);
+			} else {
+				argumentTypes.put(p.definition(), p.type());
+			}
+		}
+		return new InterpretedAttributeUse(this, targetType, argumentTypes);
 	}
 	
 }

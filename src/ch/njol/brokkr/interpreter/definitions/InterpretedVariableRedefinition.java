@@ -11,7 +11,7 @@ public interface InterpretedVariableRedefinition extends InterpretedVariableOrAt
 	public InterpretedTypeUse type();
 	
 	@Override
-	default @NonNull InterpretedTypeUse mainResultType() {
+	default InterpretedTypeUse mainResultType() {
 		return type();
 	}
 	

@@ -1,6 +1,7 @@
 package ch.njol.brokkr.compiler.ast;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,28 +23,28 @@ import ch.njol.brokkr.compiler.ast.Expressions.VariableOrUnqualifiedAttributeUse
 import ch.njol.brokkr.compiler.ast.Interfaces.Expression;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalAttribute;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalError;
-import ch.njol.brokkr.compiler.ast.Interfaces.FormalParameter;
-import ch.njol.brokkr.compiler.ast.Interfaces.FormalVariable;
-import ch.njol.brokkr.compiler.ast.Interfaces.FormalVariableOrAttribute;
+import ch.njol.brokkr.compiler.ast.Interfaces.FormalLocalVariable;
 import ch.njol.brokkr.compiler.ast.Interfaces.HasVariables;
 import ch.njol.brokkr.compiler.ast.Interfaces.TypeUse;
 import ch.njol.brokkr.compiler.ast.Members.Member;
-import ch.njol.brokkr.compiler.ast.Members.NormalResult;
 import ch.njol.brokkr.compiler.ast.Members.Postcondition;
 import ch.njol.brokkr.compiler.ast.Members.Precondition;
-import ch.njol.brokkr.interpreter.InterpretedClosure;
+import ch.njol.brokkr.interpreter.InterpretedNativeClosure;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrLocalVariable;
-import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrParameterDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedParameterDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedParameterRedefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedResultRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedVariableOrAttributeRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedVariableRedefinition;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNormalTuple;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedTypeTuple;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 import ch.njol.util.StringUtils;
 
@@ -213,18 +214,21 @@ public class Statements {
 		@Override
 		public void interpret(final InterpreterContext context) {
 			for (final ReturnResult r : results) {
-				context.setLocalVariableValue(r.result.get().interpreted().definition(), r.value.interpret(context));
+				context.setLocalVariableValue(r.result.get().definition(), r.value.interpret(context));
 			}
 			context.isReturning = true;
 		}
 	}
 	
 	public static class ReturnResult extends AbstractElement<ReturnResult> {
-		public Link<NormalResult> result = new Link<NormalResult>(this) {
+		public Link<InterpretedResultRedefinition> result = new Link<InterpretedResultRedefinition>(this) {
 			@Override
-			protected @Nullable NormalResult tryLink(final String name) {
-				// TODO link by name or position
-				return null;
+			protected @Nullable InterpretedResultRedefinition tryLink(final String name) {
+				final FormalAttribute fa = getParentOfType(FormalAttribute.class);
+				if (fa == null)
+					return null;
+				final InterpretedAttributeRedefinition attribute = fa.interpreted();
+				return attribute.getResultByName(name);
 			}
 		};
 		public @Nullable Expression value;
@@ -240,6 +244,7 @@ public class Statements {
 				result.setName(oneVariableIdentifierToken());
 				next(); // skip ':'
 			}
+			// TODO what to link without a name?
 			value = Expressions.parse(this);
 			return this;
 		}
@@ -302,7 +307,7 @@ public class Statements {
 		}
 	}
 	
-	public static class VariableDeclarationsVariable extends AbstractElement<VariableDeclarationsVariable> implements FormalVariable {
+	public static class VariableDeclarationsVariable extends AbstractElement<VariableDeclarationsVariable> implements FormalLocalVariable {
 		public @Nullable LowercaseWordToken nameToken;
 		public @Nullable Expression initialValue;
 		
@@ -419,12 +424,19 @@ public class Statements {
 				throw new InterpreterException("not an attribute");
 			final Map<InterpretedParameterDefinition, InterpretedObject> arguments = new HashMap<>();
 			for (final LambdaMethodCallPart part : parts) {
-				// TODO calculate parameter and return types
-				arguments.put(part.parameter.get().definition(), new InterpretedClosure(null, null, false) {
+				final List<InterpretedParameterRedefinition> parameters = new ArrayList<>();
+				part.parameters.forEach(p -> parameters.add(p.parameter.get()));
+				final List<InterpretedNativeTupleValueAndEntry> parameterTupleEntries = new ArrayList<>();
+				for (int i = 0; i < parameters.size(); i++) {
+					final InterpretedParameterRedefinition p = parameters.get(i);
+					parameterTupleEntries.add(new InterpretedNativeTupleValueAndEntry(i, p.type().nativeClass(), p.name(), p.type()));
+				}
+				arguments.put(part.parameter.get().definition(), new InterpretedNativeClosure(new InterpretedTypeTuple(parameterTupleEntries), new InterpretedTypeTuple(Collections.EMPTY_LIST), false) {
 					@Override
-					public InterpretedObject interpret(final Map<InterpretedParameter, InterpretedObject> arguments) {
+					protected InterpretedTuple interpret(final InterpretedTuple arguments) {
+						arguments.entries.forEach(e -> context.defineLocalVariable(parameters.get(e.entry.index).definition(), e.value));
 						part.block.interpret(context);
-						return null;
+						return new InterpretedNormalTuple(Collections.EMPTY_LIST);
 					}
 				});
 			}
@@ -447,7 +459,6 @@ public class Statements {
 //		public @Nullable Expression expression;
 		public @Nullable Block block;
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
 			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
@@ -486,10 +497,10 @@ public class Statements {
 	 * TODO what exactly is this? and is it a parameter? or just a link to one (in which case the interface might need to be removed - still should be a linkable local variable
 	 * though)
 	 */
-	public static class LambdaMethodCallPartParameter extends AbstractElement<LambdaMethodCallPartParameter> implements FormalParameter {
-		public final Link<FormalParameter> parameter = new Link<FormalParameter>(this) {
+	public static class LambdaMethodCallPartParameter extends AbstractElement<LambdaMethodCallPartParameter> implements FormalLocalVariable {
+		public final Link<InterpretedParameterRedefinition> parameter = new Link<InterpretedParameterRedefinition>(this) {
 			@Override
-			protected @Nullable FormalParameter tryLink(final String name) {
+			protected @Nullable InterpretedParameterRedefinition tryLink(final String name) {
 				// TODO parameter named like this link, or parameter with same position as this parameter (either from left or right, depending on where the dots are (if any)).
 				return null;
 			}
@@ -513,15 +524,15 @@ public class Statements {
 		public InterpretedTypeUse interpretedType() {
 			if (type != null)
 				return type.staticallyKnownType();
-			final FormalParameter param = parameter.get();
+			final InterpretedParameterRedefinition param = parameter.get();
 			if (param != null)
-				return param.interpretedType();
+				return param.type();
 			throw new InterpreterException("");
 		}
 		
 		@Override
-		public InterpretedParameterRedefinition interpreted() {
-			return new InterpretedBrokkrParameterDefinition(this);
+		public InterpretedVariableRedefinition interpreted() {
+			return new InterpretedBrokkrLocalVariable(this);
 		}
 		
 	}

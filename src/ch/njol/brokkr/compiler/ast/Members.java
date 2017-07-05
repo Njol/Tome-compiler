@@ -43,10 +43,11 @@ import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrAttributeDefiniti
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrAttributeImplementation;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrAttributeRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrConstructor;
+import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrConstructorFieldParameter;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrGenericTypeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrGenericTypeRedefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrParameterDefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrParameterRedefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrNormalParameterDefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrNormalParameterRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrResultDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrResultRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedGenericTypeRedefinition;
@@ -278,9 +279,9 @@ public class Members {
 		public final MemberModifiers modifiers;
 		
 		public @Nullable LowercaseWordToken name;
-		public boolean hasParameterDotsLeft, hasParameterDotsRight;
+		public boolean hasParameterDots;
 		public List<SimpleParameter> parameters = new ArrayList<>();
-		public boolean hasResultDotsLeft, hasResultDotsRight;
+		public boolean hasResultDots;
 		public List<FormalResult> results = new ArrayList<>();
 		public List<ErrorDeclaration> errors = new ArrayList<>();
 		public boolean isAbstract;
@@ -369,13 +370,10 @@ public class Members {
 			
 			// parameters
 			tryGroup('(', () -> {
-				hasParameterDotsLeft = try_("...");
-				if (!hasParameterDotsLeft || try_(',')) {
+				if (try_("..."))
+					hasParameterDots = true;
+				if (!hasParameterDots || try_(',')) {
 					do {
-						if (!hasParameterDotsLeft && try_("...")) {
-							hasParameterDotsRight = true;
-							break;
-						}
 						parameters.add(one(SimpleParameter.class));
 					} while (try_(','));
 				}
@@ -385,38 +383,22 @@ public class Members {
 			boolean hasResults = false;
 			if (try_(':')) {
 				hasResults = true;
-				hasResultDotsLeft = try_("...");
-				if (!hasResultDotsLeft || try_(',')) {
+				if (try_("..."))
+					hasResultDots = true;
+				if (!hasResultDots || try_(',')) {
 					do {
-						if (try_("...")) {
-							if (hasResultDotsLeft || peekNext(','))
-								errorFatal("'...' has to be the first or last result", regionEnd() - 3, 3);
-							else
-								hasResultDotsRight = true;
-						} else {
-//							final Token afterNext;
-//							if (peekNext() instanceof LowercaseWordToken && (afterNext = peekNext(1, true)) instanceof SymbolToken && ",;{=".indexOf(((SymbolToken) afterNext).symbol) >= 0) // '=' from '=>' // excludes '[' which can be used by a tuple type
-//								results.add(one(ParameterResult.class));
-//							else
-							results.add(one(NormalResult.class));
-						}
+						results.add(one(NormalResult.class));
 					} while (try_(','));
 				}
 			}
+			
+			// errors
 			while (peekNext('#')) {
 				hasResults = true;
 				errors.add(one(ErrorDeclaration.class));
 			}
 			
-			// errors and body // TODO errors end in ';' which makes this extremely weird!
-//			(errors+=FormalError* ('{' body=BlockNoBraces postconditions+=Postcondition* '}' // normal block syntax (preconditions may be anywhere in the block, even nested)
-//			| preconditions+=Precondition* '=>' resultsTuple=ValueTupleNoBracesOneRequired ';' postconditions+=Postcondition*) // single expression syntax
-//			| isAbstract?=';' errors+=FormalError* preconditions+=Precondition* postconditions+=Postcondition*) // abstract syntax
-
-//			FormalError returns FormalError:
-//			'#' (override?='override' (overridden=[FormalError|VARIABLE_IDENTIFIER] 'as')? | remove?='undefine')?
-//			name=VARIABLE_IDENTIFIER ('(' (parameters+=Parameter (',' parameters+=Parameter)*)? ')')? ';';
-			
+			// body
 			if (peekNext('{')) {
 				body = one(Block.class);
 			} else if (try_(';')) { // abstract / single expression syntax
@@ -512,9 +494,9 @@ public class Members {
 		}
 		
 		@Override
-		public InterpretedParameterRedefinition interpreted() {
+		public InterpretedParameterRedefinition interpreted(final InterpretedAttributeRedefinition attribute) {
 			final InterpretedParameterRedefinition parent = override ? overridden.get() : null;
-			return parent != null ? new InterpretedBrokkrParameterRedefinition(this, parent) : new InterpretedBrokkrParameterDefinition(this);
+			return parent != null ? new InterpretedBrokkrNormalParameterRedefinition(this, parent, attribute) : new InterpretedBrokkrNormalParameterDefinition(this, attribute);
 		}
 	}
 	
@@ -538,11 +520,13 @@ public class Members {
 			return name;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public InterpretedTypeUse interpretedType() {
+			final TypeUse type = this.type;
 			if (type == null) {
 				final InterpretedResultRedefinition parent = overridden.get();
+				if (parent == null)
+					throw new InterpreterException("Missing parent of result " + this);
 				return parent.type();
 			}
 			return type.staticallyKnownType();
@@ -578,9 +562,9 @@ public class Members {
 		}
 		
 		@Override
-		public InterpretedResultRedefinition interpreted() {
+		public InterpretedResultRedefinition interpreted(final InterpretedAttributeRedefinition attribute) {
 			final InterpretedResultRedefinition parent = overridden.get();
-			return parent == null ? new InterpretedBrokkrResultDefinition(this) : new InterpretedBrokkrResultRedefinition(this, parent);
+			return parent == null ? new InterpretedBrokkrResultDefinition(this, attribute) : new InterpretedBrokkrResultRedefinition(this, parent, attribute);
 		}
 	}
 	
@@ -667,8 +651,8 @@ public class Members {
 		}
 		
 		@Override
-		public InterpretedError interpreted() {
-			return new InterpretedError("" + name(), parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList()));
+		public InterpretedError interpreted(final InterpretedAttributeRedefinition attribute) {
+			return new InterpretedError("" + name(), parameters.stream().map(p -> p.interpreted(attribute)).collect(Collectors.toList()), attribute);
 		}
 		
 	}
@@ -755,7 +739,7 @@ public class Members {
 		
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
-			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
+			return interpreted().parameters();
 		}
 		
 		@Override
@@ -845,11 +829,11 @@ public class Members {
 		
 		@SuppressWarnings("null")
 		@Override
-		public InterpretedParameterDefinition interpreted() {
+		public InterpretedParameterDefinition interpreted(final InterpretedAttributeRedefinition constructor) {
 			final InterpretedAttributeRedefinition attr = attribute.get();
 			if (attr.results().size() != 1 || !attr.results().get(0).name().equals("result") || !attr.isVariable())
 				throw new InterpreterException("Constructor field parameter '" + attr.name() + "' does not reference a field");
-			return new InterpretedBrokkrParameterDefinition(this);
+			return new InterpretedBrokkrConstructorFieldParameter(this, attr, constructor);
 		}
 	}
 	
@@ -951,7 +935,7 @@ public class Members {
 		
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
-			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
+			return interpreted().parameters();
 		}
 		
 		@Override
@@ -1155,9 +1139,9 @@ public class Members {
 		}
 		
 		@Override
-		public InterpretedError interpreted() {
+		public InterpretedError interpreted(final InterpretedAttributeRedefinition attribute) {
 			// TODO
-			return new InterpretedError("" + name, Collections.EMPTY_LIST);
+			return new InterpretedError("" + name, Collections.EMPTY_LIST, attribute);
 		}
 	}
 	

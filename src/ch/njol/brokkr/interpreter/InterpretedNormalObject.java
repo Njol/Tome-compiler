@@ -9,11 +9,9 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeBrokkrClass;
-import ch.njol.brokkr.interpreter.uses.InterpretedClassObject;
-import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
-import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassObject;
+import ch.njol.brokkr.interpreter.uses.InterpretedAttributeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedMemberUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
 
 /**
@@ -21,21 +19,21 @@ import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
  */
 public class InterpretedNormalObject implements InterpretedObject {
 	
-	private final InterpretedSimpleClassObject type;
+	private final InterpretedSimpleClassUse type;
 	
 	private final Map<InterpretedAttributeDefinition, @Nullable InterpretedObject> attributeValues = new HashMap<>();
 	
-	public InterpretedNormalObject(final InterpretedSimpleClassObject type) {
+	public InterpretedNormalObject(final InterpretedSimpleClassUse type) {
 		this.type = type;
 		assert type.getBase() instanceof InterpretedNativeBrokkrClass;
-		for (InterpretedMemberRedefinition m : type.members()) {
+		for (final InterpretedMemberRedefinition m : type.getBase().members()) {
 			if (m instanceof InterpretedAttributeRedefinition && ((InterpretedAttributeRedefinition) m).isVariable())
 				attributeValues.put(((InterpretedAttributeRedefinition) m).definition(), null); // TODO set default (initial) values
 		}
 	}
 	
 	@Override
-	public InterpretedClassObject nativeClass() {
+	public InterpretedSimpleClassUse nativeClass() {
 		return type;
 	}
 	

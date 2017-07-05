@@ -1,15 +1,12 @@
 package ch.njol.brokkr.interpreter.uses;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.interpreter.InterpreterException;
-import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeDefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeRedefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedMemberDefinition;
 
 public class InterpretedOrTypeUse implements InterpretedTypeUse {
 	
@@ -20,35 +17,63 @@ public class InterpretedOrTypeUse implements InterpretedTypeUse {
 		this.t1 = t1;
 		this.t2 = t2;
 	}
-
-	@Override
-	public @Nullable InterpretedMemberRedefinition getMemberByName(String name) {
-		InterpretedMemberRedefinition m1 = t1.getMemberByName(name), m2 = t2.getMemberByName(name);
-		return m1 != null && m1.equalsMember(m2) ? m1 : null; // TODO what if one member is a "super-member" of the other?
+	
+	public final static @Nullable InterpretedMemberUse getMoreSpecificMemberUse(@Nullable final InterpretedMemberUse m1, @Nullable final InterpretedMemberUse m2) {
+		if (m1 == null || m2 == null)
+			return null;
+		if (m1.definition().equalsMember(m2.definition())) {
+			if (m1.redefinition().isRedefinitionOf(m2.redefinition()))
+				return m1;
+			if (m2.redefinition().isRedefinitionOf(m1.redefinition()))
+				return m2;
+		}
+		return null;
 	}
-
+	
 	@Override
-	public boolean equalsType(@NonNull InterpretedTypeUse other) {
+	public @Nullable InterpretedMemberUse getMemberByName(final String name) {
+		return getMoreSpecificMemberUse(t1.getMemberByName(name), t2.getMemberByName(name));
+	}
+	
+	@Override
+	public @Nullable InterpretedMemberUse getMember(final InterpretedMemberDefinition definition) {
+		return getMoreSpecificMemberUse(t1.getMember(definition), t2.getMember(definition));
+	}
+	
+	@Override
+	public List<? extends InterpretedMemberUse> members() {
+		final List<? extends InterpretedMemberUse> ms1 = t1.members(), ms2 = t2.members();
+		final @NonNull List<InterpretedMemberUse> result = new ArrayList<>(ms1);
+		outer: for (final InterpretedMemberUse m2 : ms2) {
+			for (final InterpretedMemberUse m1 : ms1) {
+				if (m1.definition().equalsMember(m2.definition())) {
+					final InterpretedMemberUse m = getMoreSpecificMemberUse(m1, m2);
+					if (m != null)
+						result.add(m);
+					break outer;
+				}
+			}
+			result.add(m2);
+		}
+		return result;
+	}
+	
+	@Override
+	public boolean equalsType(final InterpretedTypeUse other) {
 		// TODO Auto-generated method stub
 		return false;
 	}
-
+	
 	@Override
-	public boolean isSubtypeOfOrEqual(@NonNull InterpretedTypeUse other) {
+	public boolean isSubtypeOfOrEqual(final InterpretedTypeUse other) {
 		// TODO Auto-generated method stub
 		return false;
 	}
-
+	
 	@Override
-	public boolean isSupertypeOfOrEqual(@NonNull InterpretedTypeUse other) {
+	public boolean isSupertypeOfOrEqual(final InterpretedTypeUse other) {
 		// TODO Auto-generated method stub
 		return false;
 	}
-
-	@Override
-	public List<? extends InterpretedMemberRedefinition> members() {
-		// TODO find common members
-		return Collections.EMPTY_LIST;
-	}
-
+	
 }

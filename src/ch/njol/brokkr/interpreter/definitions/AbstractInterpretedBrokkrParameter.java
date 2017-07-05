@@ -8,13 +8,12 @@ import ch.njol.brokkr.compiler.ast.Interfaces.FormalParameter;
 public abstract class AbstractInterpretedBrokkrParameter extends AbstractInterpretedBrokkrVariable implements InterpretedParameterRedefinition {
 
 	protected final FormalParameter param;
-	protected final InterpretedAttributeDefinition attribute;
+	protected final InterpretedAttributeRedefinition attribute;
 	
-	@SuppressWarnings("null")
-	public AbstractInterpretedBrokkrParameter(FormalParameter param) {
+	public AbstractInterpretedBrokkrParameter(FormalParameter param, InterpretedAttributeRedefinition attribute) {
 		super(param);
 		this.param = param;
-		this.attribute = param.getParentOfType(FormalAttribute.class).interpreted().definition();
+		this.attribute = attribute;
 	}
 
 	@Override

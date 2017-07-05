@@ -3,6 +3,7 @@ package ch.njol.brokkr.compiler.ast;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.interpreter.InterpreterException;
 
 public abstract class Link<T> {
 	
@@ -45,10 +46,15 @@ public abstract class Link<T> {
 			return null;
 		isLinking = true;
 		if (value == null) {
-			if (name == null)
+			if (name == null) {
 				value = null;
-			else
-				value = tryLink(name.word);
+			} else {
+				try {
+					value = tryLink(name.word);
+				} catch (NullPointerException | InterpreterException e) {
+					System.err.println("interpreter error in link " + parentElement + "::" + name);
+				}
+			}
 		}
 		isLinking = false;
 		return value;

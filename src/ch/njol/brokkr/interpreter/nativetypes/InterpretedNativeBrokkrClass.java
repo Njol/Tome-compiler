@@ -23,7 +23,7 @@ public class InterpretedNativeBrokkrClass extends AbstractInterpretedNativeBrokk
 	@Override
 	public @Nullable InterpretedAttributeImplementation getAttributeImplementation(@NonNull final InterpretedAttributeDefinition definition) {
 		for (final InterpretedMemberRedefinition m : members) {
-			if (m instanceof InterpretedAttributeImplementation && ((InterpretedAttributeImplementation) m).definition().equalsAttribute(definition))
+			if (m instanceof InterpretedAttributeImplementation && ((InterpretedAttributeImplementation) m).definition().equalsMember(definition))
 				return (InterpretedAttributeImplementation) m;
 		}
 		return null;

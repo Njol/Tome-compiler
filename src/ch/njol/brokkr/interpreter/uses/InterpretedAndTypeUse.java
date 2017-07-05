@@ -6,7 +6,7 @@ import java.util.List;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedMemberDefinition;
 
 public class InterpretedAndTypeUse implements InterpretedTypeUse {
 	
@@ -36,14 +36,40 @@ public class InterpretedAndTypeUse implements InterpretedTypeUse {
 		return false;
 	}
 	
+	public final static @Nullable InterpretedMemberUse getMoreSpecificMemberUse(@Nullable final InterpretedMemberUse m1, @Nullable final InterpretedMemberUse m2) {
+		if (m1 == null)
+			return m2;
+		if (m2 == null)
+			return m1;
+		if (m1.definition().equalsMember(m2.definition())) {
+			if (m1.redefinition().isRedefinitionOf(m2.redefinition()))
+				return m1;
+			if (m2.redefinition().isRedefinitionOf(m1.redefinition()))
+				return m2;
+		}
+		return null;
+	}
+	
 	@Override
-	public List<? extends InterpretedMemberRedefinition> members() {
-		final List<? extends InterpretedMemberRedefinition> ms1 = t1.members(), ms2 = t2.members();
-		final @NonNull List<InterpretedMemberRedefinition> result = new ArrayList<>(ms1);
-		outer: for (final InterpretedMemberRedefinition m2 : ms2) {
-			for (final InterpretedMemberRedefinition m1 : ms1) {
-				if (m1.definition().equals(m2.definition())) {
-					// TODO make sure there's no conflict, and if there's none, find which attribute to use
+	public @Nullable InterpretedMemberUse getMemberByName(final String name) {
+		return getMoreSpecificMemberUse(t1.getMemberByName(name), t2.getMemberByName(name));
+	}
+	
+	@Override
+	public @Nullable InterpretedMemberUse getMember(final InterpretedMemberDefinition definition) {
+		return getMoreSpecificMemberUse(t1.getMember(definition), t2.getMember(definition));
+	}
+	
+	@Override
+	public List<? extends InterpretedMemberUse> members() {
+		final List<? extends InterpretedMemberUse> ms1 = t1.members(), ms2 = t2.members();
+		final @NonNull List<InterpretedMemberUse> result = new ArrayList<>(ms1);
+		outer: for (final InterpretedMemberUse m2 : ms2) {
+			for (final InterpretedMemberUse m1 : ms1) {
+				if (m1.definition().equalsMember(m2.definition())) {
+					final InterpretedMemberUse m = getMoreSpecificMemberUse(m1, m2);
+					if (m != null)
+						result.add(m);
 					break outer;
 				}
 			}

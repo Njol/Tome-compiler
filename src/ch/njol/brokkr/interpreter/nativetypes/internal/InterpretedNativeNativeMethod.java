@@ -8,13 +8,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.compiler.ast.ElementPart;
 import ch.njol.brokkr.interpreter.InterpretedError;
 import ch.njol.brokkr.interpreter.InterpretedObject;
+import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeImplementation;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedParameterDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedParameterRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedResultDefinition;
@@ -59,6 +62,11 @@ public class InterpretedNativeNativeMethod implements InterpretedAttributeImplem
 		public InterpretedTypeUse type() {
 			return new InterpretedSimpleTypeUse(type);
 		}
+
+		@Override
+		public @Nullable InterpretedObject defaultValue(InterpreterContext context) {
+			return null; // Java has no default parameter values, though they could be added via annotations
+		}
 		
 	}
 	
@@ -82,6 +90,12 @@ public class InterpretedNativeNativeMethod implements InterpretedAttributeImplem
 			return new InterpretedSimpleTypeUse(type);
 		}
 		
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public InterpretedTypeUse targetType() {
+		return new InterpretedSimpleTypeUse(InterpretedNativeSimpleNativeClass.get((Class<? extends InterpretedNativeObject>) method.getDeclaringClass()));
 	}
 	
 	@Override
@@ -117,7 +131,7 @@ public class InterpretedNativeNativeMethod implements InterpretedAttributeImplem
 			args[Integer.parseInt(e.getKey().name())] = e.getValue(); // TODO native params have names if defined in Brokkr code (or are those redefinitions?)
 		}
 		try {
-			InterpretedObject o = (InterpretedObject) method.invoke(thisObject, args);
+			final InterpretedObject o = (InterpretedObject) method.invoke(thisObject, args);
 			assert o != null : method;
 			return o;
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
@@ -128,6 +142,11 @@ public class InterpretedNativeNativeMethod implements InterpretedAttributeImplem
 	@Override
 	public String name() {
 		return name;
+	}
+	
+	@Override
+	public @Nullable ElementPart getLinked() {
+		return null; // TODO find declaration in Brokkr code
 	}
 	
 	@Override
@@ -148,7 +167,7 @@ public class InterpretedNativeNativeMethod implements InterpretedAttributeImplem
 	}
 	
 	@Override
-	public boolean equalsAttribute(final InterpretedAttributeDefinition other) {
+	public boolean equalsMember(final InterpretedMemberRedefinition other) {
 		if (getClass() != other.getClass())
 			return false;
 		return method.equals(((InterpretedNativeNativeMethod) other).method);

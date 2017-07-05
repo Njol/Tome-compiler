@@ -7,8 +7,8 @@ import ch.njol.brokkr.compiler.ast.Members.NormalResult;
 
 public class InterpretedBrokkrResultDefinition extends AbstractInterpretedBrokkrResult implements InterpretedResultDefinition {
 
-	public InterpretedBrokkrResultDefinition(NormalResult result) {
-		super(result);
+	public InterpretedBrokkrResultDefinition(NormalResult result, InterpretedAttributeRedefinition attribute) {
+		super(result, attribute);
 	}
 	
 	@Override

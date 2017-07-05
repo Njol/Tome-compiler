@@ -27,7 +27,9 @@ import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.compiler.ast.Interfaces.Expression;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalAttribute;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalError;
+import ch.njol.brokkr.compiler.ast.Interfaces.FormalLocalVariable;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalParameter;
+import ch.njol.brokkr.compiler.ast.Interfaces.FormalVariable;
 import ch.njol.brokkr.compiler.ast.Interfaces.GenericParameter;
 import ch.njol.brokkr.compiler.ast.Interfaces.HasVariables;
 import ch.njol.brokkr.compiler.ast.Interfaces.TypeDeclaration;
@@ -50,7 +52,9 @@ import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeRedefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrParameterDefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrLocalVariable;
+import ch.njol.brokkr.interpreter.definitions.InterpretedBrokkrNormalParameterDefinition;
+import ch.njol.brokkr.interpreter.definitions.InterpretedGenericTypeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedGenericTypeRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedParameterDefinition;
@@ -62,11 +66,12 @@ import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedTypeTuple;
 import ch.njol.brokkr.interpreter.uses.InterpretedAndTypeUse;
-import ch.njol.brokkr.interpreter.uses.InterpretedClassObject;
+import ch.njol.brokkr.interpreter.uses.InterpretedAttributeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedGenericTypeUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedOrTypeUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
 import ch.njol.brokkr.interpreter.uses.InterpretedSimpleTypeUse;
-import ch.njol.brokkr.interpreter.uses.InterpretedTypeObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 import ch.njol.util.StringUtils;
 
@@ -318,7 +323,6 @@ public class Expressions {
 			*/
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
 			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
@@ -343,7 +347,7 @@ public class Expressions {
 		}
 	}
 	
-	public static class LambdaParameter extends AbstractElement<LambdaParameter> implements FormalParameter {
+	public static class LambdaParameter extends AbstractElement<LambdaParameter> implements FormalLocalVariable {
 		public @Nullable TypeUse type;
 		public @Nullable LowercaseWordToken name;
 		
@@ -374,8 +378,8 @@ public class Expressions {
 		}
 		
 		@Override
-		public InterpretedParameterRedefinition interpreted() {
-			return new InterpretedBrokkrParameterDefinition(this);
+		public InterpretedVariableRedefinition interpreted() {
+			return new InterpretedBrokkrLocalVariable(this);
 		}
 		
 		@Override
@@ -453,7 +457,7 @@ public class Expressions {
 			final InterpretedObject target = this.target.interpret(context);
 			if (target instanceof InterpretedNormalObject)
 				((InterpretedNormalObject) target).setAttributeValue(attribute.get().definition(), value);
-			else
+			else // TODO tuples
 				throw new InterpreterException("Tried to set an attribute on a native object");
 			return value;
 		}
@@ -536,7 +540,7 @@ public class Expressions {
 		}
 	}
 	
-	public static class ErrorHandlingExpressionParameter extends AbstractElement<ErrorHandlingExpressionParameter> implements FormalParameter {
+	public static class ErrorHandlingExpressionParameter extends AbstractElement<ErrorHandlingExpressionParameter> implements FormalLocalVariable {
 		public final Link<FormalParameter> parameter = new Link<FormalParameter>(this) {
 			@Override
 			protected @Nullable FormalParameter tryLink(final String name) {
@@ -571,8 +575,8 @@ public class Expressions {
 		}
 		
 		@Override
-		public InterpretedParameterRedefinition interpreted() {
-			return new InterpretedBrokkrParameterDefinition(this); // TODO correct? is this even a parameter?
+		public InterpretedVariableRedefinition interpreted() {
+			return new InterpretedBrokkrLocalVariable(this); // TODO correct?
 		}
 	}
 	
@@ -766,10 +770,10 @@ public class Expressions {
 			protected @Nullable InterpretedAttributeRedefinition tryLink(final String name) {
 				@SuppressWarnings("null")
 				final InterpretedTypeUse type = ((AccessExpression) parent).target.interpretedType();
-				final InterpretedAttributeRedefinition a = type.getAttributeByName(name);
-				if (a == null && name.endsWith("_"))
-					return type.getAttributeByName("" + name.substring(0, name.length() - 1));
-				return a;
+				InterpretedAttributeUse a = type.getAttributeByName(name);
+				if (a == null || name.endsWith("_"))
+					a = type.getAttributeByName("" + name.substring(0, name.length() - 1));
+				return a == null ? null : a.redefinition();
 			}
 		};
 		public boolean allResults;
@@ -958,7 +962,6 @@ public class Expressions {
 			return "this";
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
 			return context.getThisObject();
@@ -1096,7 +1099,7 @@ public class Expressions {
 		@SuppressWarnings("null")
 		@Override
 		public List<? extends InterpretedVariableRedefinition> allVariables() {
-			return vars.stream().flatMap(vars -> vars.vars.stream()).map(v -> v.interpreted()).collect(Collectors.toList());
+			return vars.stream().flatMap(vars -> vars.vars.stream()).map(v -> v.interpreted(null)).collect(Collectors.toList());
 		}
 		
 		@Override
@@ -1145,7 +1148,7 @@ public class Expressions {
 		}
 		
 		@Override
-		public InterpretedParameterRedefinition interpreted() {
+		public InterpretedParameterRedefinition interpreted(InterpretedAttributeRedefinition attribute) {
 			throw new InterpreterException("not implemented");
 		}
 	}
@@ -1156,7 +1159,6 @@ public class Expressions {
 	public static class Tuple extends AbstractElement<Tuple> implements Expression {
 		public List<TupleEntry> entries = new ArrayList<>();
 		
-		@SuppressWarnings("null")
 		@Override
 		public InterpretedTypeUse interpretedType() {
 			final List<InterpretedNativeTupleValueAndEntry> entries = new ArrayList<>();
@@ -1176,7 +1178,6 @@ public class Expressions {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public @NonNull InterpretedTuple interpret(final InterpreterContext context) {
 			final List<InterpretedNativeTupleValueAndEntry> entries = new ArrayList<>();
@@ -1401,7 +1402,6 @@ public class Expressions {
 		}
 		
 		@Override
-		@SuppressWarnings("null")
 		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
 			throw new InterpreterException("not implemented");
 //			return context.getThisObject().getAttributeClosure(attribute.get().definition());
@@ -1443,7 +1443,7 @@ public class Expressions {
 			final InterpretedAttributeRedefinition attribute = attribute();
 			// this is dispatched as 'recurse' may be in a result's default value
 			// (A 'recurse' in a body could just call that same body immediately without a dispatch, since if that body is executed it has to be the last one)
-			return attribute.interpretDispatched(context.getThisObject(), Argument.makeInterpretedArgumentMap(attribute.definition(), arguments, context), false);
+			return attribute.definition().interpretDispatched(context.getThisObject(), Argument.makeInterpretedArgumentMap(attribute.definition(), arguments, context), false);
 		}
 	}
 	
@@ -1538,7 +1538,7 @@ public class Expressions {
 		}
 		
 		@Override
-		public @NonNull InterpretedClassObject interpret(final InterpreterContext context) {
+		public @NonNull InterpretedClassUse interpret(final InterpreterContext context) {
 			return context.getThisObject().nativeClass();
 		}
 		
@@ -1557,7 +1557,8 @@ public class Expressions {
 			this.isBinary = isBinary;
 		}
 		
-		private final static Map<String, String[]> binaryOperators = new HashMap<String, String[]>() {
+		@SuppressWarnings("null")
+		private final static Map<String, @NonNull String[]> binaryOperators = new HashMap<String, @NonNull String[]>() {
 			private static final long serialVersionUID = 1L;
 			
 			{
@@ -1583,7 +1584,8 @@ public class Expressions {
 			}
 		};
 		
-		private final static Map<String, String[]> unaryPrefixOperators = new HashMap<String, String[]>() {
+		@SuppressWarnings("null")
+		private final static Map<String, @NonNull String[]> unaryPrefixOperators = new HashMap<String, @NonNull String[]>() {
 			private static final long serialVersionUID = 1L;
 			
 			{
@@ -1592,10 +1594,9 @@ public class Expressions {
 			}
 		};
 		
-		@SuppressWarnings({"null", "unused"})
 		@Override
 		protected @Nullable InterpretedAttributeRedefinition tryLink(@NonNull final String name) {
-			final String[] s = (isBinary ? binaryOperators : unaryPrefixOperators).get(name);
+			final @NonNull String[] s = (isBinary ? binaryOperators : unaryPrefixOperators).get(name);
 			if (s == null)
 				return null;
 			return BrokkrFile.getInterpreter(parentElement).getType("lang", s[0]).getAttributeByName(s[1]);
@@ -1649,7 +1650,7 @@ public class Expressions {
 		}
 		
 		@Override
-		public @NonNull InterpretedTypeObject interpret(final InterpreterContext context) {
+		public @NonNull InterpretedTypeUse interpret(final InterpreterContext context) {
 			InterpretedTypeUse o = types.get(0).interpret(context);
 			for (int i = 0; i < operators.size(); i++) {
 				final InterpretedTypeUse o2 = types.get(i + 1).interpret(context);
@@ -1704,8 +1705,8 @@ public class Expressions {
 		
 		@SuppressWarnings("null")
 		@Override
-		public @Nullable InterpretedTypeObject interpret(final InterpreterContext context) {
-			return typeDeclaration.get(); // TODO?
+		public @Nullable InterpretedTypeUse interpret(final InterpreterContext context) {
+			return new InterpretedSimpleTypeUse(typeDeclaration.get());
 		}
 		
 		@SuppressWarnings("null")
@@ -1755,15 +1756,15 @@ public class Expressions {
 		
 		@SuppressWarnings("null")
 		@Override
-		public @Nullable InterpretedTypeObject interpret(final InterpreterContext context) {
-			final InterpretedTypeObject result = type.interpret(context);
-			for (final ModifierTypeUseModifierElement mod : modifiers) {
-				if (mod.modifiability != null) {
-					result.setModifiability(mod.modifiability);
-				} else if (mod.exclusivity != null) {
-					result.setExclusivity(mod.exclusivity);
-				}
-			}
+		public @Nullable InterpretedTypeUse interpret(final InterpreterContext context) {
+			final InterpretedTypeUse result = type.interpret(context);
+//			for (final ModifierTypeUseModifierElement mod : modifiers) {
+//				if (mod.modifiability != null) {
+//					result.setModifiability(mod.modifiability);
+//				} else if (mod.exclusivity != null) {
+//					result.setExclusivity(mod.exclusivity);
+//				}
+//			}
 			return result;
 		}
 		
@@ -1771,13 +1772,13 @@ public class Expressions {
 		@Override
 		public InterpretedTypeUse staticallyKnownType() {
 			final InterpretedTypeUse result = type.staticallyKnownType();
-			for (final ModifierTypeUseModifierElement mod : modifiers) {
-				if (mod.modifiability != null) {
-					result.setModifiability(mod.modifiability);
-				} else if (mod.exclusivity != null) {
-					result.setExclusivity(mod.exclusivity);
-				}
-			}
+//			for (final ModifierTypeUseModifierElement mod : modifiers) {
+//				if (mod.modifiability != null) {
+//					result.setModifiability(mod.modifiability);
+//				} else if (mod.exclusivity != null) {
+//					result.setExclusivity(mod.exclusivity);
+//				}
+//			}
 			return result;
 		}
 	}
@@ -1868,15 +1869,26 @@ public class Expressions {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
-		@Override
-		public InterpretedTypeUse staticallyKnownType() {
-			return new InterpretedSimpleTypeUse(baseType.definition(), genericArguments.stream().collect(Collectors.toMap(a -> a.parameter.get().definition(), a -> a.value.staticallyKnownType())));
+		private InterpretedTypeUse _interpret(final @Nullable InterpreterContext context) {
+			final Map<InterpretedGenericTypeDefinition, InterpretedTypeUse> genericArguments = new HashMap<>();
+			for (final GenericArgument ga : this.genericArguments) {
+				final InterpretedGenericTypeRedefinition param = ga.parameter.get();
+				final TypeExpression value = ga.value;
+				if (param == null || value == null)
+					continue;
+				genericArguments.put(param.definition(), context == null ? value.staticallyKnownType() : value.interpret(context));
+			}
+			return new InterpretedSimpleTypeUse(baseType.definition(), genericArguments);
 		}
 		
 		@Override
-		public @NonNull InterpretedTypeObject interpret(final InterpreterContext context) {
-			return new InterpretedSimpleTypeUse(baseType.definition(), genericArguments.stream().collect(Collectors.toMap(a -> a.parameter.get().definition(), a -> a.value.interpret(context))));
+		public InterpretedTypeUse staticallyKnownType() {
+			return _interpret(null);
+		}
+		
+		@Override
+		public @NonNull InterpretedTypeUse interpret(final InterpreterContext context) {
+			return _interpret(context);
 		}
 	}
 	
@@ -1888,10 +1900,10 @@ public class Expressions {
 			@Override
 			protected @Nullable InterpretedGenericTypeRedefinition tryLink(final String name) {
 				assert parent != null;
-				final TypeUse type = ((GenericTypeUseElement) parent).baseType;
-				if (type != null)
-					return type.staticallyKnownType().getGenericTypeByName(name);
-				return null;
+				final InterpretedGenericTypeUse genericTypeUse = ((GenericTypeUseElement) parent).baseType.staticallyKnownType().getGenericTypeByName(name);
+				if (genericTypeUse == null)
+					return null;
+				return genericTypeUse.redefinition();
 			}
 		};
 		public boolean wildcard;
@@ -1908,7 +1920,7 @@ public class Expressions {
 				parameter.setName(oneIdentifierToken());
 				next(); // skip ':'
 			} else {
-				parameter.setName(null); // TODO what to link?
+				parameter.setName(null); // FIXME what to link?
 			}
 //			if (try_('?')) {
 //				wildcard = true;
@@ -1933,9 +1945,9 @@ public class Expressions {
 	 */
 	public static class GenericTypeAccess extends AbstractElement<GenericTypeAccess> implements TypeExpression {
 		public final TypeUse target;
-		private final Link<InterpretedGenericTypeRedefinition> genericType = new Link<InterpretedGenericTypeRedefinition>(this) {
+		private final Link<InterpretedGenericTypeUse> genericType = new Link<InterpretedGenericTypeUse>(this) {
 			@Override
-			protected @Nullable InterpretedGenericTypeRedefinition tryLink(final String name) {
+			protected @Nullable InterpretedGenericTypeUse tryLink(final String name) {
 				return target.staticallyKnownType().getGenericTypeByName(name);
 			}
 		};
@@ -1973,8 +1985,9 @@ public class Expressions {
 			return genericType.get();
 		}
 		
+		@SuppressWarnings("null")
 		@Override
-		public @NonNull InterpretedTypeObject interpret(final InterpreterContext context) {
+		public @NonNull InterpretedTypeUse interpret(final InterpreterContext context) {
 			return target.interpret(context).nativeClass().getGenericType(genericType.get().definition());
 		}
 	}

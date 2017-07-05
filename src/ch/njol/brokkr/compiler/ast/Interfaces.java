@@ -22,7 +22,6 @@ import ch.njol.brokkr.interpreter.definitions.InterpretedResultRedefinition;
 import ch.njol.brokkr.interpreter.definitions.InterpretedVariableRedefinition;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedTypeTuple;
-import ch.njol.brokkr.interpreter.uses.InterpretedTypeObject;
 import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 
 public class Interfaces {
@@ -64,19 +63,26 @@ public class Interfaces {
 	public static interface FormalVariableOrAttribute extends NamedElement, TypedElement {}
 	
 	public static interface FormalVariable extends FormalVariableOrAttribute {
+		
+	}
+	
+	public static interface FormalLocalVariable extends FormalVariable {
+		
 		public InterpretedVariableRedefinition interpreted();
+		
 	}
 	
 	public static interface FormalParameter extends FormalVariable {
-		@Override
-		InterpretedParameterRedefinition interpreted();
+		
+		InterpretedParameterRedefinition interpreted(InterpretedAttributeRedefinition attribute);
 		
 //		public @Nullable FormalParameter overridden();
+	
 	}
 	
 	public static interface FormalResult extends TypedElement, NamedElement {
 		
-		InterpretedResultRedefinition interpreted();
+		InterpretedResultRedefinition interpreted(InterpretedAttributeRedefinition attribute);
 		
 	}
 	
@@ -88,7 +94,7 @@ public class Interfaces {
 		public default @Nullable InterpretedError getError(final String name) {
 			for (final FormalError e : declaredErrors()) {
 				if (name.equals(e.name()))
-					return e.interpreted();
+					return e.interpreted(interpreted());
 			}
 			final InterpretedMemberRedefinition parent = modifiers().overridden.get();
 			return parent != null && parent instanceof InterpretedAttributeRedefinition ? ((InterpretedAttributeRedefinition) parent).getErrorByName(name) : null;
@@ -99,7 +105,7 @@ public class Interfaces {
 		public default @Nullable InterpretedResultRedefinition getResult(final String name) {
 			for (final FormalResult r : declaredResults()) {
 				if (name.equals(r.name()))
-					return r.interpreted();
+					return r.interpreted(interpreted());
 			}
 			final InterpretedMemberRedefinition parent = modifiers().overridden.get();
 			if (parent != null && parent instanceof InterpretedAttributeRedefinition) {
@@ -108,30 +114,15 @@ public class Interfaces {
 					return r;
 			}
 			if ("result".equals(name) && declaredResults().size() > 0) {
-				@SuppressWarnings("null")
 				final FormalResult first = declaredResults().get(0);
 				if (first.name() == null)
-					return first.interpreted();
+					return first.interpreted(interpreted());
 			}
 			return null;
 		}
 		
-		@SuppressWarnings("null")
 		public default List<InterpretedResultRedefinition> allResults() {
-			final List<InterpretedResultRedefinition> allResults = new ArrayList<>();
-			final InterpretedMemberRedefinition parent = modifiers().overridden.get();
-			if (parent != null && parent instanceof InterpretedAttributeRedefinition)
-				allResults.addAll(((InterpretedAttributeRedefinition) parent).results());
-			outer: for (final FormalResult r : declaredResults()) {
-				for (int i = 0; i < allResults.size(); i++) {
-					if (Objects.equals(r.name(), allResults.get(i).name())) { // equal if the names are equal or if both are the default unnamed result (name() == null) // FIXME wrong, at least null != "result"
-						allResults.set(i, r.interpreted());
-						continue outer;
-					}
-				}
-				allResults.add(r.interpreted());
-			}
-			return allResults;
+			return interpreted().results();
 		}
 		
 		/**
@@ -146,14 +137,13 @@ public class Interfaces {
 		/**
 		 * @return A tuple of all result types of this method (or a tuple with a single type if a field)
 		 */
-		@SuppressWarnings("null")
 		public default InterpretedTypeTuple allTypes() {
 			final List<InterpretedNativeTupleValueAndEntry> entries = new ArrayList<>();
 			final List<InterpretedResultRedefinition> results = allResults();
 			for (int i = 0; i < results.size(); i++) {
 				final InterpretedResultRedefinition r = results.get(i);
 				final InterpretedTypeUse type = r.type();
-				entries.add(new InterpretedNativeTupleValueAndEntry(i, type.typeType(), r.name(), type));
+				entries.add(new InterpretedNativeTupleValueAndEntry(i, type.nativeClass(), r.name(), type));
 			}
 			return new InterpretedTypeTuple(entries);
 		}
@@ -163,7 +153,7 @@ public class Interfaces {
 	}
 	
 	public static interface HasVariables extends Element {
-
+		
 		public List<? extends InterpretedVariableRedefinition> allVariables();
 		
 		public default @Nullable InterpretedVariableRedefinition getVariableByName(final String name) {
@@ -178,7 +168,7 @@ public class Interfaces {
 	
 	public static interface FormalError extends NamedElement/*, HasVariables*/ {
 		
-		InterpretedError interpreted();
+		InterpretedError interpreted(InterpretedAttributeRedefinition attribute);
 		
 	}
 	
@@ -241,7 +231,7 @@ public class Interfaces {
 		
 		@Override
 		@NonNull
-		InterpretedTypeObject interpret(InterpreterContext context);
+		InterpretedTypeUse interpret(InterpreterContext context);
 		
 	}
 	

@@ -3,6 +3,7 @@ package ch.njol.brokkr.compiler.ast;
 import java.io.PrintStream;
 import java.util.function.Consumer;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.SourceCodeLinkable;
@@ -61,7 +62,7 @@ public interface ElementPart extends SourceCodeLinkable {
 	}
 	
 	@Override
-	default ElementPart getLinked() {
+	default @NonNull ElementPart getLinked() {
 		return this;
 	}
 	

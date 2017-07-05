@@ -5,7 +5,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.jdt.annotation.Nullable;
+
+import ch.njol.brokkr.compiler.ast.ElementPart;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalParameter;
+import ch.njol.brokkr.compiler.ast.Interfaces.TypeDeclaration;
 import ch.njol.brokkr.compiler.ast.Members.Constructor;
 import ch.njol.brokkr.compiler.ast.Members.ConstructorFieldParameter;
 import ch.njol.brokkr.compiler.ast.Members.SimpleParameter;
@@ -31,10 +36,17 @@ public class InterpretedBrokkrConstructor implements InterpretedAttributeDefinit
 	@SuppressWarnings("null")
 	public InterpretedBrokkrConstructor(final Constructor constructor) {
 		this.constructor = constructor;
-		parameters = constructor.parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
+		parameters = constructor.parameters.stream().map(p -> p.interpreted(this)).collect(Collectors.toList());
 		type = constructor.getParentOfType(ClassDeclaration.class).interpreted();
 //		for (ErrorDeclaration e : constructor.errors)
 //			errors.add(e.interpreted());
+	}
+	
+	// TODO shouldn't this be more general?
+	@SuppressWarnings("null")
+	@Override
+	public InterpretedTypeUse targetType() {
+		return new InterpretedSimpleTypeUse(constructor.getParentOfType(TypeDeclaration.class).interpreted().nativeClass());
 	}
 	
 	@Override
@@ -81,24 +93,29 @@ public class InterpretedBrokkrConstructor implements InterpretedAttributeDefinit
 		return constructor.name.word;
 	}
 	
+	@Override
+	public @Nullable ElementPart getLinked() {
+		return constructor;
+	}
+	
 	@SuppressWarnings("null")
 	@Override
 	public InterpretedObject interpretImplementation(final InterpretedObject ignored, final Map<InterpretedParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
 		final InterpretedNormalObject thisObject = new InterpretedNormalObject(new InterpretedSimpleClassUse(type));
 		final InterpreterContext localContext = new InterpreterContext(thisObject);
-		for (final FormalParameter p : constructor.parameters) {
-			final InterpretedParameterDefinition ip = p.interpreted().definition();
-			InterpretedObject value = arguments.get(ip);
-			if (p instanceof ConstructorFieldParameter) {
-				thisObject.setAttributeValue(((ConstructorFieldParameter) p).attribute.get().definition(), value);
-				// don't set local variable (TODO or maybe do?)
+		for (final InterpretedParameterRedefinition p : parameters) {
+			final InterpretedParameterDefinition pd = p.definition();
+			InterpretedObject value = arguments.get(pd);
+			if (p instanceof InterpretedBrokkrConstructorFieldParameter) {
+				thisObject.setAttributeValue(((InterpretedBrokkrConstructorFieldParameter) p).field.definition(), value);
+				// don't set local variable (TODO or maybe do? )
 			} else {
 				final SimpleParameter sp = (SimpleParameter) p;
 				if (value == null && sp.defaultValue != null)
 					value = sp.defaultValue.interpret(localContext);
 				if (value == null)
 					throw new InterpreterException("Parameter '" + p.name() + "' is not defined");
-				localContext.defineLocalVariable(ip, value);
+				localContext.defineLocalVariable(pd, value);
 			}
 		}
 		constructor.body.interpret(localContext);
@@ -106,7 +123,7 @@ public class InterpretedBrokkrConstructor implements InterpretedAttributeDefinit
 	}
 	
 	@Override
-	public boolean equalsAttribute(final InterpretedAttributeDefinition other) {
+	public boolean equalsMember(final InterpretedMemberRedefinition other) {
 		if (getClass() != other.getClass())
 			return false;
 		final InterpretedBrokkrConstructor c = (InterpretedBrokkrConstructor) other;

@@ -40,7 +40,15 @@ public interface InterpretedNativeTypeDefinition {
 		}
 		return null;
 	}
-	
+
+	default @Nullable InterpretedMemberRedefinition getMember(InterpretedMemberDefinition definition) {
+		for (InterpretedMemberRedefinition m : members()) {
+			if (definition.equals(m.definition()))
+				return m;
+		}
+		return null;
+	}
+
 	/**
 	 * Gets an attribute by the name it has in this type.
 	 */

@@ -1,20 +1,13 @@
 package ch.njol.brokkr.interpreter.definitions;
 
-import org.eclipse.jdt.annotation.NonNull;
-import org.eclipse.jdt.annotation.Nullable;
-
-import ch.njol.brokkr.compiler.ast.Interfaces.FormalAttribute;
-import ch.njol.brokkr.compiler.ast.Interfaces.FormalParameter;
-import ch.njol.brokkr.compiler.ast.Interfaces.FormalResult;
-import ch.njol.brokkr.compiler.ast.Members.ConstructorFieldParameter;
 import ch.njol.brokkr.compiler.ast.Members.NormalResult;
 
 public class InterpretedBrokkrResultRedefinition extends AbstractInterpretedBrokkrResult {
 	
 	private final InterpretedResultRedefinition overridden;
 	
-	public InterpretedBrokkrResultRedefinition(NormalResult result, InterpretedResultRedefinition overridden) {
-		super(result);
+	public InterpretedBrokkrResultRedefinition(final NormalResult result, final InterpretedResultRedefinition overridden, final InterpretedAttributeRedefinition attribute) {
+		super(result, attribute);
 		this.overridden = overridden;
 	}
 	

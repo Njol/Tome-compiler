@@ -1,5 +1,6 @@
 package ch.njol.brokkr.interpreter.definitions;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalAttribute;
@@ -10,8 +11,11 @@ import ch.njol.brokkr.compiler.ast.Members.NormalResult;
 
 public abstract class AbstractInterpretedBrokkrResult extends AbstractInterpretedBrokkrVariable implements InterpretedResultRedefinition {
 
-	public AbstractInterpretedBrokkrResult(NormalResult result) {
+	private final InterpretedAttributeRedefinition attribute;
+
+	public AbstractInterpretedBrokkrResult(NormalResult result, InterpretedAttributeRedefinition attribute) {
 		super(result);
+		this.attribute = attribute;
 	}
 	
 

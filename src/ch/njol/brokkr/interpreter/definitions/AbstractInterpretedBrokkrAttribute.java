@@ -4,11 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.compiler.ast.ElementPart;
 import ch.njol.brokkr.compiler.ast.Expressions.Block;
 import ch.njol.brokkr.compiler.ast.Interfaces.Expression;
 import ch.njol.brokkr.compiler.ast.Interfaces.FormalResult;
+import ch.njol.brokkr.compiler.ast.Interfaces.TypeDeclaration;
 import ch.njol.brokkr.compiler.ast.Members.AttributeDeclaration;
 import ch.njol.brokkr.compiler.ast.Members.ErrorDeclaration;
 import ch.njol.brokkr.compiler.ast.Members.SimpleParameter;
@@ -19,6 +22,8 @@ import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedTuple.InterpretedNativeTupleValueAndEntry;
+import ch.njol.brokkr.interpreter.uses.InterpretedSimpleTypeUse;
+import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
 
 public abstract class AbstractInterpretedBrokkrAttribute implements InterpretedAttributeRedefinition {
 	
@@ -31,27 +36,29 @@ public abstract class AbstractInterpretedBrokkrAttribute implements InterpretedA
 		this.declaration = declaration;
 		
 		final InterpretedAttributeRedefinition parent = parentRedefinition();
-		if (parent == null && (declaration.hasParameterDotsRight || declaration.hasParameterDotsLeft || declaration.hasResultDotsLeft || declaration.hasResultDotsRight))
+		if (parent == null && (declaration.hasParameterDots || declaration.hasResultDots))
 			throw new InterpreterException("Use of '...' in non-overriding method");
 		
 		// parameters
-		if (declaration.hasParameterDotsRight && parent != null)
+		if (declaration.hasParameterDots && parent != null)
 			parameters.addAll(parent.parameters());
 		for (final SimpleParameter p : declaration.parameters)
-			parameters.add(p.interpreted());
-		if (declaration.hasParameterDotsLeft && parent != null)
-			parameters.addAll(parent.parameters());
+			parameters.add(p.interpreted(this));
 		
 		// results
-		if (declaration.hasResultDotsRight && parent != null)
+		if (declaration.hasResultDots && parent != null)
 			results.addAll(parent.results());
 		for (final FormalResult r : declaration.results)
-			results.add(r.interpreted());
-		if (declaration.hasResultDotsLeft && parent != null)
-			results.addAll(parent.results());
+			results.add(r.interpreted(this));
 		
 		for (final ErrorDeclaration e : declaration.errors)
-			errors.add(e.interpreted());
+			errors.add(e.interpreted(this));
+	}
+	
+	@SuppressWarnings("null")
+	@Override
+	public InterpretedTypeUse targetType() {
+		return new InterpretedSimpleTypeUse(declaration.getParentOfType(TypeDeclaration.class).interpreted());
 	}
 	
 	@Override
@@ -89,6 +96,11 @@ public abstract class AbstractInterpretedBrokkrAttribute implements InterpretedA
 	}
 	
 	@Override
+	public @Nullable ElementPart getLinked() {
+		return declaration;
+	}
+	
+	@Override
 	public @Nullable InterpretedAttributeRedefinition parentRedefinition() {
 		final InterpretedMemberRedefinition m = declaration.modifiers.overridden.get();
 		if (m instanceof InterpretedAttributeRedefinition)
@@ -98,23 +110,22 @@ public abstract class AbstractInterpretedBrokkrAttribute implements InterpretedA
 	
 	protected @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<InterpretedParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
 		final InterpreterContext localContext = new InterpreterContext(thisObject); // new stack frame
-		for (final SimpleParameter p : declaration.parameters) {
-			final InterpretedParameterDefinition ip = p.interpreted().definition();
-			InterpretedObject value = arguments.get(ip);
+		for (final @NonNull InterpretedParameterRedefinition p : parameters) {
+			InterpretedParameterDefinition pd = p.definition();
+			InterpretedObject value = arguments.get(pd);
 			if (value == null) {
-				final Expression def = p.defaultValue;
-				if (def == null)
+				value = p.defaultValue(localContext);
+				if (value == null)
 					throw new InterpreterException("Missing argument " + p);
-				value = def.interpret(localContext);
 			}
-			localContext.defineLocalVariable(ip, value);
+			localContext.defineLocalVariable(pd, value);
 		}
 		InterpretedResultDefinition mainResult = null;
-		for (final FormalResult r : declaration.results) {
-			final InterpretedResultDefinition res = r.interpreted().definition();
-			localContext.defineLocalVariable(res);
+		for (final @NonNull InterpretedResultRedefinition r : results) {
+			final InterpretedResultDefinition rd = r.definition();
+			localContext.defineLocalVariable(rd);
 			if ("result".equals(r.name()))
-				mainResult = res;
+				mainResult = rd;
 		}
 		final Block body = declaration.body;
 		if (body == null)
@@ -122,8 +133,8 @@ public abstract class AbstractInterpretedBrokkrAttribute implements InterpretedA
 		body.interpret(localContext);
 		if (allResults) {
 			final List<InterpretedNativeTupleValueAndEntry> entries = new ArrayList<>();
-			for (int i = 0; i < declaration.results.size(); i++) {
-				final InterpretedResultDefinition res = declaration.results.get(i).interpreted().definition();
+			for (int i = 0; i < results.size(); i++) {
+				final InterpretedResultDefinition res = results.get(i).definition();
 				final InterpretedObject resultValue = localContext.getLocalVariableValue(res);
 				if (resultValue == null)
 					throw new InterpreterException("Unset result variable " + res + " in " + declaration);
@@ -136,7 +147,8 @@ public abstract class AbstractInterpretedBrokkrAttribute implements InterpretedA
 		return null;
 	}
 	
-	public boolean equalsAttribute(final InterpretedAttributeDefinition other) {
+	@Override
+	public boolean equalsMember(InterpretedMemberRedefinition other) {
 		if (getClass() != other.getClass())
 			return false;
 		final AbstractInterpretedBrokkrAttribute a = (AbstractInterpretedBrokkrAttribute) other;
