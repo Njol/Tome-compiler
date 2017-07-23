@@ -1,29 +1,29 @@
 package ch.njol.brokkr.interpreter;
 
-import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
+import ch.njol.brokkr.ir.uses.IRClassUse;
 
 public interface InterpretedObject {
 	
 	/**
 	 * @return The class this object is an instance of.
 	 */
-	InterpretedClassUse nativeClass();
+	IRClassUse nativeClass();
 	
 	/*
-	default @Nullable InterpretedAttributeImplementation getAttributeImplementation(InterpretedAttributeDefinition definition) {
+	default @Nullable IRAttributeImplementation getAttributeImplementation(IRAttributeDefinition definition) {
 		// TODO get 'var' attributes directly from the object? or are their implementations just special?
 		return nativeType().getAttributeImplementation(definition);
 	}
 	
-	Map<InterpretedAttributeDefinition, InterpretedAttributeImplementation> attributeValues();
+	Map<IRAttributeDefinition, IRAttributeImplementation> attributeValues();
 	
-	default void setAttributeValue(InterpretedAttributeImplementation attribute, InterpretedAttributeImplementation value) {
+	default void setAttributeValue(IRAttributeImplementation attribute, IRAttributeImplementation value) {
 		attributeValues().put(attribute, value);
 	}
 	
 	@SuppressWarnings({"null", "unused"})
-	default InterpretedObject getAttributeValue(InterpretedAttributeImplementation attribute) {
-		InterpretedObject instanceValue = attributeValues().get(attribute);
+	default IRObject getAttributeValue(IRAttributeImplementation attribute) {
+		IRObject instanceValue = attributeValues().get(attribute);
 		if (instanceValue != null)
 			return instanceValue;
 		return type().getAttributeValue(attribute);
@@ -31,11 +31,11 @@ public interface InterpretedObject {
 	
 	// TODO arguments passed to meta access
 	// TODO can closures be called with a single result and multiple results?
-	default InterpretedClosure getAttributeMeta(final InterpretedAttributeImplementation attribute, boolean allResults) {
-		return new InterpretedClosure(attribute.parameters(), attribute.results(), attribute.isModifying()) {
+	default IRClosure getAttributeMeta(final IRAttributeImplementation attribute, boolean allResults) {
+		return new IRClosure(attribute.parameters(), attribute.results(), attribute.isModifying()) {
 			@Override
-			InterpretedObject interpret(Map<InterpretedParameter, InterpretedObject> arguments) {
-				return attribute.interpret(InterpretedObject.this, arguments, allResults);
+			IRObject interpret(Map<IRParameter, IRObject> arguments) {
+				return attribute.interpret(IRObject.this, arguments, allResults);
 			}
 		};
 	}

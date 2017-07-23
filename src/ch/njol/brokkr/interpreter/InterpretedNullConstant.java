@@ -5,58 +5,57 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeDefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedAttributeImplementation;
-import ch.njol.brokkr.interpreter.definitions.InterpretedMemberRedefinition;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
-import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeClassDefinition;
-import ch.njol.brokkr.interpreter.uses.InterpretedClassUse;
-import ch.njol.brokkr.interpreter.uses.InterpretedSimpleClassUse;
-import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
+import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
+import ch.njol.brokkr.ir.definitions.IRAttributeImplementation;
+import ch.njol.brokkr.ir.definitions.IRClassDefinition;
+import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;
+import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
+import ch.njol.brokkr.ir.uses.IRClassUse;
+import ch.njol.brokkr.ir.uses.IRSimpleClassUse;
 
 public class InterpretedNullConstant implements InterpretedObject {
 	
-	public static class InterpretedNativeNullClass implements InterpretedNativeClassDefinition {
+	public static class IRNativeNullClass implements IRClassDefinition {
 		
 		@Override
-		public @Nullable InterpretedAttributeImplementation getAttributeImplementation(final InterpretedAttributeDefinition definition) {
+		public @Nullable IRAttributeImplementation getAttributeImplementation(final IRAttributeDefinition definition) {
 			return null;
 			// basically a null pointer exception - shouldn't ever happen in correctly checked code
 			//throw new InterpreterException("tried to get an attribute of a null value");
 		}
 		
 		@Override
-		public List<InterpretedMemberRedefinition> members() {
+		public List<IRMemberRedefinition> members() {
 			return Collections.EMPTY_LIST;
 		}
 		
 		@Override
-		public @Nullable InterpretedMemberRedefinition getMemberByName(final String name) {
+		public @Nullable IRMemberRedefinition getMemberByName(final String name) {
 			return null;
 		}
 		
 		@Override
-		public boolean equalsType(final InterpretedNativeTypeDefinition other) {
-			return other instanceof InterpretedNativeNullClass;
+		public boolean equalsType(final IRTypeDefinition other) {
+			return other instanceof IRNativeNullClass;
 		}
 		
 		@Override
-		public boolean isSubtypeOfOrEqual(final InterpretedNativeTypeDefinition other) {
+		public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
 			// note: null is implemented not as a type, but as a value.
 			// This means that this null type is not a subtype of all other types as in some other languages.
-			return other instanceof InterpretedNativeNullClass;
+			return other instanceof IRNativeNullClass;
 		}
 		
 		@Override
-		public boolean isSupertypeOfOrEqual(final InterpretedNativeTypeDefinition other) {
-			return other instanceof InterpretedNativeNullClass;
+		public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
+			return other instanceof IRNativeNullClass;
 		}
 		
 	}
 	
 	@Override
-	public InterpretedClassUse nativeClass() {
-		return new InterpretedSimpleClassUse(new InterpretedNativeNullClass());
+	public IRClassUse nativeClass() {
+		return new IRSimpleClassUse(new IRNativeNullClass());
 	}
 	
 }

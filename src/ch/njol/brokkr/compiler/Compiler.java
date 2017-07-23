@@ -18,9 +18,9 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.ast.Element;
-import ch.njol.brokkr.compiler.ast.ElementPart;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.BrokkrFile;
+import ch.njol.brokkr.ast.ASTElement;
+import ch.njol.brokkr.ast.ASTElementPart;
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
 
 public class Compiler {
 	
@@ -41,7 +41,7 @@ public class Compiler {
 		final Lexer lexer = new Lexer(in);
 		final TokenStream tokens = lexer.newStream();
 		final Modules modules = new Modules();
-		final BrokkrFile result = BrokkrFile.parseFile(modules, "<only one file>", tokens);
+		final ASTBrokkrFile result = ASTBrokkrFile.parseFile(modules, "<only one file>", tokens);
 		in.reset();
 		final List<ParseError> errors = result.fatalParseErrors();
 		if (!tokens.isAfterEnd())
@@ -110,19 +110,19 @@ public class Compiler {
 		}
 	}
 	
-	public final static void printASTLine(final Element top, final String line, final int lineStart, final int lineEnd) {
+	public final static void printASTLine(final ASTElement top, final String line, final int lineStart, final int lineEnd) {
 		if (top.regionEnd() < lineStart || top.regionStart() > lineEnd)
 			return;
 		System.out.println(line);
 		printASTLine_(top, lineStart, lineEnd);
 		for (@NonNull
-		final ElementPart e : top.parts()) {
-			if (e instanceof Element)
-				printASTLine((Element) e, line, lineStart, lineEnd);
+		final ASTElementPart e : top.parts()) {
+			if (e instanceof ASTElement)
+				printASTLine((ASTElement) e, line, lineStart, lineEnd);
 		}
 	}
 	
-	private final static void printASTLine_(final Element element, final int lineStart, final int lineEnd) {
+	private final static void printASTLine_(final ASTElement element, final int lineStart, final int lineEnd) {
 		if (element.regionStart() < lineStart) {
 			System.out.print("-");
 		} else {

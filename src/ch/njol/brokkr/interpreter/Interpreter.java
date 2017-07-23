@@ -3,14 +3,8 @@ package ch.njol.brokkr.interpreter;
 import java.math.BigDecimal;
 import java.util.Collections;
 
-import org.eclipse.jdt.annotation.NonNull;
-import org.eclipse.jdt.annotation.Nullable;
-
+import ch.njol.brokkr.common.Kleenean;
 import ch.njol.brokkr.compiler.Modules;
-import ch.njol.brokkr.compiler.ast.Interfaces.TypeDeclaration;
-import ch.njol.brokkr.data.Kleenean;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
-import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeBrokkrInterface;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeInt16;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeInt32;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeInt64;
@@ -19,8 +13,10 @@ import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeUInt16;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeUInt32;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeUInt64;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeUInt8;
-import ch.njol.brokkr.interpreter.uses.InterpretedSimpleTypeUse;
-import ch.njol.brokkr.interpreter.uses.InterpretedTypeUse;
+import ch.njol.brokkr.ir.definitions.IRBrokkrInterface;
+import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
+import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
+import ch.njol.brokkr.ir.uses.IRTypeUse;
 
 public class Interpreter {
 	
@@ -31,41 +27,41 @@ public class Interpreter {
 	}
 	
 	// should only be used for standard types
-	public InterpretedNativeTypeDefinition getType(final String module, final String name) {
-		final InterpretedNativeTypeDefinition type = modules.getType(module, name);
+	public IRTypeDefinition getType(final String module, final String name) {
+		final IRTypeDefinition type = modules.getType(module, name);
 		if (type == null)
 			throw new InterpreterException("Missing type '" + name + "' from module '" + module + "'");
 		return type;
 	}
-
-	public InterpretedTypeUse getTypeUse(final String module, final String name) {
-		return new InterpretedSimpleTypeUse(getType(module, name));
+	
+	public IRTypeUse getTypeUse(final String module, final String name) {
+		return new IRSimpleTypeUse(getType(module, name));
 	}
 	
-	public InterpretedNativeBrokkrInterface getInterface(final String module, final String name) {
-		final InterpretedNativeTypeDefinition type = getType(module, name);
-		if (!(type instanceof InterpretedNativeBrokkrInterface))
+	public IRBrokkrInterface getInterface(final String module, final String name) {
+		final IRTypeDefinition type = getType(module, name);
+		if (!(type instanceof IRBrokkrInterface))
 			throw new InterpreterException("Type '" + name + "' from module '" + module + "' is not an interface");
-		return (InterpretedNativeBrokkrInterface) type;
+		return (IRBrokkrInterface) type;
 	}
 	
-	public InterpretedNativeTypeDefinition getTypeType() {
+	public IRTypeDefinition getTypeType() {
 		return getType("lang", "Type");
 	}
 	
 	@SuppressWarnings("null")
 	public InterpretedObject kleenean(final Kleenean value) {
-		final InterpretedNativeBrokkrInterface kleeneanType = getInterface("lang", "Kleenean");
+		final IRBrokkrInterface kleeneanType = getInterface("lang", "Kleenean");
 		return kleeneanType.getAttributeByName("" + value).interpretDispatched(null, Collections.EMPTY_MAP, false);
 	}
 	
 	@SuppressWarnings("null")
 	public InterpretedObject bool(final boolean value) {
-		final InterpretedNativeBrokkrInterface booleanType = getInterface("lang", "Boolean");
+		final IRBrokkrInterface booleanType = getInterface("lang", "Boolean");
 		return booleanType.getAttributeByName("" + value).interpretDispatched(null, Collections.EMPTY_MAP, false);
 	}
 	
-//	public InterpretedObject newTuple(Stream<InterpretedNativeType> types, Stream<String> names) {
+//	public IRObject newTuple(Stream<IRNativeType> types, Stream<String> names) {
 //		// TODO Auto-generated method stub
 //		return null;
 //	}
@@ -106,5 +102,5 @@ public class Interpreter {
 	public InterpretedObject stringConstant(final String value) {
 		throw new InterpreterException("not implemented");
 	}
-
+	
 }

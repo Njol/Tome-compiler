@@ -2,21 +2,21 @@ package ch.njol.brokkr.compiler;
 
 import java.util.function.Consumer;
 
-import ch.njol.brokkr.compiler.ast.Element;
-import ch.njol.brokkr.compiler.ast.ElementPart;
-import ch.njol.brokkr.compiler.ast.Link;
+import ch.njol.brokkr.ast.ASTElement;
+import ch.njol.brokkr.ast.ASTElementPart;
+import ch.njol.brokkr.ast.ASTLink;
 
 public class Linker {
 	
-	public static void link(final Element ast, final Consumer<LinkerError> errors) {
-		for (final Link<?> link : ast.links()) {
+	public static void link(final ASTElement ast, final Consumer<LinkerError> errors) {
+		for (final ASTLink<?> link : ast.links()) {
 			if (link.getName() != null && link.get() == null) {
 				errors.accept(new LinkerError(link));
 			}
 		}
-		for (final ElementPart part : ast.parts()) {
-			if (part instanceof Element) {
-				link((Element) part, errors);
+		for (final ASTElementPart part : ast.parts()) {
+			if (part instanceof ASTElement) {
+				link((ASTElement) part, errors);
 			}
 		}
 	}

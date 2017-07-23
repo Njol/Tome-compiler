@@ -5,14 +5,13 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.ast.Interfaces.TypeDeclaration;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.ModuleIdentifier;
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTModuleIdentifier;
 import ch.njol.brokkr.interpreter.Interpreter;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
+import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 
 public class Modules {
 	
-	private final Map<ModuleIdentifier, Module> modules = new HashMap<>();
+	private final Map<ASTModuleIdentifier, Module> modules = new HashMap<>();
 	
 	public final Interpreter interpreter = new Interpreter(this);
 	
@@ -23,7 +22,7 @@ public class Modules {
 		modules.put(mod.id, mod);
 	}
 	
-	public @Nullable Module get(final ModuleIdentifier id) {
+	public @Nullable Module get(final ASTModuleIdentifier id) {
 		return modules.get(id);
 	}
 	
@@ -32,8 +31,8 @@ public class Modules {
 			modules.remove(module.id);
 	}
 	
-	public @Nullable InterpretedNativeTypeDefinition getType(String module, String name) {
-		Module m = get(new ModuleIdentifier(module));
+	public @Nullable IRTypeDefinition getType(final String module, final String name) {
+		final Module m = get(new ASTModuleIdentifier(module));
 		return m == null ? null : m.getType(name);
 	}
 	

@@ -18,10 +18,10 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.NumberToken;
 import ch.njol.brokkr.compiler.Token.StringToken;
-import ch.njol.brokkr.compiler.ast.AbstractElement;
-import ch.njol.brokkr.compiler.ast.Element;
+import ch.njol.brokkr.ast.ASTElement;
+import ch.njol.brokkr.ast.AbstractASTElement;
 
-public abstract class ModuleFileElement extends AbstractElement<ModuleFileElement> {
+public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileElement> {
 	
 	@Override
 	protected ModuleFileElement parse() throws ParseException {
@@ -142,8 +142,8 @@ public abstract class ModuleFileElement extends AbstractElement<ModuleFileElemen
 	@SuppressWarnings("unchecked")
 	protected Object parse(final String name, final Type genericType) throws ParseException {
 		final Class<?> rawType = getRawType(genericType);
-		if (AbstractElement.class.isAssignableFrom(rawType)) {
-			return one((Class<? extends AbstractElement<?>>) rawType);
+		if (AbstractASTElement.class.isAssignableFrom(rawType)) {
+			return one((Class<? extends AbstractASTElement<?>>) rawType);
 		} else if (Map.class.isAssignableFrom(rawType)) {
 			return ((MapElement) one(new MapElement(name, (ParameterizedType) genericType))).value;
 		} else if (List.class.isAssignableFrom(rawType)) {
@@ -256,7 +256,7 @@ public abstract class ModuleFileElement extends AbstractElement<ModuleFileElemen
 					out.write("\n" + indentation + "}");
 			}
 		} else {
-			assert val instanceof Element : val;
+			assert val instanceof ASTElement : val;
 			out.write(val.toString());
 		}
 	}

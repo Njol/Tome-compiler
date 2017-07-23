@@ -8,12 +8,12 @@ import java.util.Locale;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.ast.Element;
-import ch.njol.brokkr.compiler.ast.ElementPart;
-import ch.njol.brokkr.compiler.ast.Link;
+import ch.njol.brokkr.ast.ASTElement;
+import ch.njol.brokkr.ast.ASTElementPart;
+import ch.njol.brokkr.ast.ASTLink;
 import ch.njol.util.StringUtils;
 
-public abstract class Token implements ElementPart {
+public abstract class Token implements ASTElementPart {
 	
 	public @Nullable List<ParseError> errors = null;
 	
@@ -23,15 +23,15 @@ public abstract class Token implements ElementPart {
 		this.end = end;
 	}
 	
-	private @Nullable Element parent = null;
+	private @Nullable ASTElement parent = null;
 	
 	@Override
-	public @Nullable Element parent() {
+	public @Nullable ASTElement parent() {
 		return parent;
 	}
 	
 	@Override
-	public void setParent(@Nullable final Element parent) {
+	public void setParent(@Nullable final ASTElement parent) {
 		assert parent != this;
 		if (this.parent != parent) {
 			if (this.parent != null) {
@@ -131,7 +131,7 @@ public abstract class Token implements ElementPart {
 	}
 	
 	/**
-	 * Fake token to be used in {@link Link Links} of operators.
+	 * Fake token to be used in {@link ASTLink Links} of operators.
 	 */
 	public final static class SymbolsWordToken extends WordToken {
 		public final List<SymbolToken> symbols;

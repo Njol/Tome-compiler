@@ -314,20 +314,20 @@ public abstract class StringUtils {
 			multiplied[i] = c;
 		return new String(multiplied);
 	}
-
-	public static String join(final @Nullable Object @Nullable[] strings) {
+	
+	public static String join(final @Nullable Object @Nullable [] strings) {
 		if (strings == null)
 			return "";
 		return join(strings, "", 0, strings.length);
 	}
-
-	public static String join(final @Nullable Object @Nullable[] strings, final String delimiter) {
+	
+	public static String join(final @Nullable Object @Nullable [] strings, final String delimiter) {
 		if (strings == null)
 			return "";
 		return join(strings, delimiter, 0, strings.length);
 	}
-
-	public static String join(final @Nullable Object @Nullable[] strings, final String delimiter, final int start, final int end) {
+	
+	public static String join(final @Nullable Object @Nullable [] strings, final String delimiter, final int start, final int end) {
 		if (strings == null)
 			return "";
 		assert start >= 0 && start <= end && end <= strings.length : start + ", " + end + ", " + strings.length;

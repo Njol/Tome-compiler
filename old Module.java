@@ -19,9 +19,9 @@ import java.util.regex.Pattern;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.ast.Element;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.BrokkrFile;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.TypeDeclaration;
+import ch.njol.brokkr.ast.Element;
+import ch.njol.brokkr.ast.TopLevelElements.BrokkrFile;
+import ch.njol.brokkr.ast.TopLevelElements.TypeDeclaration;
 
 /**
  * Brokkr code is divided into modules which can communicate using public interfaces.

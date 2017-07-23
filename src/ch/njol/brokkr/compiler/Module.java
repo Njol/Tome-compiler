@@ -14,14 +14,13 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.compiler.ast.AbstractElement;
-import ch.njol.brokkr.compiler.ast.Element;
-import ch.njol.brokkr.compiler.ast.Interfaces.TypeDeclaration;
-import ch.njol.brokkr.compiler.ast.Link;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.BrokkrFile;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.InterfaceDeclaration;
-import ch.njol.brokkr.compiler.ast.TopLevelElements.ModuleIdentifier;
-import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
+import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
+import ch.njol.brokkr.ast.ASTElement;
+import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
+import ch.njol.brokkr.ast.ASTLink;
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTModuleIdentifier;
+import ch.njol.brokkr.ast.AbstractASTElement;
 
 /**
  * Brokkr code is divided into modules which can communicate using public interfaces.
@@ -30,11 +29,11 @@ import ch.njol.brokkr.interpreter.definitions.InterpretedNativeTypeDefinition;
  */
 public class Module extends ModuleFileElement {
 	
-	public @Nullable ModuleIdentifier id;
+	public @Nullable ASTModuleIdentifier id;
 	
 	public final Modules modules;
 	
-	public Module(final Modules modules, final ModuleIdentifier id) {
+	public Module(final Modules modules, final ASTModuleIdentifier id) {
 		this.modules = modules;
 		this.id = id;
 	}
@@ -56,15 +55,15 @@ public class Module extends ModuleFileElement {
 	// TODO more info?
 	// TODO warn about missing values? leaving the default value might be good or bad...
 	
-	public Map<ModuleIdentifier, List<Import>> imports = new HashMap<>();
+	public Map<ASTModuleIdentifier, List<Import>> imports = new HashMap<>();
 	
-	public final static class Import extends AbstractElement<Import> {
-		public Link<InterpretedNativeTypeDefinition> type = new Link<InterpretedNativeTypeDefinition>(this) {
+	public final static class Import extends AbstractASTElement<Import> {
+		public ASTLink<IRTypeDefinition> type = new ASTLink<IRTypeDefinition>(this) {
 			@Override
-			protected @Nullable InterpretedNativeTypeDefinition tryLink(final String name) {
+			protected @Nullable IRTypeDefinition tryLink(final String name) {
 				final Module module = getParentOfType(Module.class);
 				assert module != null;
-				for (final Entry<ModuleIdentifier, List<Import>> e : module.imports.entrySet()) {
+				for (final Entry<ASTModuleIdentifier, List<Import>> e : module.imports.entrySet()) {
 					if (!e.getValue().stream().anyMatch(l -> l == Import.this)) // TODO why is this required?
 						continue;
 					final Module importedModule = module.modules.get(e.getKey());
@@ -108,86 +107,56 @@ public class Module extends ModuleFileElement {
 		return null;
 	}
 	
-	private final transient Map<String, BrokkrFile> files = new HashMap<>();
+	private final transient Map<String, ASTBrokkrFile> files = new HashMap<>();
 	
 	public void clearFiles() {
-		for (final BrokkrFile bf : files.values())
+		for (final ASTBrokkrFile bf : files.values())
 			bf.module = null;
 		files.clear();
 	}
 	
 	public void clearFile(final String file) {
-		final BrokkrFile ast = files.remove(file);
+		final ASTBrokkrFile ast = files.remove(file);
 		if (ast != null)
 			ast.module = null;
 	}
 	
-	public void registerFile(final String file, final BrokkrFile ast) {
+	public void registerFile(final String file, final ASTBrokkrFile ast) {
 		files.put(file, ast);
 		ast.module = this;
 	}
 	
-	public List<InterpretedNativeTypeDefinition> findDeclaredTypes(final String name) {
-		final List<InterpretedNativeTypeDefinition> r = new ArrayList<>();
-		for (final BrokkrFile ast : files.values()) {
-			for (final Element e : ast.declarations) {
-				if (e instanceof TypeDeclaration && name.equals(((TypeDeclaration) e).name()))
-					r.add(((TypeDeclaration) e).interpreted());
+	public List<IRTypeDefinition> findDeclaredTypes(final String name) {
+		final List<IRTypeDefinition> r = new ArrayList<>();
+		for (final ASTBrokkrFile ast : files.values()) {
+			for (final ASTElement e : ast.declarations) {
+				if (e instanceof ASTTypeDeclaration && name.equals(((ASTTypeDeclaration) e).name()))
+					r.add(((ASTTypeDeclaration) e).getIR());
 			}
 		}
 		return r;
 	}
 	
-	public @Nullable InterpretedNativeTypeDefinition getDeclaredType(final String name) {
-		for (final BrokkrFile ast : files.values()) {
-			for (final Element e : ast.declarations) {
-				if (e instanceof TypeDeclaration && name.equals(((TypeDeclaration) e).name()))
-					return ((TypeDeclaration) e).interpreted();
+	public @Nullable IRTypeDefinition getDeclaredType(final String name) {
+		for (final ASTBrokkrFile ast : files.values()) {
+			for (final ASTElement e : ast.declarations) {
+				if (e instanceof ASTTypeDeclaration && name.equals(((ASTTypeDeclaration) e).name()))
+					return ((ASTTypeDeclaration) e).getIR();
 			}
 		}
 		return null;
 	}
 	
-	public @Nullable InterpretedNativeTypeDefinition getType(final String name) {
-		final InterpretedNativeTypeDefinition declaredType = getDeclaredType(name);
+	public @Nullable IRTypeDefinition getType(final String name) {
+		final IRTypeDefinition declaredType = getDeclaredType(name);
 		if (declaredType != null)
 			return declaredType;
-		for (final Entry<ModuleIdentifier, List<Import>> e : imports.entrySet()) {
+		for (final Entry<ASTModuleIdentifier, List<Import>> e : imports.entrySet()) {
 			for (final Import i : e.getValue()) {
 				if (i.alias.equals(name)) {
 					return i.type.get();
 				}
 			}
-		}
-		return null;
-	}
-	
-	public @Nullable InterpretedNativeTypeDefinition getDeclaredModifierType(final String name, final InterpretedNativeTypeDefinition baseType) {
-		for (final BrokkrFile ast : files.values()) {
-			for (final Element e : ast.declarations) {
-				if (e instanceof InterfaceDeclaration && ((InterfaceDeclaration) e).base.getName() != null && name.equals(((InterfaceDeclaration) e).name())) {
-					@Nullable
-					final InterpretedNativeTypeDefinition base = ((InterfaceDeclaration) e).base.get();
-					if (base != null && base.isSupertypeOfOrEqual(baseType))
-						return ((InterfaceDeclaration) e).interpreted();
-				}
-			}
-		}
-		return null;
-	}
-	
-	public @Nullable InterpretedNativeTypeDefinition getModifierType(final String name, final InterpretedNativeTypeDefinition baseType) {
-		final InterpretedNativeTypeDefinition declaredType = getDeclaredModifierType(name, baseType);
-		if (declaredType != null)
-			return declaredType;
-		// TODO maybe improve this
-		for (final Entry<ModuleIdentifier, List<Import>> e : imports.entrySet()) {
-			final Module mod = modules.get(e.getKey());
-			if (mod == null)
-				continue;
-			final InterpretedNativeTypeDefinition t = mod.getDeclaredModifierType(name, baseType);
-			if (t != null)
-				return t;
 		}
 		return null;
 	}
@@ -211,7 +180,7 @@ public class Module extends ModuleFileElement {
 			final List<Import> is = imports.getOrDefault(dis.getKey(), new ArrayList<>());
 			for (final String di : dis.getValue())
 				is.add(new Import(new UppercaseWordToken(di, 0, 1), null));
-			imports.put(new ModuleIdentifier(dis.getKey()), is);
+			imports.put(new ASTModuleIdentifier(dis.getKey()), is);
 		}
 	}
 	
