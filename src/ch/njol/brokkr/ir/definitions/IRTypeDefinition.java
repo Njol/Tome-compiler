@@ -11,7 +11,7 @@ import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
 /**
- * The native description of a type.
+ * The intermediate representation of a type.
  * <p>
  * May be the description of a Brokkr type ({@link IRBrokkrClass}, {@link IRBrokkrInterface}),
  * or a native type ({@link IRSimpleNativeClass}).
@@ -73,6 +73,8 @@ public interface IRTypeDefinition extends IRTypeDefinitionOrGenericTypeRedefinit
 	public boolean isSubtypeOfOrEqual(IRTypeDefinition other);
 	
 	public boolean isSupertypeOfOrEqual(IRTypeDefinition other);
+	
+	int typeHashCode();
 	
 	@Override
 	public default IRTypeUse getUse(final Map<IRGenericTypeDefinition, IRTypeUse> genericArguments) {

@@ -42,4 +42,11 @@ public class InterpretedNormalObject implements InterpretedObject {
 		attributeValues.put(definition, value);
 	}
 	
+	public InterpretedObject getAttributeValue(final IRAttributeDefinition definition) {
+		final InterpretedObject value = attributeValues.get(definition);
+		if (value == null)
+			throw new InterpreterException("Tried to get invalid attribute " + definition + " from object of type " + nativeClass());
+		return value;
+	}
+	
 }

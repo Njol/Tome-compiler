@@ -16,29 +16,18 @@ public abstract class AbstractIRBrokkrParameter extends AbstractIRBrokkrVariable
 	}
 	
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + attribute.hashCode();
-		result = prime * result + name.hashCode();
-		return result;
+	public IRAttributeRedefinition attribute() {
+		return attribute;
 	}
 	
 	@Override
-	public boolean equals(@Nullable final Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		final AbstractIRBrokkrParameter other = (AbstractIRBrokkrParameter) obj;
-		// TODO make sure params and error params are different
-		if (!attribute.equals(other.attribute))
-			return false;
-		if (!name.equals(other.name))
-			return false;
-		return true;
+	public int hashCode() {
+		return parameterHashCode();
+	}
+	
+	@Override
+	public boolean equals(@Nullable final Object other) {
+		return other instanceof IRParameterRedefinition ? equalsParameter((IRParameterRedefinition) other) : false;
 	}
 	
 }

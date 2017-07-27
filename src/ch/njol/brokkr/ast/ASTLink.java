@@ -28,7 +28,7 @@ public abstract class ASTLink<T> {
 	}
 	
 	public @Nullable String getName() {
-		WordToken token = name;
+		final WordToken token = name;
 		return token != null ? token.word : null;
 	}
 	
@@ -45,7 +45,7 @@ public abstract class ASTLink<T> {
 			return null;
 		isLinking = true;
 		if (value == null) {
-			WordToken token = name;
+			final WordToken token = name;
 			if (token == null) {
 				value = null;
 			} else {

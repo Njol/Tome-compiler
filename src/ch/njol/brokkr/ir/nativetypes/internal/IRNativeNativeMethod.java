@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTElementPart;
@@ -18,11 +19,13 @@ import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeObject;
 import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeImplementation;
+import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterDefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRResultDefinition;
 import ch.njol.brokkr.ir.definitions.IRResultRedefinition;
+import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
@@ -68,6 +71,21 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 			return null; // Java has no default parameter values, though they could be added via annotations
 		}
 		
+		@Override
+		public IRAttributeRedefinition attribute() {
+			return IRNativeNativeMethod.this;
+		}
+		
+		@Override
+		public int hashCode() {
+			return parameterHashCode();
+		}
+		
+		@Override
+		public boolean equals(@Nullable final Object other) {
+			return other instanceof IRParameterRedefinition ? equalsParameter((IRParameterRedefinition) other) : false;
+		}
+		
 	}
 	
 	private class Result implements IRResultDefinition {
@@ -90,12 +108,11 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 			return new IRSimpleTypeUse(type);
 		}
 		
-	}
-	
-	@SuppressWarnings("unchecked")
-	@Override
-	public IRTypeUse targetType() {
-		return new IRSimpleTypeUse(IRSimpleNativeClass.get((Class<? extends InterpretedNativeObject>) method.getDeclaringClass()));
+		@Override
+		public IRAttributeRedefinition attribute() {
+			return IRNativeNativeMethod.this;
+		}
+		
 	}
 	
 	@Override
@@ -122,7 +139,7 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 	public boolean isVariable() {
 		return false;
 	}
-
+	
 	@Override
 	public boolean isStatic() {
 		return Modifier.isStatic(method.getModifiers());
@@ -149,6 +166,12 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 		return name;
 	}
 	
+	@SuppressWarnings("unchecked")
+	@Override
+	public @NonNull IRTypeDefinition declaringType() {
+		return IRSimpleNativeClass.get((Class<? extends InterpretedNativeObject>) method.getDeclaringClass());
+	}
+	
 	@Override
 	public @Nullable ASTElementPart getLinked() {
 		return null; // TODO find declaration in Brokkr code
@@ -156,26 +179,12 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 	
 	@Override
 	public int hashCode() {
-		return method.hashCode();
+		return memberHashCode();
 	}
 	
 	@Override
-	public boolean equals(@Nullable final Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		final IRNativeNativeMethod other = (IRNativeNativeMethod) obj;
-		return method.equals(other.method);
-	}
-	
-	@Override
-	public boolean equalsMember(final IRMemberRedefinition other) {
-		if (getClass() != other.getClass())
-			return false;
-		return method.equals(((IRNativeNativeMethod) other).method);
+	public boolean equals(@Nullable final Object other) {
+		return other instanceof IRMemberRedefinition ? equalsMember((IRMemberRedefinition) other) : false;
 	}
 	
 }

@@ -6,7 +6,7 @@ import java.util.List;
 import org.eclipse.jdt.annotation.NonNull;
 
 /**
- *¨An unresolvable type (usually due to syntax or semantic errors in the code)
+ * ¨An unresolvable type (usually due to syntax or semantic errors in the code)
  */
 public class IRUnknownTypeUse implements IRTypeUse {
 	

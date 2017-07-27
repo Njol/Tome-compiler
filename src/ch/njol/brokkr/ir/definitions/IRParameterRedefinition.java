@@ -20,4 +20,18 @@ public interface IRParameterRedefinition extends IRVariableRedefinition {
 	@Nullable
 	InterpretedObject defaultValue(InterpreterContext context);
 	
+	IRAttributeRedefinition attribute();
+	
+	/**
+	 * @param other
+	 * @return Whether this and the given parameter are equal, i.e. are defined in the same attribute and have the same name.
+	 */
+	default boolean equalsParameter(final IRParameterRedefinition other) {
+		return attribute().equalsMember(other.attribute()) && name().equals(other.name());
+	}
+	
+	default int parameterHashCode() {
+		return attribute().memberHashCode() * 31 + name().hashCode();
+	}
+	
 }

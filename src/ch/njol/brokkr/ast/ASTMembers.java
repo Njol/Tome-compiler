@@ -178,6 +178,8 @@ public class ASTMembers {
 						return null;
 //					// only check parents of the containing type (otherwise this method itself would be found)
 					final IRTypeUse parent = t.parentTypes();
+					if (parent == null)
+						return null;
 					final IRMemberUse member = parent.getMemberByName(name);
 					return member != null ? member.redefinition() : null;
 				}
@@ -187,7 +189,6 @@ public class ASTMembers {
 		public boolean isNative;
 		public boolean isStatic;
 		public @Nullable MethodModifiability modifiability;
-		public boolean alias;
 		public boolean context;
 		public boolean recursive;
 		public boolean var;
@@ -226,8 +227,6 @@ public class ASTMembers {
 					undefine = try_("undefine");
 			}, () -> {
 				isNative = try_("native");
-			}, () -> {
-				alias = try_("alias");
 			}, () -> {
 				visibility = Visibility.parse(this);
 			}, () -> {

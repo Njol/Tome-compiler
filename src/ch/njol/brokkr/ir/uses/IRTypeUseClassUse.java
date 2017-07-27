@@ -62,6 +62,11 @@ public class IRTypeUseClassUse implements IRClassUse {
 		}
 		
 		@Override
+		public int typeHashCode() {
+			return typeUseClassUse.getBase().typeHashCode();
+		}
+		
+		@Override
 		public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
 			return getClass() == other.getClass() && typeUseClassUse.isSubtypeOfOrEqual(((IRTypeUseClassDefinition) other).typeUseClassUse);
 			// || other.??? ; // TODO subtype of the type 'Type' (with appropriate generic argument?)

@@ -5,10 +5,12 @@ import java.util.Collections;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTElementPart;
+import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.brokkr.ast.ASTMembers.ASTGenericTypeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
+import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
 public abstract class AbstractIRBrokkrGenericType implements IRGenericTypeRedefinition {
@@ -25,6 +27,19 @@ public abstract class AbstractIRBrokkrGenericType implements IRGenericTypeRedefi
 	}
 	
 	@Override
+	public String toString() {
+		return declaration.getParentOfType(ASTTypeDeclaration.class) + "." + name();
+	}
+	
+	@Override
+	public @Nullable IRTypeDefinition declaringType() {
+		final ASTTypeDeclaration type = declaration.getParentOfType(ASTTypeDeclaration.class);
+		if (type == null)
+			throw new InterpreterException("Generic type definition not in type: " + this);
+		return type.getIR();
+	}
+	
+	@Override
 	public @Nullable ASTElementPart getLinked() {
 		return declaration;
 	}
@@ -37,11 +52,6 @@ public abstract class AbstractIRBrokkrGenericType implements IRGenericTypeRedefi
 		return (IRGenericTypeRedefinition) modifiers.overridden.get();
 	}
 	
-	@Override
-	public boolean equalsMember(final IRMemberRedefinition other) {
-		return this.getClass() == other.getClass() && declaration == ((AbstractIRBrokkrGenericType) other).declaration; // TODO correct?
-	}
-	
 	@SuppressWarnings("null")
 	@Override
 	public IRTypeUse upperBound() {
@@ -50,4 +60,15 @@ public abstract class AbstractIRBrokkrGenericType implements IRGenericTypeRedefi
 			return extendedType.getIRType();
 		return ASTBrokkrFile.getModule(declaration).modules.getType("lang", "Any").getUse(Collections.EMPTY_MAP);
 	}
+	
+	@Override
+	public int hashCode() {
+		return memberHashCode();
+	}
+	
+	@Override
+	public boolean equals(@Nullable final Object other) {
+		return other instanceof IRMemberRedefinition ? equalsMember((IRMemberRedefinition) other) : false;
+	}
+	
 }

@@ -1,5 +1,6 @@
 package ch.njol.brokkr.ir.uses;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,7 +48,7 @@ public class IRAttributeUse implements IRMemberUse {
 	}
 	
 	public IRTypeUse targetType() {
-		return targetType != null ? targetType : attribute.targetType();
+		return targetType != null ? targetType : attribute.declaringType().getUse(Collections.EMPTY_MAP);
 	}
 	
 	public IRTypeTuple allResultTypes() {

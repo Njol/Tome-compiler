@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.SourceCodeLinkable;
 import ch.njol.brokkr.ast.ASTElementPart;
+import ch.njol.brokkr.compiler.SourceCodeLinkable;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRMemberDefinition;
 import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;

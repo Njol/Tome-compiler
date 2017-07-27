@@ -22,4 +22,14 @@ public class IRBrokkrConstructorFieldParameter extends AbstractIRBrokkrParameter
 		return null;
 	}
 	
+	@Override
+	public int hashCode() {
+		return parameterHashCode();
+	}
+	
+	@Override
+	public boolean equals(@Nullable final Object other) {
+		return other instanceof IRParameterRedefinition ? equalsParameter((IRParameterRedefinition) other) : false;
+	}
+	
 }

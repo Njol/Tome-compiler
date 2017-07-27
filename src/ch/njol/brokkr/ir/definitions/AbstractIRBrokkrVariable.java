@@ -1,7 +1,5 @@
 package ch.njol.brokkr.ir.definitions;
 
-import org.eclipse.jdt.annotation.Nullable;
-
 import ch.njol.brokkr.ast.ASTInterfaces.ASTVariable;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 

@@ -36,7 +36,12 @@ public class IRSimpleNativeTypeClass implements IRNativeTypeClass {
 	
 	@Override
 	public boolean equalsType(final IRTypeDefinition other) {
-		return other instanceof IRSimpleNativeTypeClass && ((IRSimpleNativeTypeClass) other).interpretedNativeType.equalsType(interpretedNativeType);
+		return other instanceof IRSimpleNativeTypeClass && interpretedNativeType.equalsType(((IRSimpleNativeTypeClass) other).interpretedNativeType);
+	}
+	
+	@Override
+	public int typeHashCode() {
+		return interpretedNativeType.typeHashCode();
 	}
 	
 	@Override

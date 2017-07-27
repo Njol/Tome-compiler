@@ -7,9 +7,9 @@ import java.util.List;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.ast.ASTMembers.ASTMember;
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
+import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.ir.IRError;
@@ -186,6 +186,7 @@ public class ASTInterfaces {
 		
 		List<? extends ASTGenericParameter> genericParameters();
 		
+		@Nullable
 		IRTypeUse parentTypes();
 		
 		IRTypeDefinition getIR();

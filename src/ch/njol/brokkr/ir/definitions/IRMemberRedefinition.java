@@ -35,8 +35,35 @@ public interface IRMemberRedefinition extends SourceCodeLinkable {
 	
 	IRMemberDefinition definition();
 	
-	boolean equalsMember(IRMemberRedefinition other);
-
+	/**
+	 * @return The type this member is declared in, or null if this is a top-level declaration (which must be a type itself)
+	 */
+	@Nullable
+	IRTypeDefinition declaringType();
+	
+	/**
+	 * @param other
+	 * @return Whether this member is the same as the given member, i.e. is declared in the same type and has the same name.
+	 *         // TODO if there is a name conflict, what should this do? or should one or both members get a synthetic name?
+	 */
+	default boolean equalsMember(final IRMemberRedefinition other) {
+		final IRTypeDefinition thisDeclaringType = declaringType();
+		final IRTypeDefinition otherDeclaringType = other.declaringType();
+		if (thisDeclaringType == null) {
+			if (otherDeclaringType != null)
+				return false;
+			return ((IRTypeDefinition) this).equalsType((IRTypeDefinition) other);
+		}
+		if (otherDeclaringType == null)
+			return false;
+		return thisDeclaringType.equalsType(otherDeclaringType) && name().equals(other.name());
+	}
+	
+	default int memberHashCode() {
+		final IRTypeDefinition declaringType = declaringType();
+		return (declaringType == null ? ((IRTypeDefinition) this) : declaringType).typeHashCode() * 31 + name().hashCode();
+	}
+	
 	/**
 	 * Gets the {@link IRMemberUse} for this member, if there is any, using the given type information.
 	 * <p>
@@ -46,6 +73,7 @@ public interface IRMemberRedefinition extends SourceCodeLinkable {
 	 * @param genericArguments TODO ???
 	 * @return
 	 */
-	@Nullable IRMemberUse getUse(@Nullable IRTypeUse targetType, Map<IRGenericTypeDefinition, IRTypeUse> genericArguments);
+	@Nullable
+	IRMemberUse getUse(@Nullable IRTypeUse targetType, Map<IRGenericTypeDefinition, IRTypeUse> genericArguments);
 	
 }

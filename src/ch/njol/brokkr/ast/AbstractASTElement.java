@@ -18,6 +18,7 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
 import ch.njol.brokkr.compiler.Module;
 import ch.njol.brokkr.compiler.Modules;
 import ch.njol.brokkr.compiler.ParseError;
@@ -29,7 +30,6 @@ import ch.njol.brokkr.compiler.Token.SymbolsWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.compiler.TokenStream;
-import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
 import ch.njol.brokkr.interpreter.Interpreter;
 import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;

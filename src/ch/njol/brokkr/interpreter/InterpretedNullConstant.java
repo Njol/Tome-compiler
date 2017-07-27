@@ -43,12 +43,18 @@ public class InterpretedNullConstant implements InterpretedObject {
 		public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
 			// note: null is implemented not as a type, but as a value.
 			// This means that this null type is not a subtype of all other types as in some other languages.
+			// TODO or is it?
 			return other instanceof IRNativeNullClass;
 		}
 		
 		@Override
 		public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
 			return other instanceof IRNativeNullClass;
+		}
+		
+		@Override
+		public int typeHashCode() {
+			return 0;
 		}
 		
 	}

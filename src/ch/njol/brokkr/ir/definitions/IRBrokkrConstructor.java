@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTElementPart;
@@ -38,13 +39,6 @@ public class IRBrokkrConstructor implements IRAttributeDefinition, IRAttributeIm
 //			errors.add(e.interpreted());
 	}
 	
-	// TODO shouldn't this be more general?
-	@SuppressWarnings("null")
-	@Override
-	public IRTypeUse targetType() {
-		return new IRSimpleTypeUse(constructor.getParentOfType(ASTTypeDeclaration.class).getIR().nativeClass());
-	}
-	
 	@Override
 	public List<IRParameterRedefinition> parameters() {
 		return parameters;
@@ -64,6 +58,11 @@ public class IRBrokkrConstructor implements IRAttributeDefinition, IRAttributeIm
 		@Override
 		public IRTypeUse type() {
 			return new IRSimpleTypeUse(type);
+		}
+		
+		@Override
+		public IRAttributeRedefinition attribute() {
+			return IRBrokkrConstructor.this;
 		}
 	}
 	
@@ -88,10 +87,33 @@ public class IRBrokkrConstructor implements IRAttributeDefinition, IRAttributeIm
 		return true; // static determines how the member is used, not internal variations
 	}
 	
+	@Override
+	public @NonNull String toString() {
+		return constructor.getParentOfType(ASTTypeDeclaration.class) + "." + name();
+	}
+	
 	@SuppressWarnings("null")
 	@Override
 	public String name() {
 		return constructor.name.word;
+	}
+	
+	@Override
+	public int hashCode() {
+		return memberHashCode();
+	}
+	
+	@Override
+	public boolean equals(@Nullable final Object other) {
+		return other instanceof IRMemberRedefinition ? equalsMember((IRMemberRedefinition) other) : false;
+	}
+	
+	@Override
+	public @NonNull IRTypeDefinition declaringType() {
+		final ASTTypeDeclaration type = constructor.getParentOfType(ASTTypeDeclaration.class);
+		if (type == null)
+			throw new InterpreterException("Constructor not in type: " + this);
+		return type.getIR();
 	}
 	
 	@Override
@@ -121,14 +143,6 @@ public class IRBrokkrConstructor implements IRAttributeDefinition, IRAttributeIm
 		}
 		constructor.body.interpret(localContext);
 		return thisObject;
-	}
-	
-	@Override
-	public boolean equalsMember(final IRMemberRedefinition other) {
-		if (getClass() != other.getClass())
-			return false;
-		final IRBrokkrConstructor c = (IRBrokkrConstructor) other;
-		return c.constructor == constructor; // TODO correct?
 	}
 	
 }

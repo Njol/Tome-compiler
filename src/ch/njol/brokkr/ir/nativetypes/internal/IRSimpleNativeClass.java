@@ -73,15 +73,19 @@ public class IRSimpleNativeClass implements IRClassDefinition {
 	}
 	
 	@Override
+	public int typeHashCode() {
+		return name.hashCode();
+	}
+	
+	// native classes do not implement any interfaces
+	@Override
 	public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
-		// TODO Auto-generated method stub
-		return false;
+		return equalsType(other);
 	}
 	
 	@Override
 	public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
-		// TODO Auto-generated method stub
-		return false;
+		return equalsType(other);
 	}
 	
 }

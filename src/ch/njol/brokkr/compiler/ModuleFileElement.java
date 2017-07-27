@@ -15,11 +15,13 @@ import java.util.Map.Entry;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.ast.ASTElement;
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTModuleIdentifier;
+import ch.njol.brokkr.ast.AbstractASTElement;
+import ch.njol.brokkr.common.ModuleIdentifier;
 import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.NumberToken;
 import ch.njol.brokkr.compiler.Token.StringToken;
-import ch.njol.brokkr.ast.ASTElement;
-import ch.njol.brokkr.ast.AbstractASTElement;
 
 public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileElement> {
 	
@@ -144,6 +146,8 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 		final Class<?> rawType = getRawType(genericType);
 		if (AbstractASTElement.class.isAssignableFrom(rawType)) {
 			return one((Class<? extends AbstractASTElement<?>>) rawType);
+		} else if (ModuleIdentifier.class.isAssignableFrom(rawType)) {
+			return one(ASTModuleIdentifier.class).identifier;
 		} else if (Map.class.isAssignableFrom(rawType)) {
 			return ((MapElement) one(new MapElement(name, (ParameterizedType) genericType))).value;
 		} else if (List.class.isAssignableFrom(rawType)) {

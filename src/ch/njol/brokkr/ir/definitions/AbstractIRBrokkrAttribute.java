@@ -15,14 +15,13 @@ import ch.njol.brokkr.ast.ASTMembers.ASTAttributeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTErrorDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTSimpleParameter;
 import ch.njol.brokkr.common.MethodModifiability;
+import ch.njol.brokkr.interpreter.InterpretedNormalObject;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.nativetypes.IRTuple;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
-import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
-import ch.njol.brokkr.ir.uses.IRTypeUse;
 
 public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefinition {
 	
@@ -40,12 +39,6 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 	@Override
 	public String toString() {
 		return declaration.getParentOfType(ASTTypeDeclaration.class) + "." + declaration.name();
-	}
-	
-	@SuppressWarnings("null")
-	@Override
-	public IRTypeUse targetType() {
-		return new IRSimpleTypeUse(declaration.getParentOfType(ASTTypeDeclaration.class).getIR());
 	}
 	
 	private @Nullable List<IRParameterRedefinition> parameters = null;
@@ -120,6 +113,24 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 	}
 	
 	@Override
+	public @NonNull IRTypeDefinition declaringType() {
+		final ASTTypeDeclaration type = declaration.getParentOfType(ASTTypeDeclaration.class);
+		if (type == null)
+			throw new InterpreterException("Attribute not in type: " + this);
+		return type.getIR();
+	}
+	
+	@Override
+	public int hashCode() {
+		return memberHashCode();
+	}
+	
+	@Override
+	public boolean equals(@Nullable final Object other) {
+		return other instanceof IRMemberRedefinition ? equalsMember((IRMemberRedefinition) other) : false;
+	}
+	
+	@Override
 	public @Nullable ASTElementPart getLinked() {
 		return declaration;
 	}
@@ -133,7 +144,9 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 	}
 	
 	protected @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
-		final InterpreterContext localContext = new InterpreterContext(thisObject); // new stack frame
+		if (!(thisObject instanceof InterpretedNormalObject))
+			return null;
+		final InterpreterContext localContext = new InterpreterContext((InterpretedNormalObject) thisObject); // new stack frame
 		for (final @NonNull IRParameterRedefinition p : parameters()) {
 			final IRParameterDefinition pd = p.definition();
 			InterpretedObject value = arguments.get(pd);
@@ -167,14 +180,6 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 		if (mainResult != null)
 			return localContext.getLocalVariableValue(mainResult);
 		return null;
-	}
-	
-	@Override
-	public boolean equalsMember(final IRMemberRedefinition other) {
-		if (getClass() != other.getClass())
-			return false;
-		final AbstractIRBrokkrAttribute a = (AbstractIRBrokkrAttribute) other;
-		return a.declaration == declaration; // TODO correct?
 	}
 	
 }

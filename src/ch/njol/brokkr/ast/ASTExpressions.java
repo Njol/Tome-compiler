@@ -43,6 +43,7 @@ import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.NumberToken;
 import ch.njol.brokkr.compiler.Token.StringToken;
 import ch.njol.brokkr.compiler.Token.SymbolToken;
+import ch.njol.brokkr.compiler.Token.SymbolsWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WhitespaceToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
@@ -62,6 +63,7 @@ import ch.njol.brokkr.ir.definitions.IRParameterDefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinitionOrGenericTypeRedefinition;
+import ch.njol.brokkr.ir.definitions.IRVariableDefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableOrAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableRedefinition;
 import ch.njol.brokkr.ir.nativetypes.IRTuple;
@@ -118,8 +120,9 @@ public class ASTExpressions {
 		}
 		
 		final ASTExpression expr = parent.one(new ASTOperatorExpression(allowComparisons));
+		WordToken assignmentOp;
 		SymbolToken sym;
-		if ((sym = parent.try2('=')) != null) {
+		if ((assignmentOp = parent.try2("=", "+=", "-=", "*=", "/=", "&=", "|=")) != null) {
 			// TODO this is way too complicated - make it simpler if possible (by changing the 'expr' line above/parsing assignment first)
 			// TODO directly determine if a variable is local or an unqualified attribute?
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse) {
@@ -129,8 +132,7 @@ public class ASTExpressions {
 					return expr;
 				}
 				expr.setParent(null);
-				final ASTLocalVariableOrUnqualifiedAttributeAssignment a = new ASTLocalVariableOrUnqualifiedAttributeAssignment(varOrAttribute);
-				sym.setParent(a);
+				final ASTLocalVariableOrUnqualifiedAttributeAssignment a = new ASTLocalVariableOrUnqualifiedAttributeAssignment((SymbolsWordToken) assignmentOp, varOrAttribute);
 				parent.one(a);
 				return a;
 			} else if (expr instanceof ASTAccessExpression && !((ASTAccessExpression) expr).meta) {// && ((ASTAccessExpression) expr).access instanceof ASTDirectAttributeAccess) {
@@ -143,8 +145,7 @@ public class ASTExpressions {
 				}
 				e.setParent(null);
 				da.setParent(null);
-				final ASTAttributeAssignment assignment = new ASTAttributeAssignment(e.target, da.attribute);
-				sym.setParent(assignment);
+				final ASTAttributeAssignment assignment = new ASTAttributeAssignment((SymbolsWordToken) assignmentOp, e.target, da.attribute);
 				parent.one(assignment);
 				return assignment;
 			} else {
@@ -248,8 +249,9 @@ public class ASTExpressions {
 			return members;
 		}
 		
+		// always has a parent type
 		@Override
-		public IRTypeUse parentTypes() {
+		public @NonNull IRTypeUse parentTypes() {
 			return type != null ? type.staticallyKnownType() : new IRUnknownTypeUse();
 		}
 		
@@ -378,38 +380,70 @@ public class ASTExpressions {
 		}
 	}
 	
-	// TODO think about whether assignment should really be an expression - this can be handy, but can also hide state changes.
-	public static class ASTLocalVariableOrUnqualifiedAttributeAssignment extends AbstractASTElement<ASTLocalVariableOrUnqualifiedAttributeAssignment> implements ASTExpression {
-		public final ASTVariableOrUnqualifiedAttributeUse varOrAttribute;
+	public static abstract class AbstractASTAssignment<T extends AbstractASTElement<T>> extends AbstractASTElement<T> implements ASTExpression {
+		public final SymbolsWordToken assignmentOp;
+		public final @Nullable ASTOperatorLink assignmentOpLink;
 		public @Nullable ASTExpression value;
+		
+		protected AbstractASTAssignment(final SymbolsWordToken assignmentOp) {
+			this.assignmentOp = assignmentOp;
+			assignmentOp.setParent(this);
+			assignmentOpLink = assignmentOp.symbols.size() > 1 ? new ASTOperatorLink(this, assignmentOp, true) : null;
+		}
 		
 		@Override
 		public IRTypeUse getIRType() {
 			return value != null ? value.getIRType() : new IRUnknownTypeUse();
 		}
 		
-		public ASTLocalVariableOrUnqualifiedAttributeAssignment(final ASTVariableOrUnqualifiedAttributeUse varOrAttribute) {
-			this.varOrAttribute = varOrAttribute;
-			varOrAttribute.setParent(this);
-		}
+		protected abstract @Nullable InterpretedObject target(InterpreterContext context);
+		
+		protected abstract @Nullable IRVariableOrAttributeRedefinition varOrAttribute();
 		
 		@Override
 		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
 			final ASTExpression expression = value;
 			if (expression == null)
 				return null;
-			final InterpretedObject value = expression.interpret(context);
+			InterpretedObject value = expression.interpret(context);
 			if (value == null)
 				return null;
-			final IRVariableOrAttributeRedefinition varOrAttribute = this.varOrAttribute.link.get();
+			final IRVariableOrAttributeRedefinition varOrAttribute = varOrAttribute();
 			if (varOrAttribute == null)
 				return null;
+			final IRAttributeRedefinition operator = assignmentOpLink != null ? assignmentOpLink.get() : null;
+			if (operator == null && assignmentOpLink != null)
+				return null;
 			if (varOrAttribute instanceof IRVariableRedefinition) {
-				context.setLocalVariableValue(((IRVariableRedefinition) varOrAttribute).definition(), value);
+				final IRVariableDefinition variableDefinition = ((IRVariableRedefinition) varOrAttribute).definition();
+				if (operator != null)
+					value = operator.interpretDispatched(context.getLocalVariableValue(variableDefinition), Collections.singletonMap(operator.parameters().get(0).definition(), value), false);
+				context.setLocalVariableValue(variableDefinition, value);
 			} else {
-				((InterpretedNormalObject) context.getThisObject()).setAttributeValue(((IRAttributeRedefinition) varOrAttribute).definition(), value);
+				final InterpretedObject target = target(context);
+				if (target == null)
+					return null;
+				final IRAttributeDefinition attributeDefinition = ((IRAttributeRedefinition) varOrAttribute).definition();
+				if (target instanceof InterpretedNormalObject) {
+					if (operator != null)
+						value = operator.interpretDispatched(((InterpretedNormalObject) target).getAttributeValue(attributeDefinition), Collections.singletonMap(operator.parameters().get(0).definition(), value), false);
+					((InterpretedNormalObject) target).setAttributeValue(attributeDefinition, value);
+				} else {// TODO tuples
+					throw new InterpreterException("Tried to set an attribute on a native object");
+				}
 			}
 			return value;
+		}
+	}
+	
+	// TODO think about whether assignment should really be an expression - this can be handy, but can also hide state changes.
+	public static class ASTLocalVariableOrUnqualifiedAttributeAssignment extends AbstractASTAssignment<ASTLocalVariableOrUnqualifiedAttributeAssignment> {
+		public final ASTVariableOrUnqualifiedAttributeUse varOrAttribute;
+		
+		public ASTLocalVariableOrUnqualifiedAttributeAssignment(final SymbolsWordToken assignmentOp, final ASTVariableOrUnqualifiedAttributeUse varOrAttribute) {
+			super(assignmentOp);
+			this.varOrAttribute = varOrAttribute;
+			varOrAttribute.setParent(this);
 		}
 		
 		@Override
@@ -417,14 +451,24 @@ public class ASTExpressions {
 			value = ASTExpressions.parse(this);
 			return this;
 		}
+		
+		@Override
+		protected @Nullable InterpretedObject target(final InterpreterContext context) {
+			return context.getThisObject();
+		}
+		
+		@Override
+		protected @Nullable IRVariableOrAttributeRedefinition varOrAttribute() {
+			return varOrAttribute.link.get();
+		}
 	}
 	
-	public static class ASTAttributeAssignment extends AbstractASTElement<ASTAttributeAssignment> implements ASTExpression {
+	public static class ASTAttributeAssignment extends AbstractASTAssignment<ASTAttributeAssignment> {
 		public final ASTExpression target;
 		public final ASTLink<? extends IRAttributeRedefinition> attribute;
-		public @Nullable ASTExpression value;
 		
-		public ASTAttributeAssignment(final ASTExpression target, final ASTLink<? extends IRAttributeRedefinition> attribute) {
+		public ASTAttributeAssignment(final SymbolsWordToken assignmentOp, final ASTExpression target, final ASTLink<? extends IRAttributeRedefinition> attribute) {
+			super(assignmentOp);
 			this.target = target;
 			this.attribute = attribute;
 			target.setParent(this);
@@ -438,28 +482,13 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return value != null ? value.getIRType() : new IRUnknownTypeUse();
+		protected @Nullable InterpretedObject target(final InterpreterContext context) {
+			return target.interpret(context);
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			final ASTExpression expression = value;
-			if (expression == null)
-				return null;
-			final InterpretedObject value = expression.interpret(context);
-			if (value == null)
-				return null;
-			final InterpretedObject target = this.target.interpret(context);
-			if (target instanceof InterpretedNormalObject) {
-				final IRAttributeRedefinition attributeRedefinition = attribute.get();
-				if (attributeRedefinition == null)
-					return null;
-				((InterpretedNormalObject) target).setAttributeValue(attributeRedefinition.definition(), value);
-			} else {// TODO tuples
-				throw new InterpreterException("Tried to set an attribute on a native object");
-			}
-			return value;
+		protected @Nullable IRVariableOrAttributeRedefinition varOrAttribute() {
+			return attribute.get();
 		}
 	}
 	
@@ -1281,6 +1310,7 @@ public class ASTExpressions {
 			protected @Nullable IRVariableOrAttributeRedefinition tryLink(final String name) {
 				for (ASTElement p = parent(); p != null; p = p.parent()) {
 					if (p instanceof ASTBlock) {
+						// note: does not care about order of variable use and declaration - TODO either check this here or just let the semantic checker handle it
 						for (final ASTVariableDeclarations vars : ((ASTBlock) p).getDirectChildrenOfType(ASTVariableDeclarations.class)) {
 							for (final ASTVariableDeclarationsVariable var : vars.variables) {
 								final LowercaseWordToken nameToken = var.nameToken;
@@ -1601,12 +1631,18 @@ public class ASTExpressions {
 			
 			{
 				put("+", new String[] {"Addable", "add"});
+				put("+=", new String[] {"Addable", "add"});
 				put("-", new String[] {"Subtractable", "subtract"});
+				put("-=", new String[] {"Subtractable", "subtract"});
 				put("*", new String[] {"Multipliable", "multiply"});
+				put("*=", new String[] {"Multipliable", "multiply"});
 				put("/", new String[] {"Divisible", "divide"});
+				put("/=", new String[] {"Divisible", "divide"});
 				put("^", new String[] {"Exponentiable", "exponentiate"});
 				put("|", new String[] {"Orable", "or"});
+				put("|=", new String[] {"Orable", "or"});
 				put("&", new String[] {"Andable", "and"});
+				put("&=", new String[] {"Andable", "and"});
 				put("==", new String[] {"Comparable", "equals"});
 				put("!=", new String[] {"Comparable", "notEquals"}); // TODO easiest way, but requires a weird notEquals method
 				put("===", new String[] {"Any", "referenceEquals"});
@@ -1737,7 +1773,7 @@ public class ASTExpressions {
 							return null;
 						return m.getType(name);
 					} else if (p instanceof ASTAttribute) {
-						for (ASTGenericTypeDeclaration gp : ((ASTAttribute) p).modifiers().genericParameters) {
+						for (final ASTGenericTypeDeclaration gp : ((ASTAttribute) p).modifiers().genericParameters) {
 							if (name.equals(gp.name()))
 								return gp.getIR();
 						}

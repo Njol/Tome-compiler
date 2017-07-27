@@ -12,15 +12,15 @@ import java.util.Map.Entry;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
-import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ast.ASTElement;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.brokkr.ast.ASTLink;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
-import ch.njol.brokkr.ast.ASTTopLevelElements.ASTModuleIdentifier;
 import ch.njol.brokkr.ast.AbstractASTElement;
+import ch.njol.brokkr.common.ModuleIdentifier;
+import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
+import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 
 /**
  * Brokkr code is divided into modules which can communicate using public interfaces.
@@ -29,11 +29,11 @@ import ch.njol.brokkr.ast.AbstractASTElement;
  */
 public class Module extends ModuleFileElement {
 	
-	public @Nullable ASTModuleIdentifier id;
+	public @Nullable ModuleIdentifier id;
 	
 	public final Modules modules;
 	
-	public Module(final Modules modules, final ASTModuleIdentifier id) {
+	public Module(final Modules modules, final ModuleIdentifier id) {
 		this.modules = modules;
 		this.id = id;
 	}
@@ -55,7 +55,7 @@ public class Module extends ModuleFileElement {
 	// TODO more info?
 	// TODO warn about missing values? leaving the default value might be good or bad...
 	
-	public Map<ASTModuleIdentifier, List<Import>> imports = new HashMap<>();
+	public Map<ModuleIdentifier, List<Import>> imports = new HashMap<>();
 	
 	public final static class Import extends AbstractASTElement<Import> {
 		public ASTLink<IRTypeDefinition> type = new ASTLink<IRTypeDefinition>(this) {
@@ -63,7 +63,7 @@ public class Module extends ModuleFileElement {
 			protected @Nullable IRTypeDefinition tryLink(final String name) {
 				final Module module = getParentOfType(Module.class);
 				assert module != null;
-				for (final Entry<ASTModuleIdentifier, List<Import>> e : module.imports.entrySet()) {
+				for (final Entry<ModuleIdentifier, List<Import>> e : module.imports.entrySet()) {
 					if (!e.getValue().stream().anyMatch(l -> l == Import.this)) // TODO why is this required?
 						continue;
 					final Module importedModule = module.modules.get(e.getKey());
@@ -151,7 +151,7 @@ public class Module extends ModuleFileElement {
 		final IRTypeDefinition declaredType = getDeclaredType(name);
 		if (declaredType != null)
 			return declaredType;
-		for (final Entry<ASTModuleIdentifier, List<Import>> e : imports.entrySet()) {
+		for (final Entry<ModuleIdentifier, List<Import>> e : imports.entrySet()) {
 			for (final Import i : e.getValue()) {
 				if (i.alias.equals(name)) {
 					return i.type.get();
@@ -180,7 +180,7 @@ public class Module extends ModuleFileElement {
 			final List<Import> is = imports.getOrDefault(dis.getKey(), new ArrayList<>());
 			for (final String di : dis.getValue())
 				is.add(new Import(new UppercaseWordToken(di, 0, 1), null));
-			imports.put(new ASTModuleIdentifier(dis.getKey()), is);
+			imports.put(new ModuleIdentifier(dis.getKey()), is);
 		}
 	}
 	
@@ -199,6 +199,11 @@ public class Module extends ModuleFileElement {
 			l.sort((i1, i2) -> i1.type.getName().compareTo(i2.type.getName()));
 		save(this, out, null);
 		out.flush();
+	}
+	
+	@Override
+	public String toString() {
+		return "" + id;
 	}
 	
 }

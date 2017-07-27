@@ -13,7 +13,7 @@ import ch.njol.brokkr.ir.definitions.IRMemberDefinition;
 /**
  * A type use is any use of a type apart from its own definition.
  * <p>
- * This is necessarily also an object, as all type uses can be put into (type) tuples which are themselves objects.
+ * This is necessarily also an object, as all type uses can be put into (type) tuples which are themselves objects. TODO could also create a special type object/class
  */
 public interface IRTypeUse extends InterpretedObject {
 	

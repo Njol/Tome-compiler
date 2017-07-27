@@ -10,7 +10,6 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.interpreter.InterpretedObject;
-import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
@@ -45,7 +44,9 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 		return parentRedefinition().definition();
 	}
 	
-	IRTypeUse targetType();
+	@Override
+	@NonNull
+	IRTypeDefinition declaringType();
 	
 	/**
 	 * @return A complete list of all parameters, including inherited ones.

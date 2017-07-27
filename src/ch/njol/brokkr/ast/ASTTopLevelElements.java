@@ -1,22 +1,12 @@
 package ch.njol.brokkr.ast;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.common.Visibility;
-import ch.njol.brokkr.compiler.Module;
-import ch.njol.brokkr.compiler.Modules;
-import ch.njol.brokkr.compiler.ParseException;
-import ch.njol.brokkr.compiler.Token;
-import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
-import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
-import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.compiler.TokenStream;
 import ch.njol.brokkr.ast.ASTExpressions.ASTTypeExpressions;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
@@ -27,6 +17,16 @@ import ch.njol.brokkr.ast.ASTMembers.ASTMember;
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.ast.ASTMembers.ASTTemplate;
 import ch.njol.brokkr.ast.ASTStatements.ASTCodeGenerationCall;
+import ch.njol.brokkr.common.ModuleIdentifier;
+import ch.njol.brokkr.common.Visibility;
+import ch.njol.brokkr.compiler.Module;
+import ch.njol.brokkr.compiler.Modules;
+import ch.njol.brokkr.compiler.ParseException;
+import ch.njol.brokkr.compiler.Token;
+import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
+import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
+import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.compiler.TokenStream;
 import ch.njol.brokkr.interpreter.Interpreter;
 import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.definitions.IRBrokkrClass;
@@ -61,7 +61,7 @@ public class ASTTopLevelElements {
 		@Override
 		protected ASTBrokkrFile parse() throws ParseException {
 			moduleDeclaration = one(ASTModuleDeclaration.class);
-			module = moduleDeclaration.module == null ? null : modules.get(moduleDeclaration.module);
+			module = moduleDeclaration.module == null ? null : modules.get(moduleDeclaration.module.identifier);
 			if (module != null)
 				module.registerFile(identifier, this);
 			repeatUntilEnd(() -> {
@@ -105,7 +105,7 @@ public class ASTTopLevelElements {
 			final Modules modules = getModules(context);
 			if (modules == null)
 				return null;
-			final Module mod = modules.get(new ASTModuleIdentifier(module));
+			final Module mod = modules.get(new ModuleIdentifier(module));
 			if (mod == null)
 				return null;
 			return mod.getDeclaredType(type);
@@ -146,23 +146,18 @@ public class ASTTopLevelElements {
 	}
 	
 	public static class ASTModuleIdentifier extends AbstractASTElement<ASTModuleIdentifier> {
-		public List<String> parts = new ArrayList<>();
+		public ModuleIdentifier identifier = new ModuleIdentifier();
 		
 		public ASTModuleIdentifier() {}
 		
-		@SuppressWarnings("null")
-		public ASTModuleIdentifier(final String parts) {
-			this.parts.addAll(Arrays.asList(parts.split("\\.")));
-		}
-		
 		@Override
 		public String toString() {
-			return "" + String.join(".", parts);
+			return "" + identifier;
 		}
 		
 		@Override
 		protected ASTModuleIdentifier parse() throws ParseException {
-			parts.add(oneVariableIdentifier());
+			identifier.parts.add(oneVariableIdentifier());
 			while (true) {
 				if (!peekNext('.'))
 					break;
@@ -170,29 +165,12 @@ public class ASTTopLevelElements {
 				if (t instanceof LowercaseWordToken) {
 					next(); // skip '.'
 					next(); // skip package name
-					parts.add(((LowercaseWordToken) t).word);
+					identifier.parts.add(((LowercaseWordToken) t).word);
 				} else {
 					break;
 				}
 			}
 			return this;
-		}
-		
-		@Override
-		public int hashCode() {
-			return parts.hashCode();
-		}
-		
-		@Override
-		public boolean equals(@Nullable final Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			final ASTModuleIdentifier other = (ASTModuleIdentifier) obj;
-			return parts.equals(other.parts);
 		}
 	}
 	
@@ -273,15 +251,23 @@ public class ASTTopLevelElements {
 		}
 		
 		@Override
-		public IRTypeUse parentTypes() {
+		public @Nullable IRTypeUse parentTypes() {
 			return parentTypes(this, parents);
 		}
 		
-		public final static IRTypeUse parentTypes(final ASTElement e, final List<? extends ASTTypeUse> parents) {
+		/**
+		 * @param e
+		 * @param parents
+		 * @return The parent types of this type, or null if this represents the Any type which has no further parents
+		 */
+		public final static @Nullable IRTypeUse parentTypes(final ASTElement e, final List<? extends ASTTypeUse> parents) {
 			if (parents.isEmpty()) {
-				final IRTypeUse any = ASTBrokkrFile.getInterpreter(e).getTypeUse("lang", "Any");
-				if (e != any)
-					return any;
+				if (e instanceof ASTInterfaceDeclaration && "Any".equals(((ASTInterfaceDeclaration) e).name())) {
+					final Module module = ASTBrokkrFile.getModule(e);
+					if (module != null && new ModuleIdentifier("lang").equals(module.id))
+						return null;
+				}
+				return ASTBrokkrFile.getInterpreter(e).getTypeUse("lang", "Any");
 			}
 			return parents.stream().map(t -> t.staticallyKnownType()).reduce((t1, t2) -> new IRAndTypeUse(t1, t2)).get();
 		}
@@ -327,7 +313,7 @@ public class ASTTopLevelElements {
 				return interpreted;
 			return interpreted = new IRBrokkrInterface(this);
 		}
-
+		
 		@Override
 		public boolean isInherited() {
 			return false; // TODO allow to inherit non-private inner types?
@@ -358,7 +344,7 @@ public class ASTTopLevelElements {
 		}
 		
 		@Override
-		public IRTypeUse parentTypes() {
+		public @Nullable IRTypeUse parentTypes() {
 			return ASTInterfaceDeclaration.parentTypes(this, parents);
 		}
 		
@@ -402,7 +388,7 @@ public class ASTTopLevelElements {
 				return interpreted;
 			return interpreted = new IRBrokkrClass(this);
 		}
-
+		
 		@Override
 		public boolean isInherited() {
 			return false;
@@ -500,7 +486,7 @@ public class ASTTopLevelElements {
 		}
 		
 		@Override
-		public IRTypeUse parentTypes() {
+		public @Nullable IRTypeUse parentTypes() {
 			return ASTInterfaceDeclaration.parentTypes(this, parents);
 		}
 		
@@ -543,7 +529,6 @@ public class ASTTopLevelElements {
 		public final ASTTopLevelElementModifiers modifiers;
 		
 		public @Nullable WordToken name;
-		public @Nullable String base;
 		public @Nullable ASTTypeExpression aliasOf;
 		
 		public ASTTypeAliasDeclaration(final ASTTopLevelElementModifiers modifiers) {
@@ -562,7 +547,7 @@ public class ASTTopLevelElements {
 		}
 		
 		@Override
-		public IRTypeUse parentTypes() {
+		public @Nullable IRTypeUse parentTypes() {
 			throw new InterpreterException("");
 		}
 		
@@ -580,11 +565,7 @@ public class ASTTopLevelElements {
 		protected ASTTypeAliasDeclaration parse() throws ParseException {
 			one("alias");
 			until(() -> {
-				name = tryVariableIdentifierToken();
-				if (name == null)
-					name = oneTypeIdentifierToken();
-				else
-					base = oneTypeIdentifier();
+				name = oneTypeIdentifierToken();
 //				tryGroup('<', () -> {
 //					// TODO generic params
 //				}, '>');

@@ -9,6 +9,9 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.brokkr.ast.ASTElementPart;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTMember;
+import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
+import ch.njol.brokkr.common.ModuleIdentifier;
+import ch.njol.brokkr.compiler.Module;
 import ch.njol.brokkr.ir.uses.IRMemberUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
@@ -26,8 +29,14 @@ public abstract class AbstractIRBrokkrTypeDefinition implements IRTypeDefinition
 	}
 	
 	@Override
+	public @Nullable IRTypeDefinition declaringType() {
+		final ASTTypeDeclaration declaringType = declaration.getParentOfType(ASTTypeDeclaration.class);
+		return declaringType != null ? declaringType.getIR() : null;
+	}
+	
+	@Override
 	public String toString() {
-		return name();
+		return ASTBrokkrFile.getModule(declaration) + "." + name();
 	}
 	
 	@Override
@@ -74,6 +83,13 @@ public abstract class AbstractIRBrokkrTypeDefinition implements IRTypeDefinition
 	}
 	
 	@Override
+	public int typeHashCode() {
+		final Module module = ASTBrokkrFile.getModule(declaration);
+		final ModuleIdentifier moduleIdentifier = module == null ? null : module.id;
+		return (moduleIdentifier == null ? 0 : moduleIdentifier.hashCode() * 31) + name().hashCode();
+	}
+	
+	@Override
 	public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
 		// TODO Auto-generated method stub
 		return false;
@@ -83,11 +99,6 @@ public abstract class AbstractIRBrokkrTypeDefinition implements IRTypeDefinition
 	public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
 		// TODO Auto-generated method stub
 		return false;
-	}
-	
-	@Override
-	public boolean equalsMember(final IRMemberRedefinition other) {
-		return other instanceof IRTypeDefinition && equalsType((IRTypeDefinition) other);
 	}
 	
 }

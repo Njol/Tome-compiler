@@ -11,16 +11,16 @@ public class InterpreterContext {
 	
 	public boolean isReturning = true;
 	
-	private final @Nullable InterpretedObject thisObject;
+	private final @Nullable InterpretedNormalObject thisObject;
 	
 	private final Map<IRVariableDefinition, InterpretedObject> localVariableValues = new HashMap<>();
 	
-	public InterpreterContext(final InterpretedObject thisObject) {
+	public InterpreterContext(final InterpretedNormalObject thisObject) {
 		this.thisObject = thisObject;
 	}
 	
-	public InterpretedObject getThisObject() {
-		final InterpretedObject thisObject = this.thisObject;
+	public InterpretedNormalObject getThisObject() {
+		final InterpretedNormalObject thisObject = this.thisObject;
 		if (thisObject == null)
 			throw new InterpreterException("use of 'this' in static method, or call of instance method as static one");
 		return thisObject;

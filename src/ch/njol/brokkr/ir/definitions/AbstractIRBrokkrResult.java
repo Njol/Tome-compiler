@@ -11,4 +11,9 @@ public abstract class AbstractIRBrokkrResult extends AbstractIRBrokkrVariable im
 		this.attribute = attribute;
 	}
 	
+	@Override
+	public IRAttributeRedefinition attribute() {
+		return attribute;
+	}
+	
 }

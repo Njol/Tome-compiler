@@ -86,10 +86,10 @@ public class ASTStatements {
 			}
 			
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse)
-				return parent.one(new ASTLambdaMethodCall(((ASTVariableOrUnqualifiedAttributeUse) expr).link));
+				return parent.one(new ASTLambdaMethodCall((ASTVariableOrUnqualifiedAttributeUse) expr));
 			final ASTAccess a;
 			if (expr instanceof ASTAccessExpression && !((ASTAccessExpression) expr).meta && (a = ((ASTAccessExpression) expr).access) instanceof ASTDirectAttributeAccess)
-				return parent.one(new ASTLambdaMethodCall(expr, ((ASTDirectAttributeAccess) a).attribute));
+				return parent.one(new ASTLambdaMethodCall((ASTAccessExpression) expr, (ASTDirectAttributeAccess) a));
 			
 			return parent.one(new ASTExpressionStatement(expr));
 		}
@@ -400,15 +400,17 @@ public class ASTStatements {
 		public ASTLink<? extends IRVariableOrAttributeRedefinition> method;
 		public List<ASTLambdaMethodCallPart> parts = new ArrayList<>();
 		
-		public ASTLambdaMethodCall(final ASTLink<? extends IRVariableOrAttributeRedefinition> method) {
+		public ASTLambdaMethodCall(final ASTVariableOrUnqualifiedAttributeUse method) {
 			target = null;
-			this.method = method;
+			method.setParent(this);
+			this.method = method.link;
 		}
 		
-		public ASTLambdaMethodCall(final ASTExpression target, final ASTLink<? extends IRVariableOrAttributeRedefinition> method) {
+		public ASTLambdaMethodCall(final ASTAccessExpression target, final ASTDirectAttributeAccess methodAccess) {
+			assert methodAccess.parent() == target;
 			this.target = target;
 			target.setParent(this);
-			this.method = method;
+			method = methodAccess.attribute;
 		}
 		
 		@Override
