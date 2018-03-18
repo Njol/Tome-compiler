@@ -5,10 +5,11 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.SourceCodeLinkable;
+import ch.njol.brokkr.ir.IRElement;
 import ch.njol.brokkr.ir.uses.IRMemberUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
-public interface IRMemberRedefinition extends SourceCodeLinkable {
+public interface IRMemberRedefinition extends SourceCodeLinkable, IRElement {
 	
 	/**
 	 * @return The name of this member, as of this (re)definition.
@@ -36,32 +37,22 @@ public interface IRMemberRedefinition extends SourceCodeLinkable {
 	IRMemberDefinition definition();
 	
 	/**
-	 * @return The type this member is declared in, or null if this is a top-level declaration (which must be a type itself)
+	 * @return The type this member is declared in
 	 */
-	@Nullable
 	IRTypeDefinition declaringType();
 	
 	/**
 	 * @param other
 	 * @return Whether this member is the same as the given member, i.e. is declared in the same type and has the same name.
-	 *         // TODO if there is a name conflict, what should this do? or should one or both members get a synthetic name?
+	 *         // TODO if there is a name conflict, what should this do? should one or both members get a synthetic name?
 	 */
 	default boolean equalsMember(final IRMemberRedefinition other) {
-		final IRTypeDefinition thisDeclaringType = declaringType();
-		final IRTypeDefinition otherDeclaringType = other.declaringType();
-		if (thisDeclaringType == null) {
-			if (otherDeclaringType != null)
-				return false;
-			return ((IRTypeDefinition) this).equalsType((IRTypeDefinition) other);
-		}
-		if (otherDeclaringType == null)
-			return false;
-		return thisDeclaringType.equalsType(otherDeclaringType) && name().equals(other.name());
+		return declaringType().equalsType(other.declaringType()) && name().equals(other.name());
 	}
 	
 	default int memberHashCode() {
 		final IRTypeDefinition declaringType = declaringType();
-		return (declaringType == null ? ((IRTypeDefinition) this) : declaringType).typeHashCode() * 31 + name().hashCode();
+		return declaringType.typeHashCode() * 31 + name().hashCode();
 	}
 	
 	/**

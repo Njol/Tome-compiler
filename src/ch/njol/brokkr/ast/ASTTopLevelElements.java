@@ -9,14 +9,14 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTExpressions.ASTTypeExpressions;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTGenericParameter;
+import ch.njol.brokkr.ast.ASTInterfaces.ASTMember;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeExpression;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeUse;
+import ch.njol.brokkr.ast.ASTMembers.ASTCodeGenerationCallMember;
 import ch.njol.brokkr.ast.ASTMembers.ASTGenericTypeDeclaration;
-import ch.njol.brokkr.ast.ASTMembers.ASTMember;
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.ast.ASTMembers.ASTTemplate;
-import ch.njol.brokkr.ast.ASTStatements.ASTCodeGenerationCall;
 import ch.njol.brokkr.common.ModuleIdentifier;
 import ch.njol.brokkr.common.Visibility;
 import ch.njol.brokkr.compiler.Module;
@@ -27,15 +27,16 @@ import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.compiler.TokenStream;
-import ch.njol.brokkr.interpreter.Interpreter;
-import ch.njol.brokkr.interpreter.InterpreterException;
-import ch.njol.brokkr.ir.definitions.IRBrokkrClass;
-import ch.njol.brokkr.ir.definitions.IRBrokkrInterface;
+import ch.njol.brokkr.ir.IRContext;
+import ch.njol.brokkr.ir.definitions.IRBrokkrClassDefinition;
+import ch.njol.brokkr.ir.definitions.IRBrokkrInterfaceDefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
+import ch.njol.brokkr.ir.definitions.IRUnknownTypeDefinition;
 import ch.njol.brokkr.ir.uses.IRAndTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
+import ch.njol.util.StringUtils;
 
 public class ASTTopLevelElements {
 	
@@ -57,16 +58,16 @@ public class ASTTopLevelElements {
 			return "file";
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		protected ASTBrokkrFile parse() throws ParseException {
-			moduleDeclaration = one(ASTModuleDeclaration.class);
-			module = moduleDeclaration.module == null ? null : modules.get(moduleDeclaration.module.identifier);
+			final ASTModuleDeclaration moduleDeclaration = this.moduleDeclaration = one(ASTModuleDeclaration.class);
+			final ASTModuleIdentifier moduleIdentifier = moduleDeclaration.module;
+			module = moduleIdentifier == null ? null : modules.get(moduleIdentifier.identifier);
 			if (module != null)
 				module.registerFile(identifier, this);
 			repeatUntilEnd(() -> {
 				if (peekNext('$')) {
-					declarations.add(one(ASTCodeGenerationCall.class));
+					declarations.add(one(ASTCodeGenerationCallMember.class));
 					return;
 				}
 				final ASTTopLevelElementModifiers modifiers = one(ASTTopLevelElementModifiers.class);
@@ -101,35 +102,9 @@ public class ASTTopLevelElements {
 			return r;
 		}
 		
-		public final static @Nullable IRTypeDefinition getStandardType(final ASTElement context, final String module, final String type) {
-			final Modules modules = getModules(context);
-			if (modules == null)
-				return null;
-			final Module mod = modules.get(new ModuleIdentifier(module));
-			if (mod == null)
-				return null;
-			return mod.getDeclaredType(type);
-		}
-		
-		public final static @Nullable Modules getModules(final ASTElement context) {
-			final ASTBrokkrFile file = context.getParentOfType(ASTBrokkrFile.class);
-			if (file == null)
-				return null;
-			return file.modules;
-		}
-		
-		public final static @Nullable Module getModule(final ASTElement context) {
-			final ASTBrokkrFile file = context.getParentOfType(ASTBrokkrFile.class);
-			if (file == null)
-				return null;
-			return file.module;
-		}
-		
-		public final static Interpreter getInterpreter(final ASTElement context) {
-			final Modules modules = getModules(context);
-			if (modules == null)
-				throw new InterpreterException("missing module");
-			return modules.interpreter;
+		@Override
+		public IRContext getIRContext() {
+			return modules.irContext;
 		}
 		
 //		@Override
@@ -198,6 +173,12 @@ public class ASTTopLevelElements {
 		public boolean isNative;
 		
 		@Override
+		public @NonNull String toString() {
+			return (genericParameters.isEmpty() ? "" : "<" + StringUtils.join(genericParameters, ", ") + "> ")
+					+ (isNative ? "native " : "") + (visibility == null ? "" : visibility + " ");
+		}
+		
+		@Override
 		protected ASTTopLevelElementModifiers parse() throws ParseException {
 			// modifiers
 			unordered(() -> {
@@ -263,13 +244,14 @@ public class ASTTopLevelElements {
 		public final static @Nullable IRTypeUse parentTypes(final ASTElement e, final List<? extends ASTTypeUse> parents) {
 			if (parents.isEmpty()) {
 				if (e instanceof ASTInterfaceDeclaration && "Any".equals(((ASTInterfaceDeclaration) e).name())) {
-					final Module module = ASTBrokkrFile.getModule(e);
-					if (module != null && new ModuleIdentifier("lang").equals(module.id))
-						return null;
+					final ASTBrokkrFile file = e.getParentOfType(ASTBrokkrFile.class);
+					ASTModuleDeclaration md;
+					if (file != null && (md = file.moduleDeclaration) != null && new ModuleIdentifier("lang").equals(md.module))
+						return null; // only [lang.Any] has no parent
 				}
-				return ASTBrokkrFile.getInterpreter(e).getTypeUse("lang", "Any");
+				return e.getIRContext().getTypeUse("lang", "Any");
 			}
-			return parents.stream().map(t -> t.staticallyKnownType()).reduce((t1, t2) -> new IRAndTypeUse(t1, t2)).get();
+			return parents.stream().map(t -> t.getIR()).reduce((t1, t2) -> IRAndTypeUse.makeNew(t1, t2)).get();
 		}
 		
 		@Override
@@ -300,18 +282,23 @@ public class ASTTopLevelElements {
 				}
 			}, '{', false);
 			repeatUntil(() -> {
-				members.add(ASTMember.parse(this));
+				members.add(ASTMembers.parse(this));
 			}, '}', true);
 			return this;
 		}
 		
-		private @Nullable IRBrokkrInterface interpreted = null;
+		private @Nullable IRBrokkrInterfaceDefinition ir = null;
 		
 		@Override
-		public IRBrokkrInterface getIR() {
-			if (interpreted != null)
-				return interpreted;
-			return interpreted = new IRBrokkrInterface(this);
+		public IRBrokkrInterfaceDefinition getIR() {
+			if (ir != null)
+				return ir;
+			return ir = new IRBrokkrInterfaceDefinition(this);
+		}
+		
+		@Override
+		public List<? extends IRMemberRedefinition> getIRMembers() {
+			return Collections.EMPTY_LIST;
 		}
 		
 		@Override
@@ -375,18 +362,23 @@ public class ASTTopLevelElements {
 				}
 			}, '{', false);
 			repeatUntil(() -> {
-				members.add(ASTMember.parse(this));
+				members.add(ASTMembers.parse(this));
 			}, '}', true);
 			return this;
 		}
 		
-		private @Nullable IRBrokkrClass interpreted = null;
+		private @Nullable IRBrokkrClassDefinition ir = null;
 		
 		@Override
-		public IRBrokkrClass getIR() {
-			if (interpreted != null)
-				return interpreted;
-			return interpreted = new IRBrokkrClass(this);
+		public IRBrokkrClassDefinition getIR() {
+			if (ir != null)
+				return ir;
+			return ir = new IRBrokkrClassDefinition(this);
+		}
+		
+		@Override
+		public List<? extends IRMemberRedefinition> getIRMembers() {
+			return Collections.EMPTY_LIST;
 		}
 		
 		@Override
@@ -505,6 +497,7 @@ public class ASTTopLevelElements {
 			one("extension");
 			name = oneTypeIdentifierToken();
 			//generics=GenericParameters? // deriving the generics of an extension is non-trivial (e.g. 'extension WeirdList<X> extends List<T extends Comparable<X> & Collection<X>>')
+			// could just make an error if it cannot be inferred, and allow it for the normal, simple cases
 			one("extends");
 			extended = ASTTypeExpressions.parse(this, true, false);
 			if (try_("implements")) {
@@ -513,14 +506,14 @@ public class ASTTopLevelElements {
 				} while (try_(','));
 			}
 			oneRepeatingGroup('{', () -> {
-				members.add(ASTMember.parse(this));
+				members.add(ASTMembers.parse(this));
 			}, '}');
 			return this;
 		}
 		
 		@Override
 		public IRTypeDefinition getIR() {
-			throw new InterpreterException("not implemented");
+			return new IRUnknownTypeDefinition(getIRContext(), "not implemented", this);
 		}
 	}
 	
@@ -548,7 +541,7 @@ public class ASTTopLevelElements {
 		
 		@Override
 		public @Nullable IRTypeUse parentTypes() {
-			throw new InterpreterException("");
+			return null;
 		}
 		
 		@Override
@@ -577,7 +570,7 @@ public class ASTTopLevelElements {
 		
 		@Override
 		public IRTypeDefinition getIR() {
-			throw new InterpreterException("not implemented");
+			return new IRUnknownTypeDefinition(getIRContext(), "not implemented", this);
 //			return aliasOf.interpret(new InterpreterContext(null));
 		}
 	}

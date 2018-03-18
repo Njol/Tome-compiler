@@ -141,11 +141,11 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 		return f != null && (f.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT | Modifier.FINAL)) == 0;
 	}
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({"null", "unchecked", "rawtypes"})
 	protected Object parse(final String name, final Type genericType) throws ParseException {
 		final Class<?> rawType = getRawType(genericType);
 		if (AbstractASTElement.class.isAssignableFrom(rawType)) {
-			return one((Class<? extends AbstractASTElement<?>>) rawType);
+			return one((Class) rawType); // Eclipse Oxygen cannot deal with generics here
 		} else if (ModuleIdentifier.class.isAssignableFrom(rawType)) {
 			return one(ASTModuleIdentifier.class).identifier;
 		} else if (Map.class.isAssignableFrom(rawType)) {

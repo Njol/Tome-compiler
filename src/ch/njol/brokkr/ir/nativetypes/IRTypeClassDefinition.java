@@ -5,6 +5,6 @@ import ch.njol.brokkr.ir.definitions.IRClassDefinition;
 /**
  * The class a native type is an instance of.
  */
-public interface IRNativeTypeClass extends IRClassDefinition {
+public interface IRTypeClassDefinition extends IRClassDefinition {
 	
 }

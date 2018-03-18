@@ -2,12 +2,14 @@ package ch.njol.brokkr.ast;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.common.AbstractInvalidatable;
+import ch.njol.brokkr.common.Cache;
+import ch.njol.brokkr.common.Derived;
 import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.interpreter.InterpreterException;
 
-public abstract class ASTLink<T> {
+public abstract class ASTLink<T extends Derived> extends AbstractInvalidatable {
 	
-	// not 'parent' to not shadow 'parent' of Element
+	// not 'parent' to not shadow 'parent' of ASTElement when used an anonymous subclass inside an element
 	public final ASTElement parentElement;
 	
 	public ASTLink(final ASTElement parent) {
@@ -22,46 +24,54 @@ public abstract class ASTLink<T> {
 	
 	private @Nullable WordToken name;
 	
-	public void setName(final @Nullable WordToken name) {
+	public final void setName(final @Nullable WordToken name) {
+		assert this.name == null;
 		this.name = name;
-		value = null;
 	}
 	
-	public @Nullable String getName() {
+	public final @Nullable String getName() {
 		final WordToken token = name;
 		return token != null ? token.word : null;
 	}
 	
-	public @Nullable WordToken getNameToken() {
+	public final @Nullable WordToken getNameToken() {
 		return name;
 	}
 	
-	private @Nullable T value = null;
-	
 	private boolean isLinking = false;
 	
-	public @Nullable T get() {
-		if (isLinking) // recursion - abort
+	private final Cache<@Nullable T> cache = new Cache<>(() -> {
+		if (isLinking) {// recursion - abort
+			assert false : this;
+			return null;
+		}
+		final WordToken token = name;
+		if (token == null)
 			return null;
 		isLinking = true;
-		if (value == null) {
-			final WordToken token = name;
-			if (token == null) {
-				value = null;
-			} else {
-				try {
-					value = tryLink(token.word);
-				} catch (NullPointerException | InterpreterException e) {
-//					System.err.println("interpreter error in link " + parentElement + "::" + name);
-				}
-			}
-		}
+		final @Nullable T value = tryLink(token.word);
 		isLinking = false;
 		return value;
-	}
+	});
 	
-	public void clear() {
-		name = null;
+	public final @Nullable T get() {
+		@Nullable
+		T value = cache.get();
+		if (value == null) {
+			if (isLinking) {// recursion - abort
+				assert false : this;
+				return null;
+			}
+			final WordToken token = name;
+			if (token != null) {
+				isLinking = true;
+				value = tryLink(token.word);
+				isLinking = false;
+				if (value != null)
+					registerInvalidateListener(value);
+			}
+		}
+		return value;
 	}
 	
 	protected abstract @Nullable T tryLink(String name);
@@ -70,4 +80,5 @@ public abstract class ASTLink<T> {
 	public String toString() {
 		return "" + name;
 	}
+	
 }

@@ -1,11 +1,18 @@
 package ch.njol.brokkr.ir.definitions;
 
+import org.eclipse.jdt.annotation.Nullable;
+
+import ch.njol.brokkr.ir.expressions.IRExpression;
+
 public interface IRResultRedefinition extends IRVariableRedefinition {
 	
 	@Override
 	IRResultDefinition definition();
 	
 	IRAttributeRedefinition attribute();
+	
+	@Nullable
+	IRExpression defaultValue();
 	
 	/**
 	 * @param other

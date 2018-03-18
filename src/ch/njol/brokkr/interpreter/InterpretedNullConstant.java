@@ -2,9 +2,12 @@ package ch.njol.brokkr.interpreter;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.common.AbstractDerived;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeImplementation;
 import ch.njol.brokkr.ir.definitions.IRClassDefinition;
@@ -12,10 +15,27 @@ import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.uses.IRClassUse;
 import ch.njol.brokkr.ir.uses.IRSimpleClassUse;
+import ch.njol.brokkr.ir.uses.IRTypeUse;
 
+// FIXME is this even an object? it's the ABSENCE of an object, and it has no proper type either...
 public class InterpretedNullConstant implements InterpretedObject {
 	
-	public static class IRNativeNullClass implements IRClassDefinition {
+	private final IRContext irContext;
+	
+	private InterpretedNullConstant(final IRContext irContext) {
+		this.irContext = irContext;
+	}
+	
+	/**
+	 * null is a singleton to make reference comparisons much easier ([InterpretedObject a == InterpretedObject b] is then exactly reference equality)
+	 * // TODO if I make value types, those need a different interface to implement (e.g. InterpretedReferenceObject and InterpretedValueObject) or I'll still need an equality
+	 * method that throws an InterpretedException for value objects
+	 */
+	public static InterpretedNullConstant get(final IRContext irContext) {
+		return new InterpretedNullConstant(irContext);
+	}
+	
+	private class IRNativeNullClassDefinition extends AbstractDerived implements IRClassDefinition {
 		
 		@Override
 		public @Nullable IRAttributeImplementation getAttributeImplementation(final IRAttributeDefinition definition) {
@@ -36,32 +56,47 @@ public class InterpretedNullConstant implements InterpretedObject {
 		
 		@Override
 		public boolean equalsType(final IRTypeDefinition other) {
-			return other instanceof IRNativeNullClass;
+			return other instanceof IRNativeNullClassDefinition;
 		}
 		
 		@Override
-		public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
-			// note: null is implemented not as a type, but as a value.
-			// This means that this null type is not a subtype of all other types as in some other languages.
-			// TODO or is it?
-			return other instanceof IRNativeNullClass;
+		public int compareTo(final IRTypeDefinition other) {
+			return other instanceof IRNativeNullClassDefinition ? 0 : -1;
 		}
 		
-		@Override
-		public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
-			return other instanceof IRNativeNullClass;
-		}
+//		@Override
+//		public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
+//			// note: null is implemented not as a type, but as a value.
+//			// This means that this null type is not a subtype of all other types as in some other languages.
+//			// TODO or is it?
+//			return other instanceof IRNativeNullClass;
+//		}
+//
+//		@Override
+//		public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
+//			return other instanceof IRNativeNullClass;
+//		}
 		
 		@Override
 		public int typeHashCode() {
 			return 0;
 		}
 		
+		@Override
+		public Set<? extends IRTypeUse> allInterfaces() {
+			return Collections.EMPTY_SET; // TODO all interfaces that exist? none? only Any?
+		}
+		
+		@Override
+		public IRContext getIRContext() {
+			return irContext;
+		}
+		
 	}
 	
 	@Override
 	public IRClassUse nativeClass() {
-		return new IRSimpleClassUse(new IRNativeNullClass());
+		return new IRSimpleClassUse(new IRNativeNullClassDefinition());
 	}
 	
 }

@@ -16,6 +16,8 @@ import ch.njol.brokkr.ast.ASTElementPart;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeObject;
+import ch.njol.brokkr.ir.AbstractIRElement;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeImplementation;
@@ -26,32 +28,41 @@ import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRResultDefinition;
 import ch.njol.brokkr.ir.definitions.IRResultRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
+import ch.njol.brokkr.ir.expressions.IRExpression;
 import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
-public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttributeDefinition {
+public class IRNativeMethod extends AbstractIRElement implements IRAttributeImplementation, IRAttributeDefinition {
 	
 	private final Method method;
 	private final List<IRParameterRedefinition> parameters = new ArrayList<>();
 	private final IRResultRedefinition result;
 	private final String name;
+	private final IRContext irContext;
 	
-	@SuppressWarnings({"null", "unchecked"})
-	public IRNativeNativeMethod(final Method method, final String name) {
+	public IRNativeMethod(final Method method, final String name, final IRContext irContext) {
 		this.method = method;
 		this.name = name;
-		final Class<?>[] parameterTypes = method.getParameterTypes();
+		this.irContext = irContext;
+		final @NonNull Class<?>[] parameterTypes = method.getParameterTypes();
 		for (int i = 0; i < parameterTypes.length; i++)
-			parameters.add(new Parameter(i, IRSimpleNativeClass.get((Class<? extends InterpretedNativeObject>) parameterTypes[i])));
-		result = new Result("result", IRSimpleNativeClass.get((Class<? extends InterpretedNativeObject>) method.getReturnType()));
+			parameters.add(new Parameter(i, IRNativeTypeClassDefinition.get(irContext, checkInterpretedNativeObjectClass(parameterTypes[i]))));
+		result = new Result("result", IRNativeTypeClassDefinition.get(irContext, checkInterpretedNativeObjectClass(method.getReturnType())));
 	}
 	
-	private class Parameter implements IRParameterDefinition {
+	@SuppressWarnings("unchecked")
+	private final static Class<? extends InterpretedNativeObject> checkInterpretedNativeObjectClass(@Nullable final Class<?> c) {
+		if (c != null && InterpretedNativeObject.class.isAssignableFrom(c))
+			return (Class<? extends InterpretedNativeObject>) c;
+		throw new RuntimeException("Not a subtype of InterpretedNativeObject: " + c);
+	}
+	
+	private class Parameter extends AbstractIRElement implements IRParameterDefinition {
 		
 		private final int index;
-		private final IRSimpleNativeClass type;
+		private final IRNativeTypeClassDefinition type;
 		
-		public Parameter(final int index, final IRSimpleNativeClass type) {
+		public Parameter(final int index, final IRNativeTypeClassDefinition type) {
 			this.index = index;
 			this.type = type;
 		}
@@ -73,7 +84,12 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 		
 		@Override
 		public IRAttributeRedefinition attribute() {
-			return IRNativeNativeMethod.this;
+			return IRNativeMethod.this;
+		}
+		
+		@Override
+		public IRContext getIRContext() {
+			return irContext;
 		}
 		
 		@Override
@@ -86,14 +102,19 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 			return other instanceof IRParameterRedefinition ? equalsParameter((IRParameterRedefinition) other) : false;
 		}
 		
+		@Override
+		public String hoverInfo() {
+			return type + " " + name;
+		}
+		
 	}
 	
-	private class Result implements IRResultDefinition {
+	private class Result extends AbstractIRElement implements IRResultDefinition {
 		
 		private final String name;
-		private final IRSimpleNativeClass type;
+		private final IRNativeTypeClassDefinition type;
 		
-		public Result(final String name, final IRSimpleNativeClass type) {
+		public Result(final String name, final IRNativeTypeClassDefinition type) {
 			this.name = name;
 			this.type = type;
 		}
@@ -110,7 +131,22 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 		
 		@Override
 		public IRAttributeRedefinition attribute() {
-			return IRNativeNativeMethod.this;
+			return IRNativeMethod.this;
+		}
+		
+		@Override
+		public IRContext getIRContext() {
+			return irContext;
+		}
+		
+		@Override
+		public String hoverInfo() {
+			return type + " " + name;
+		}
+		
+		@Override
+		public @Nullable IRExpression defaultValue() {
+			return null;
 		}
 		
 	}
@@ -166,10 +202,15 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 		return name;
 	}
 	
+	@Override
+	public String hoverInfo() {
+		return "Native method " + declaringType() + "." + name;
+	}
+	
 	@SuppressWarnings("unchecked")
 	@Override
-	public @NonNull IRTypeDefinition declaringType() {
-		return IRSimpleNativeClass.get((Class<? extends InterpretedNativeObject>) method.getDeclaringClass());
+	public IRTypeDefinition declaringType() {
+		return IRNativeTypeClassDefinition.get(irContext, (Class<? extends InterpretedNativeObject>) method.getDeclaringClass());
 	}
 	
 	@Override
@@ -185,6 +226,16 @@ public class IRNativeNativeMethod implements IRAttributeImplementation, IRAttrib
 	@Override
 	public boolean equals(@Nullable final Object other) {
 		return other instanceof IRMemberRedefinition ? equalsMember((IRMemberRedefinition) other) : false;
+	}
+	
+	@Override
+	public IRContext getIRContext() {
+		return irContext;
+	}
+	
+	@Override
+	public @Nullable IRAttributeRedefinition parentRedefinition() {
+		return null;
 	}
 	
 }

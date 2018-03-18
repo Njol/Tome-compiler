@@ -1,17 +1,12 @@
 package ch.njol.brokkr.ast;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.ast.ASTMembers.ASTMember;
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.interpreter.InterpretedObject;
-import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeRedefinition;
@@ -20,8 +15,9 @@ import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRResultRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableRedefinition;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
+import ch.njol.brokkr.ir.expressions.IRExpression;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
+import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTupleBuilder;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 import ch.njol.brokkr.ir.uses.IRUnknownTypeUse;
 
@@ -65,13 +61,13 @@ public class ASTInterfaces {
 	
 	public static interface ASTLocalVariable extends ASTVariable {
 		
-		public IRVariableRedefinition interpreted();
+		public IRVariableRedefinition getIR();
 		
 	}
 	
 	public static interface ASTParameter extends ASTVariable {
 		
-		IRParameterRedefinition interpreted(IRAttributeRedefinition attribute);
+		IRParameterRedefinition getIR();
 		
 //		public @Nullable FormalParameter overridden();
 	
@@ -79,7 +75,7 @@ public class ASTInterfaces {
 	
 	public static interface ASTResult extends TypedASTElement, NamedASTElement {
 		
-		IRResultRedefinition interpreted(IRAttributeRedefinition attribute);
+		IRResultRedefinition getIR();
 		
 	}
 	
@@ -91,7 +87,7 @@ public class ASTInterfaces {
 		public default @Nullable IRError getError(final String name) {
 			for (final ASTError e : declaredErrors()) {
 				if (name.equals(e.name()))
-					return e.getIR(getIR());
+					return e.getIRError();
 			}
 			final IRMemberRedefinition parent = modifiers().overridden.get();
 			return parent != null && parent instanceof IRAttributeRedefinition ? ((IRAttributeRedefinition) parent).getErrorByName(name) : null;
@@ -102,7 +98,7 @@ public class ASTInterfaces {
 		public default @Nullable IRResultRedefinition getResult(final String name) {
 			for (final ASTResult r : declaredResults()) {
 				if (name.equals(r.name()))
-					return r.interpreted(getIR());
+					return r.getIR();
 			}
 			final IRMemberRedefinition parent = modifiers().overridden.get();
 			if (parent != null && parent instanceof IRAttributeRedefinition) {
@@ -113,7 +109,7 @@ public class ASTInterfaces {
 			if ("result".equals(name) && declaredResults().size() > 0) {
 				final ASTResult first = declaredResults().get(0);
 				if (first.name() == null)
-					return first.interpreted(getIR());
+					return first.getIR();
 			}
 			return null;
 		}
@@ -128,24 +124,24 @@ public class ASTInterfaces {
 		@Override
 		public default IRTypeUse getIRType() {
 			final IRResultRedefinition result = getResult("result");
-			return result == null ? new IRTypeTuple(Collections.EMPTY_LIST) : result.type();
+			return result == null ? IRTypeTuple.emptyTuple(getIRContext()) : result.type();
 		}
 		
 		/**
 		 * @return A tuple of all result types of this method (or a tuple with a single type if a field)
 		 */
 		public default IRTypeTuple allTypes() {
-			final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-			final List<IRResultRedefinition> results = allResults();
-			for (int i = 0; i < results.size(); i++) {
-				final IRResultRedefinition r = results.get(i);
-				final IRTypeUse type = r.type();
-				entries.add(new IRNativeTupleValueAndEntry(i, type.nativeClass(), r.name(), type));
-			}
-			return new IRTypeTuple(entries);
+			final IRTypeTupleBuilder builder = new IRTypeTupleBuilder(getIRContext());
+			for (final IRResultRedefinition r : allResults())
+				builder.addEntry(r.name(), r.type());
+			return builder.build();
 		}
 		
 		@Override
+		default List<? extends IRMemberRedefinition> getIRMembers() {
+			return Collections.singletonList(getIR());
+		}
+		
 		public IRAttributeRedefinition getIR();
 		
 	}
@@ -166,14 +162,18 @@ public class ASTInterfaces {
 	
 	public static interface ASTError extends NamedASTElement {
 		
-		IRError getIR(IRAttributeRedefinition attribute);
+		IRError getIRError();
 		
 	}
 	
 	public static interface ASTExpression extends TypedASTElement {
 		
-		@Nullable
-		InterpretedObject interpret(InterpreterContext context);
+		IRExpression getIR();
+		
+		@Override
+		default IRTypeUse getIRType() {
+			return getIR().type();
+		}
 		
 	}
 	
@@ -186,10 +186,25 @@ public class ASTInterfaces {
 		
 		List<? extends ASTGenericParameter> genericParameters();
 		
+		// TODO remove?
 		@Nullable
 		IRTypeUse parentTypes();
 		
 		IRTypeDefinition getIR();
+		
+	}
+	
+	public static interface ASTMember extends ASTElement {
+		
+		/**
+		 * @return Whether this member is also visible from subtypes. Usually true.
+		 */
+		boolean isInherited();
+		
+		/**
+		 * @return The intermediate representation(s) of this member.
+		 */
+		List<? extends IRMemberRedefinition> getIRMembers();
 		
 	}
 	
@@ -209,22 +224,21 @@ public class ASTInterfaces {
 	 */
 	public static interface ASTTypeUse extends TypedASTElement {
 		
+		IRTypeUse getIR();
+		
 		@Override
 		default IRTypeUse getIRType() {
-			return staticallyKnownType();
+			return getIR().type();
 		}
-		
-		IRTypeUse staticallyKnownType();
-		
-		IRTypeUse interpret(InterpreterContext context);
 		
 	}
 	
 	public static interface ASTTypeExpression extends ASTTypeUse, ASTExpression {
 		
 		@Override
-		@NonNull
-		IRTypeUse interpret(InterpreterContext context);
+		default IRTypeUse getIRType() {
+			return ASTExpression.super.getIRType();
+		}
 		
 	}
 	

@@ -1,7 +1,5 @@
 package ch.njol.brokkr.ir.definitions;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,9 +8,10 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.interpreter.InterpretedObject;
+import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.IRError;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
+import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTupleBuilder;
 import ch.njol.brokkr.ir.uses.IRAttributeUse;
 import ch.njol.brokkr.ir.uses.IRGenericTypeUse;
 import ch.njol.brokkr.ir.uses.IRMemberUse;
@@ -23,7 +22,7 @@ import ch.njol.brokkr.ir.uses.IRUnknownTypeUse;
  * A (re)definition of an attribute,
  * which may either be the {@link IRAttributeDefinition the first definition} or a redefinition.
  * A redefinition may be an {@link IRAttributeImplementation implementation},
- * or may just change the signature (with e.g. more results or different {@link #modifiability() modifiability}).
+ * or may just change the signature (with e.g. more results or different flags.
  */
 public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariableOrAttributeRedefinition {
 	
@@ -39,14 +38,11 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 	 * @return The topmost definition of this attribute
 	 */
 	@Override
-	@SuppressWarnings("null") // IRAttributeDefinition overrides this to return itself
 	default IRAttributeDefinition definition() {
-		return parentRedefinition().definition();
+		final IRAttributeRedefinition parentRedefinition = parentRedefinition();
+		assert parentRedefinition != null : this; // IRAttributeDefinition and IRBrokkrTemplate override this method to return themselves
+		return parentRedefinition.definition();
 	}
-	
-	@Override
-	@NonNull
-	IRTypeDefinition declaringType();
 	
 	/**
 	 * @return A complete list of all parameters, including inherited ones.
@@ -71,12 +67,27 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 		return null;
 	}
 	
+	default @Nullable IRParameterRedefinition getParameterByPosition(final int index) {
+		final List<IRParameterRedefinition> parameters = parameters();
+		if (0 <= index && index < parameters.size())
+			return parameters.get(index);
+		return null;
+	}
+	
 	default @Nullable IRResultRedefinition getResultByName(final String name) {
 		for (final IRResultRedefinition r : results()) {
 			if (r.name().equals(name))
 				return r;
 		}
 		return null;
+	}
+	
+	/**
+	 * @return The single result called "result" of this attribute, or null if this attribute does not have exactly one result with that name.
+	 */
+	default @Nullable IRResultRedefinition getSingleResult() {
+		final List<IRResultRedefinition> results = results();
+		return results.size() == 1 && results.get(0).name().equals("result") ? results.get(0) : null;
 	}
 	
 	default @Nullable IRError getErrorByName(final String name) {
@@ -94,29 +105,23 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 				return r.type();
 		}
 		// no main result = void/empty tuple
-		return new IRTypeTuple(Collections.EMPTY_LIST);
+		return IRTypeTuple.emptyTuple(getIRContext());
 	}
 	
 	default IRTypeTuple allResultTypes() {
-		final List<IRResultRedefinition> results = results();
-		final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-		for (int i = 0; i < results.size(); i++) {
-			final IRResultRedefinition result = results.get(i);
-			final IRTypeUse type = result.type();
-			entries.add(new IRNativeTupleValueAndEntry(i, type.nativeClass(), result.name(), type));
+		final IRTypeTupleBuilder builder = new IRTypeTupleBuilder(getIRContext());
+		for (final IRResultRedefinition result : results()) {
+			builder.addEntry(result.name(), result.type());
 		}
-		return new IRTypeTuple(entries);
+		return builder.build();
 	}
 	
 	default IRTypeTuple allParameterTypes() {
-		final List<IRParameterRedefinition> parameters = parameters();
-		final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-		for (int i = 0; i < parameters.size(); i++) {
-			final IRParameterRedefinition parameter = parameters.get(i);
-			final IRTypeUse type = parameter.type();
-			entries.add(new IRNativeTupleValueAndEntry(i, type.nativeClass(), parameter.name(), type));
+		final IRTypeTupleBuilder builder = new IRTypeTupleBuilder(getIRContext());
+		for (final IRParameterRedefinition parameter : parameters()) {
+			builder.addEntry(parameter.name(), parameter.type());
 		}
-		return new IRTypeTuple(entries);
+		return builder.build();
 	}
 	
 	/**
@@ -131,7 +136,7 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 	boolean isVariable();
 	
 	@SuppressWarnings("null")
-	default InterpretedObject interpretDispatched(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
+	default InterpretedObject interpretDispatched(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) throws InterpreterException {
 		return thisObject.nativeClass().getAttributeImplementation(definition()).interpretImplementation(thisObject, arguments, allResults);
 	}
 	
@@ -142,7 +147,7 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 			if (p.type() instanceof IRGenericTypeUse) {
 				IRTypeUse gt = genericArguments.get(((IRGenericTypeUse) p.type()).definition());
 				if (gt == null)
-					gt = new IRUnknownTypeUse();
+					gt = new IRUnknownTypeUse(getIRContext());
 				argumentTypes.put(p.definition(), gt);
 			} else {
 				argumentTypes.put(p.definition(), p.type());

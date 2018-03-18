@@ -37,6 +37,6 @@ public enum Modifiability {
 	
 	@Override
 	public String toString() {
-		return "" + name().toLowerCase(Locale.ENGLISH);
+		return name().toLowerCase(Locale.ENGLISH);
 	}
 }

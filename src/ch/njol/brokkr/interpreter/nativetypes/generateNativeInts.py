@@ -19,6 +19,7 @@ for signed in  ['', 'U']:
 
 import ch.njol.brokkr.interpreter.InterpretedNormalObject;
 import ch.njol.brokkr.interpreter.Interpreter;
+import ch.njol.brokkr.ir.IRContext;
 
 // GENERATED FILE - DO NOT MODIFY
 
@@ -26,14 +27,15 @@ public class '''+typeName+''' extends AbstractInterpretedSimpleNativeObject {
 	
 	public '''+primitive+''' value;
 
-	public '''+typeName+'''('''+primitive+''' value) {
+	public '''+typeName+'''(IRContext irContext, '''+primitive+''' value) {
+		super(irContext);
 		this.value = value;
 	}
 
 	// native methods
 	
 	public '''+typeName+''' _add'''+bits+'''('''+typeName+''' other) {
-		return new '''+typeName+'''(('''+primitive+''')(value + other.value));
+		return new '''+typeName+'''(irContext, ('''+primitive+''')(value + other.value));
 	}
 	
 }

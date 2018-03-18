@@ -1,6 +1,7 @@
 package ch.njol.brokkr.ast;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -14,6 +15,7 @@ import ch.njol.brokkr.ast.ASTExpressions.ASTTypeExpressions;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTError;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTExpression;
+import ch.njol.brokkr.ast.ASTInterfaces.ASTMember;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTParameter;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTResult;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
@@ -21,7 +23,6 @@ import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeExpression;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTVariable;
 import ch.njol.brokkr.ast.ASTInterfaces.NamedASTElement;
-import ch.njol.brokkr.ast.ASTStatements.ASTCodeGenerationCall;
 import ch.njol.brokkr.ast.ASTStatements.ASTReturn;
 import ch.njol.brokkr.ast.ASTStatements.ASTStatement;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
@@ -36,10 +37,16 @@ import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.SymbolToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.interpreter.InterpretedNormalObject;
+import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
-import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeBoolean;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeCodeGenerationResult;
+import ch.njol.brokkr.ir.IRBrokkrTemplate;
 import ch.njol.brokkr.ir.IRError;
+import ch.njol.brokkr.ir.IRNormalError;
+import ch.njol.brokkr.ir.IRUnknownError;
+import ch.njol.brokkr.ir.IRUnknownParameterDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRBrokkrAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRBrokkrAttributeDefinitionAndImplementation;
@@ -60,7 +67,12 @@ import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRResultRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableRedefinition;
+import ch.njol.brokkr.ir.expressions.IRAttributeAccess;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
+import ch.njol.brokkr.ir.statements.IRPostcondition;
+import ch.njol.brokkr.ir.statements.IRPrecondition;
+import ch.njol.brokkr.ir.statements.IRStatement;
+import ch.njol.brokkr.ir.statements.IRUnknownStatement;
 import ch.njol.brokkr.ir.uses.IRMemberUse;
 import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
@@ -68,48 +80,39 @@ import ch.njol.brokkr.ir.uses.IRUnknownTypeUse;
 import ch.njol.util.StringUtils;
 
 // TODO sections (e.g. 'section nameHere { members here ... }')
+// TODO annotations for time & memory use:
+// time: uses some "unit time", where native methods, method calls, memory allocations etc. define the base values
+// memory: annotation for max memory usage of a class (maybe?) as well as memory changes of methods (maybe defined for the 'this' object and all arguments separately)
 public class ASTMembers {
 	
-	public static interface ASTMember extends ASTElement {
-		/**
-		 * @return Whether this member is also visible from subtypes. Usually true.
-		 */
-		boolean isInherited();
-		
-		/**
-		 * @return The intermediate representation of this member.
-		 */
-		IRMemberRedefinition getIR();
-		
-		public static ASTMember parse(final AbstractASTElement<?> parent) throws ParseException {
-			if (parent.peekNext('$') && parent.peekNext('=', 1, false))
-				return parent.one(ASTCodeGenerationCall.class);
-			if (parent.peekNext("delegate"))
-				return parent.one(ASTDelegation.class);
+	public static ASTMember parse(final AbstractASTElement<?> parent) throws ParseException {
+		if (parent.peekNext('$') && parent.peekNext('=', 1, false))
+			return parent.one(ASTCodeGenerationCallMember.class);
+		if (parent.peekNext("delegate"))
+			return parent.one(ASTDelegation.class);
 //			if (parent.peekNext("element"))
 //				return parent.one(EnumElement.class);
-			
-			final ASTMemberModifiers modifiers = parent.one(ASTMemberModifiers.class);
-			try {
+		
+		final ASTMemberModifiers modifiers = parent.one(ASTMemberModifiers.class);
+		try {
 //				if (!modifiers.genericParameters.isEmpty() && parent.peekNext(';'))
 //					return parent.one(new GenericTypeParameter(modifiers));
-				if (parent.peekNext("interface"))
-					return parent.one(new ASTInterfaceDeclaration(modifiers));
-				if (parent.peekNext("class"))
-					return parent.one(new ASTClassDeclaration(modifiers));
-				if (parent.peekNext("constructor"))
-					return parent.one(new ASTConstructor(modifiers));
-				if (parent.peekNext("invariant"))
-					return parent.one(new ASTInvariant(modifiers));
-				if (parent.peekNext("type"))
-					return parent.one(new ASTGenericTypeDeclaration(modifiers));
-				if (parent.peekNext("code") || parent.peekNext("member") || parent.peekNext("type"))
-					return parent.one(new ASTTemplate(modifiers));
-				return parent.one(new ASTAttributeDeclaration(modifiers));
-				// TODO constants? e.g. like 'constant Type name = value, name2 = value2;'
-			} finally {
-				assert modifiers.parent() != parent;
-			}
+			if (parent.peekNext("interface"))
+				return parent.one(new ASTInterfaceDeclaration(modifiers));
+			if (parent.peekNext("class"))
+				return parent.one(new ASTClassDeclaration(modifiers));
+			if (parent.peekNext("constructor"))
+				return parent.one(new ASTConstructor(modifiers));
+			if (parent.peekNext("invariant"))
+				return parent.one(new ASTInvariant(modifiers));
+			if (parent.peekNext("type"))
+				return parent.one(new ASTGenericTypeDeclaration(modifiers));
+			if (parent.peekNext("code") || parent.peekNext("member") || parent.peekNext("type"))
+				return parent.one(new ASTTemplate(modifiers));
+			return parent.one(new ASTAttributeDeclaration(modifiers));
+			// TODO constants? e.g. like 'constant Type name = value, name2 = value2;'
+		} finally {
+			assert modifiers.parent() != parent;
 		}
 	}
 	
@@ -192,6 +195,21 @@ public class ASTMembers {
 		public boolean context;
 		public boolean recursive;
 		public boolean var;
+		
+		@Override
+		public String toString() {
+			return (isNative ? "native " : "") + (isStatic ? "static " : "") + (visibility != null ? visibility + " " : "")
+					+ (modifiability != null ? modifiability + " " : "") + (context ? "context " : "") + (recursive ? "recursive " : "") + (var ? "var " : "")
+					+ (override ? "override " : partialOverride ? "partialOverride " : "")
+					+ (hide ? "hide " : "") + (undefine ? "undefine " : "")
+					+ (overriddenFromType.getNameToken() != null ? overriddenFromType.getName() + "." : "")
+					+ (overridden.getNameToken() != null ? overridden.getName() + " as " : "");
+		}
+		
+		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return null;
+		}
 		
 		@Override
 		protected ASTMemberModifiers parse() throws ParseException {
@@ -361,17 +379,29 @@ public class ASTMembers {
 		}
 		
 		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return getIR().hoverInfo();
+		}
+		
+		private @Nullable IRAttributeRedefinition ir;
+		
+		@Override
 		public IRAttributeRedefinition getIR() {
-			if (modifiers.overridden.getNameToken() != null) {
+			if (ir != null)
+				return ir;
+			final IRMemberRedefinition overridden = modifiers.overridden.get();
+			if (overridden instanceof IRAttributeRedefinition) {
 				if (body != null)
-					return new IRBrokkrAttributeImplementation(this);
+					return ir = new IRBrokkrAttributeImplementation(this, (IRAttributeRedefinition) overridden);
 				else
-					return new IRBrokkrAttributeRedefinition(this);
+					return ir = new IRBrokkrAttributeRedefinition(this, (IRAttributeRedefinition) overridden);
 			} else {
+//				if (overridden != null)
+				// TODO semantic error
 				if (body != null)
-					return new IRBrokkrAttributeDefinitionAndImplementation(this);
+					return ir = new IRBrokkrAttributeDefinitionAndImplementation(this);
 				else
-					return new IRBrokkrAttributeDefinition(this);
+					return ir = new IRBrokkrAttributeDefinition(this);
 			}
 		}
 		
@@ -388,7 +418,7 @@ public class ASTMembers {
 					hasParameterDots = true;
 				if (!hasParameterDots || try_(',')) {
 					do {
-						parameters.add(one(ASTSimpleParameter.class));
+						parameters.add(one(new ASTSimpleParameter(this, parameters.size())));
 					} while (try_(','));
 				}
 			}, ')');
@@ -400,7 +430,7 @@ public class ASTMembers {
 					hasResultDots = true;
 				if (!hasResultDots || try_(',')) {
 					do {
-						results.add(one(ASTNormalResult.class));
+						results.add(one(new ASTNormalResult(this)));
 					} while (try_(','));
 				}
 			}
@@ -432,9 +462,10 @@ public class ASTMembers {
 	}
 	
 	public static class ASTSimpleParameter extends AbstractASTElement<ASTSimpleParameter> implements ASTParameter {
+		public ASTAttribute attribute;
+		private final int index;
 		public @Nullable Visibility visibility;
 		public boolean override;
-		private @Nullable WordToken overrideToken;
 		public final ASTLink<IRParameterRedefinition> overridden = new ASTLink<IRParameterRedefinition>(this) {
 			@Override
 			protected @Nullable IRParameterRedefinition tryLink(final String name) {
@@ -446,15 +477,17 @@ public class ASTMembers {
 				final IRMemberRedefinition parent = attribute.modifiers.overridden.get();
 				if (parent == null || !(parent instanceof IRAttributeRedefinition))
 					return null;
-//				if (getNameToken() == overrideToken)
-//					return ((IRAttributeRedefinition) parent).getParameterByPosition(...); // TODO
-//				else
 				return ((IRAttributeRedefinition) parent).getParameterByName(name);
 			}
 		};
 		public @Nullable ASTTypeUse type;
 		public @Nullable WordToken name;
 		public @Nullable ASTExpression defaultValue;
+		
+		public ASTSimpleParameter(final ASTAttribute attribute, final int index) {
+			this.attribute = attribute;
+			this.index = index;
+		}
 		
 		@Override
 		public @Nullable WordToken nameToken() {
@@ -472,24 +505,28 @@ public class ASTMembers {
 		}
 		
 		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return getIR().hoverInfo();
+		}
+		
+		@Override
 		protected ASTSimpleParameter parse() throws ParseException {
 			visibility = Visibility.parse(this);
-			overrideToken = try2("override");
-			override = overrideToken != null;
+			override = try_("override");
 			if (override) {
 				if (peekNext() instanceof WordToken && peekNext("as", 1, true)) {
 					overridden.setName(oneIdentifierToken());
 					next(); // skip 'as'
-				} else {
-					overridden.setName(overrideToken);
 				}
-				if (overridden.getNameToken() == overrideToken //
+				if (overridden.getNameToken() == null // if not renamed, the only thing left to change is the type, so require it
 						|| !(peekNext() instanceof WordToken && (peekNext(',', 1, true) || peekNext(')', 1, true)))) // allows overriding the name without changing the type
 					type = ASTTypeExpressions.parse(this, true, true);
 			} else {
 				type = ASTTypeExpressions.parse(this, true, true);
 			}
 			name = oneIdentifierToken();
+			if (override && overridden.getNameToken() == null) // overridden, but not renamed - use same name to look up parent parameter
+				overridden.setName(name);
 			if (try_('='))
 				defaultValue = ASTExpressions.parse(this);
 			return this;
@@ -498,21 +535,27 @@ public class ASTMembers {
 		@Override
 		public IRTypeUse getIRType() {
 			if (type != null)
-				return type.staticallyKnownType();
+				return type.getIR();
 			final IRParameterRedefinition param = overridden.get();
 			if (param != null)
 				return param.type();
-			throw null;
+			return new IRUnknownTypeUse(getIRContext());
 		}
 		
+		private @Nullable IRParameterRedefinition ir;
+		
 		@Override
-		public IRParameterRedefinition interpreted(final IRAttributeRedefinition attribute) {
+		public IRParameterRedefinition getIR() {
+			if (ir != null)
+				return ir;
 			final IRParameterRedefinition parent = override ? overridden.get() : null;
-			return parent != null ? new IRBrokkrNormalParameterRedefinition(this, parent, attribute) : new IRBrokkrNormalParameterDefinition(this, attribute);
+			return ir = (parent != null ? new IRBrokkrNormalParameterRedefinition(this, parent, attribute.getIR())
+					: new IRBrokkrNormalParameterDefinition(this, attribute.getIR()));
 		}
 	}
 	
 	public static class ASTNormalResult extends AbstractASTElement<ASTNormalResult> implements ASTVariable, ASTResult {
+		public final ASTAttribute attribute;
 		public @Nullable ASTTypeUse type;
 		public @Nullable LowercaseWordToken name;
 		public @Nullable ASTExpression defaultValue;
@@ -527,6 +570,10 @@ public class ASTMembers {
 			}
 		};
 		
+		public ASTNormalResult(final ASTAttribute attribute) {
+			this.attribute = attribute;
+		}
+		
 		@Override
 		public @Nullable WordToken nameToken() {
 			return name;
@@ -539,19 +586,13 @@ public class ASTMembers {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			final ASTTypeUse type = this.type;
-			if (type != null)
-				return type.staticallyKnownType();
-			final IRResultRedefinition parent = overridden.get();
-			if (parent == null)
-				return new IRUnknownTypeUse();
-			return parent.type();
+		public String toString() {
+			return (type == null ? "<unresolvable type>" : type) + " " + (name == null ? "result" : "" + name);
 		}
 		
 		@Override
-		public String toString() {
-			return (type == null ? "" : type + " ") + (name == null ? "<unnamed>" : "" + name);
+		public @Nullable String hoverInfo(final Token token) {
+			return getIR().hoverInfo();
 		}
 		
 		@Override
@@ -579,9 +620,24 @@ public class ASTMembers {
 		}
 		
 		@Override
-		public IRResultRedefinition interpreted(final IRAttributeRedefinition attribute) {
+		public IRTypeUse getIRType() {
+			final ASTTypeUse type = this.type;
+			if (type != null)
+				return type.getIR();
 			final IRResultRedefinition parent = overridden.get();
-			return parent == null ? new IRBrokkrResultDefinition(this, attribute) : new IRBrokkrResultRedefinition(this, parent, attribute);
+			if (parent == null)
+				return new IRUnknownTypeUse(getIRContext());
+			return parent.type();
+		}
+		
+		private @Nullable IRResultRedefinition ir;
+		
+		@Override
+		public IRResultRedefinition getIR() {
+			if (ir != null)
+				return ir;
+			final IRResultRedefinition parent = overridden.get();
+			return ir = parent == null ? new IRBrokkrResultDefinition(this, attribute.getIR()) : new IRBrokkrResultRedefinition(this, parent, attribute.getIR());
 		}
 	}
 	
@@ -661,15 +717,23 @@ public class ASTMembers {
 			name = oneVariableIdentifierToken();
 			tryGroup('(', () -> {
 				do {
-					parameters.add(one(ASTSimpleParameter.class));
+					// FIXME
+//					parameters.add(one(new ASTSimpleParameter(this)));
 				} while (try_(','));
 			}, ')');
 			return this;
 		}
 		
+		private @Nullable IRNormalError ir;
+		
 		@Override
-		public IRError getIR(final IRAttributeRedefinition attribute) {
-			return new IRError("" + name(), parameters.stream().map(p -> p.interpreted(attribute)).collect(Collectors.toList()), attribute);
+		public IRError getIRError() {
+			if (ir != null)
+				return ir;
+			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
+			if (attribute == null)
+				return new IRUnknownError("" + name(), "internal compiler error", this);
+			return ir = new IRNormalError("" + name(), parameters.stream().map(p -> p.getIR()).collect(Collectors.toList()), attribute.getIR());
 		}
 		
 	}
@@ -775,15 +839,20 @@ public class ASTMembers {
 		}
 		
 		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return getIR().hoverInfo();
+		}
+		
+		@Override
 		protected ASTConstructor parse() throws ParseException {
 			one("constructor");
 			name = oneVariableIdentifierToken();
 			oneGroup('(', () -> {
 				do {
 					if (peekNext('=', 1, true) || peekNext(',', 1, true) || peekNext(')', 1, true))
-						parameters.add(one(ASTConstructorFieldParameter.class));
+						parameters.add(one(new ASTConstructorFieldParameter(this)));
 					else
-						parameters.add(one(ASTSimpleParameter.class));
+						parameters.add(one(new ASTSimpleParameter(this, parameters.size())));
 				} while (try_(','));
 			}, ')');
 			if (!try_(';')) // field params syntax
@@ -797,9 +866,13 @@ public class ASTMembers {
 			return new IRSimpleTypeUse(getParentOfType(ASTTypeDeclaration.class).getIR());
 		}
 		
+		private @Nullable IRBrokkrConstructor ir;
+		
 		@Override
 		public IRBrokkrConstructor getIR() {
-			return new IRBrokkrConstructor(this);
+			if (ir != null)
+				return ir;
+			return ir = new IRBrokkrConstructor(this);
 		}
 	}
 	
@@ -813,6 +886,12 @@ public class ASTMembers {
 			}
 		};
 		public @Nullable ASTExpression defaultValue;
+		
+		public final ASTConstructor constructor;
+		
+		public ASTConstructorFieldParameter(final ASTConstructor constructor) {
+			this.constructor = constructor;
+		}
 		
 		@Override
 		public @Nullable WordToken nameToken() {
@@ -837,6 +916,11 @@ public class ASTMembers {
 			return "" + attribute.getName();
 		}
 		
+		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return getIR().hoverInfo();
+		}
+		
 		@SuppressWarnings("null")
 		@Override
 		public IRTypeUse getIRType() {
@@ -844,13 +928,16 @@ public class ASTMembers {
 			return f == null ? null : f.mainResultType();
 		}
 		
-		@SuppressWarnings("null")
+		private @Nullable IRParameterDefinition ir;
+		
 		@Override
-		public IRParameterDefinition interpreted(final IRAttributeRedefinition constructor) {
+		public IRParameterDefinition getIR() {
+			if (ir != null)
+				return ir;
 			final IRAttributeRedefinition attr = attribute.get();
-			if (attr.results().size() != 1 || !attr.results().get(0).name().equals("result") || !attr.isVariable())
-				throw new InterpreterException("Constructor field parameter '" + attr.name() + "' does not reference a field");
-			return new IRBrokkrConstructorFieldParameter(this, attr, constructor);
+			if (attr == null || attr.results().size() != 1 || !attr.results().get(0).name().equals("result") || !attr.isVariable())
+				return new IRUnknownParameterDefinition(attr != null ? attr.name() : "<unknown name>", new IRUnknownTypeUse(getIRContext()), constructor.getIR(), "Constructor field parameter '" + (attr != null ? attr.name() : "<unknown name>") + "' does not reference a field", this);
+			return ir = new IRBrokkrConstructorFieldParameter(this, attr, constructor.getIR());
 		}
 	}
 	
@@ -913,13 +1000,21 @@ public class ASTMembers {
 			return this;
 		}
 		
-		@Override
+		private @Nullable IRGenericTypeRedefinition ir;
+		
 		public IRGenericTypeRedefinition getIR() {
-			@SuppressWarnings("null")
+			if (ir != null)
+				return ir;
+			final ASTMemberModifiers modifiers = this.modifiers;
 			final IRMemberRedefinition parent = modifiers != null ? modifiers.overridden.get() : null;
-			return parent == null || !(parent instanceof IRGenericTypeRedefinition)
+			return ir = (parent == null || !(parent instanceof IRGenericTypeRedefinition)
 					? new IRBrokkrGenericTypeDefinition(this)
-					: new IRBrokkrGenericTypeRedefinition(this, (IRGenericTypeRedefinition) parent);
+					: new IRBrokkrGenericTypeRedefinition(this, (IRGenericTypeRedefinition) parent));
+		}
+		
+		@Override
+		public List<IRGenericTypeRedefinition> getIRMembers() {
+			return Collections.singletonList(getIR());
 		}
 	}
 	
@@ -977,12 +1072,12 @@ public class ASTMembers {
 		
 		@Override
 		protected ASTTemplate parse() throws ParseException {
-			templateType = TemplateType.valueOf("" + oneOf("code", "member", "type").toUpperCase(Locale.ENGLISH));
+			templateType = TemplateType.valueOf(oneOf("code", "member", "type").toUpperCase(Locale.ENGLISH));
 			one("template");
 			name = oneVariableIdentifierToken();
-			oneGroup('(', () -> {
+			tryGroup('(', () -> {
 				do {
-					parameters.add(one(ASTSimpleParameter.class));
+					parameters.add(one(new ASTSimpleParameter(this, parameters.size())));
 				} while (try_(','));
 			}, ')');
 			body = one(ASTBlock.class);
@@ -991,15 +1086,16 @@ public class ASTMembers {
 		
 		@Override
 		public IRTypeUse getIRType() {
-			return new IRTypeTuple(Collections.EMPTY_LIST);
+			return IRTypeTuple.emptyTuple(getIRContext());
 		}
 		
 		@Override
 		public IRAttributeRedefinition getIR() {
-			throw new InterpreterException("not implemented");
+			return new IRBrokkrTemplate(this);
 		}
 	}
 	
+	// TODO remove this? can be done with code generation, assuming it can work with incomplete types (what incomplete types?)
 	public static class ASTDelegation extends AbstractASTElement<ASTDelegation> implements ASTMember {
 		public List<ASTLink<IRAttributeRedefinition>> methods = new ArrayList<>();
 		public List<ASTTypeExpression> types = new ArrayList<>();
@@ -1053,9 +1149,8 @@ public class ASTMembers {
 		}
 		
 		@Override
-		public @NonNull IRMemberRedefinition getIR() {
-			// TODO should return multiple members
-			throw new InterpreterException("not implemented");
+		public List<? extends IRMemberRedefinition> getIRMembers() {
+			return Collections.EMPTY_LIST; // TODO
 		}
 	}
 	
@@ -1099,8 +1194,8 @@ public class ASTMembers {
 		}
 		
 		@Override
-		public @NonNull IRMemberRedefinition getIR() {
-			throw new InterpreterException("not implemented");
+		public List<? extends IRMemberRedefinition> getIRMembers() {
+			return Collections.EMPTY_LIST; // TODO
 		}
 	}
 	
@@ -1150,20 +1245,25 @@ public class ASTMembers {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
-		public void interpret(final InterpreterContext context) {
-			boolean value = ((InterpretedNativeBoolean) expression.interpret(context)).value;
-			if (negated)
-				value = !value;
-			if (!value)
-				throw new InterpreterException("Failed precondition " + name + " in " + getParentOfType(ASTAttribute.class).name());
+		public IRStatement getIR() {
+			final String name = this.name != null ? this.name.word : "<unknown name>";
+			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
+			if (attribute == null)
+				return new IRUnknownError(name, "Internal compiler error (precondition not in attribute)", this);
+			final ASTExpression expression = this.expression;
+			if (expression == null)
+				return new IRUnknownError(name, "Syntax error. Proper syntax: [ensures some_expression;] or [ensures name: some_expression;] or [ensures !name: some_expression;]", this);
+			final IRAttributeRedefinition negatedAttribute = getIRContext().getTypeDefinition("lang", "Boolean").getAttributeByName("negated");
+			if (negatedAttribute == null)
+				return new IRUnknownError(name, "Cannot find attribute lang.Boolean.negated", this);
+			return new IRPrecondition(attribute.getIR(), name,
+					negated ? new IRAttributeAccess(expression.getIR(), negatedAttribute, Collections.EMPTY_MAP, false, false, false) : expression.getIR());
 		}
 		
 		@Override
-		public IRError getIR(final IRAttributeRedefinition attribute) {
-			// TODO
-			return new IRError("" + name, Collections.EMPTY_LIST, attribute);
+		public IRError getIRError() {
+			return (IRError) getIR();
 		}
 	}
 	
@@ -1180,6 +1280,11 @@ public class ASTMembers {
 		@Override
 		public String toString() {
 			return "ensures " + (name == null ? "..." : name);
+		}
+		
+		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return null;
 		}
 		
 		@Override
@@ -1200,14 +1305,59 @@ public class ASTMembers {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
-		public void interpret(final InterpreterContext context) {
-			boolean value = ((InterpretedNativeBoolean) expression.interpret(context)).value;
-			if (negated)
-				value = !value;
-			if (!value)
-				throw new InterpreterException("Failed postcondition " + name + " in " + getParentOfType(ASTAttribute.class).name());
+		public IRStatement getIR() {
+			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
+			if (attribute == null)
+				return new IRUnknownStatement("Internal compiler error", this);
+			final WordToken name = this.name;
+			final ASTExpression expression = this.expression;
+			if (expression == null)
+				return new IRUnknownStatement("Syntax error. Proper syntax: [ensures some_expression;] or [ensures name: some_expression;] or [ensures !name: some_expression;]", this);
+			final IRAttributeRedefinition negatedAttribute = getIRContext().getTypeDefinition("lang", "Boolean").getAttributeByName("negated");
+			if (negatedAttribute == null)
+				return new IRUnknownStatement("Cannot find attribute lang.Boolean.negated", this);
+			return new IRPostcondition(attribute.getIR(), name != null ? name.word : null,
+					negated ? new IRAttributeAccess(expression.getIR(), negatedAttribute, Collections.EMPTY_MAP, false, false, false) : expression.getIR());
+		}
+	}
+	
+	public static class ASTCodeGenerationCallMember extends AbstractASTElement<ASTCodeGenerationCallMember> implements ASTMember {
+		public @Nullable ASTExpression code;
+		
+		@Override
+		public boolean isInherited() {
+			return false; // only generates code at the current location
+		}
+		
+		@Override
+		public String toString() {
+			return "$= " + code + ";";
+		}
+		
+		@Override
+		protected ASTCodeGenerationCallMember parse() throws ParseException {
+			one("$=");
+			until(() -> {
+				code = ASTExpressions.parse(this);
+			}, ';', false);
+			return this;
+		}
+		
+		// TODO make sure to prevent infinite recursion with other types!
+		@Override
+		public List<IRMemberRedefinition> getIRMembers() {
+			final ASTExpression code = this.code;
+			if (code == null)
+				return Arrays.asList();
+			try {
+				final InterpretedObject result = code.getIR().interpret(new InterpreterContext(getIRContext(), (InterpretedNormalObject) null));
+				if (!(result instanceof InterpretedNativeCodeGenerationResult))
+					return Collections.EMPTY_LIST; // Collections.singletonList(new IRUnknownMember("Must call a code generation template", this));
+				return ((InterpretedNativeCodeGenerationResult) result).parseMembers(this);
+			} catch (final InterpreterException e) {
+				return Collections.EMPTY_LIST; // Collections.singletonList(new IRUnknownMember("" + e.getMessage(), this));
+			}
 		}
 	}
 	

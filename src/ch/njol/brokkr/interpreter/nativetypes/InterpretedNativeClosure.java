@@ -1,9 +1,10 @@
-package ch.njol.brokkr.interpreter;
+package ch.njol.brokkr.interpreter.nativetypes;
 
-import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeObject;
-import ch.njol.brokkr.ir.nativetypes.IRTuple;
+import ch.njol.brokkr.interpreter.InterpretedTuple;
+import ch.njol.brokkr.interpreter.InterpreterException;
+import ch.njol.brokkr.ir.IRElement;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
-import ch.njol.brokkr.ir.nativetypes.internal.IRSimpleNativeClass;
+import ch.njol.brokkr.ir.nativetypes.internal.IRNativeTypeClassDefinition;
 import ch.njol.brokkr.ir.uses.IRClassUse;
 import ch.njol.brokkr.ir.uses.IRSimpleClassUse;
 
@@ -14,21 +15,22 @@ public abstract class InterpretedNativeClosure implements InterpretedNativeObjec
 	private final boolean isModifying;
 	
 	public InterpretedNativeClosure(final IRTypeTuple parameters, final IRTypeTuple results, final boolean isModifying) {
+		IRElement.assertSameIRContext(parameters, results);
 		this.parameters = parameters;
 		this.results = results;
 		this.isModifying = isModifying;
 	}
 	
-	protected abstract IRTuple interpret(IRTuple arguments);
+	protected abstract InterpretedTuple interpret(InterpretedTuple arguments) throws InterpreterException;
 	
-	public IRTuple _invoke(final IRTuple arguments) {
+	public InterpretedTuple _invoke(final InterpretedTuple arguments) throws InterpreterException {
 		return interpret(arguments);
 	}
 	
 	@Override
 	public IRClassUse nativeClass() {
 		// TODO make subclass of Function<...> or Procedure<...>
-		return new IRSimpleClassUse(IRSimpleNativeClass.get(getClass()));
+		return new IRSimpleClassUse(IRNativeTypeClassDefinition.get(parameters.getIRContext(), getClass()));
 	}
 	
 }

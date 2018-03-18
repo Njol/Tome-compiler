@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 
-import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTElement;
@@ -68,7 +67,7 @@ public abstract class Token implements ASTElementPart {
 	}
 	
 	@Override
-	public void print(@NonNull final PrintStream out, @NonNull final String indent) {
+	public void print(final PrintStream out, final String indent) {
 		out.println("" + this);
 	}
 	
@@ -113,7 +112,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return word.equals(((WordToken) t).word);
 		}
 	}
@@ -140,6 +139,10 @@ public abstract class Token implements ASTElementPart {
 			super(StringUtils.join(symbols), symbols.get(0).regionStart(), symbols.get(symbols.size() - 1).regionEnd());
 			this.symbols = symbols;
 		}
+		
+		public boolean contains(final SymbolToken singleSymbol) {
+			return symbols.contains(singleSymbol);
+		}
 	}
 	
 //	public final static class KeywordToken extends Token {
@@ -157,7 +160,7 @@ public abstract class Token implements ASTElementPart {
 //		}
 //
 //		@Override
-//		protected boolean dataEquals(@NonNull final Token t) {
+//		protected boolean dataEquals(@final Token t) {
 //			return word.equals(((KeywordToken) t).word);
 //		}
 //	}
@@ -181,7 +184,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return value.equals(((NumberToken) t).value);
 		}
 	}
@@ -202,7 +205,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return value.equals(((StringToken) t).value);
 		}
 	}
@@ -224,7 +227,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return code.equals(((CodeGenerationToken) t).code);
 		}
 	}
@@ -244,7 +247,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return value.equals(((WhitespaceToken) t).value);
 		}
 	}
@@ -264,7 +267,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return symbol == ((SymbolToken) t).symbol;
 		}
 	}
@@ -279,7 +282,7 @@ public abstract class Token implements ASTElementPart {
 		}
 		
 		@Override
-		protected boolean dataEquals(@NonNull final Token t) {
+		protected boolean dataEquals(final Token t) {
 			return comment.equals(((CommentToken) t).comment);
 		}
 		

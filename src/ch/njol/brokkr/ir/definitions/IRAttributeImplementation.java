@@ -5,14 +5,15 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.interpreter.InterpretedObject;
+import ch.njol.brokkr.interpreter.InterpreterException;
 
 /**
  * An actually implemented attribute. May also redefine the signature of the attribute.
  */
 public interface IRAttributeImplementation extends IRAttributeRedefinition {
 	
-	@Nullable
-	InterpretedObject interpretImplementation(InterpretedObject thisObject, Map<IRParameterDefinition, InterpretedObject> arguments, boolean allResults);
+	// TODO document null - is that a function with no results used in single result mode? otherwise, an empty tuple could be returned.
+	public @Nullable InterpretedObject interpretImplementation(InterpretedObject thisObject, Map<IRParameterDefinition, InterpretedObject> arguments, boolean allResults) throws InterpreterException;
 	
 	/*
 	@Override

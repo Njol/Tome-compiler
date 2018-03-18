@@ -15,4 +15,9 @@ public enum Visibility {
 			return null;
 		return valueOf("" + val.toUpperCase(Locale.ENGLISH));
 	}
+	
+	@Override
+	public String toString() {
+		return name().toLowerCase(Locale.ENGLISH);
+	}
 }

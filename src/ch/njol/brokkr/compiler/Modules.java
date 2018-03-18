@@ -6,16 +6,17 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.common.ModuleIdentifier;
-import ch.njol.brokkr.interpreter.Interpreter;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 
 public class Modules {
 	
 	private final Map<ModuleIdentifier, Module> modules = new HashMap<>();
 	
-	public final Interpreter interpreter = new Interpreter(this);
+//	public final Interpreter interpreter = new Interpreter(this);
+	public final IRContext irContext = new IRContext(this);
 	
-	@SuppressWarnings("null")
+	@SuppressWarnings({"null", "unused"})
 	public void register(final Module mod) {
 		if (mod.id == null)
 			return;

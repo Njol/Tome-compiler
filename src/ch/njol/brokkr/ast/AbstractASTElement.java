@@ -18,9 +18,7 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
-import ch.njol.brokkr.compiler.Module;
-import ch.njol.brokkr.compiler.Modules;
+import ch.njol.brokkr.common.AbstractInvalidatable;
 import ch.njol.brokkr.compiler.ParseError;
 import ch.njol.brokkr.compiler.ParseException;
 import ch.njol.brokkr.compiler.Token;
@@ -30,11 +28,8 @@ import ch.njol.brokkr.compiler.Token.SymbolsWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.compiler.TokenStream;
-import ch.njol.brokkr.interpreter.Interpreter;
-import ch.njol.brokkr.interpreter.InterpreterException;
-import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 
-public abstract class AbstractASTElement<E extends ASTElement> implements ASTElement {
+public abstract class AbstractASTElement<E extends ASTElement> extends AbstractInvalidatable implements ASTElement {
 	
 	public @Nullable ASTElement parent = null;
 	
@@ -53,31 +48,6 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 	@Override
 	public @Nullable ASTElement parent() {
 		return parent;
-	}
-	
-	protected final @Nullable IRTypeDefinition getStandardType(final String module, final String type) {
-		return ASTBrokkrFile.getStandardType(this, module, type);
-	}
-	
-	protected final Interpreter getInterpreter() {
-		final Modules mods = getModules();
-		if (mods == null)
-			throw new InterpreterException("missing module");
-		return mods.interpreter;
-	}
-	
-	protected final @Nullable Modules getModules() {
-		final ASTBrokkrFile file = getParentOfType(ASTBrokkrFile.class);
-		if (file == null)
-			return null;
-		return file.modules;
-	}
-	
-	protected final @Nullable Module getModule() {
-		final ASTBrokkrFile file = getParentOfType(ASTBrokkrFile.class);
-		if (file == null)
-			return null;
-		return file.module;
 	}
 	
 	@Override
@@ -148,9 +118,7 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 	}
 	
 	@Override
-	public String toString() {
-		return "" + getClass().getSimpleName();
-	}
+	public abstract String toString();
 	
 	@SuppressWarnings("null")
 	private TokenStream in = null;
@@ -240,7 +208,7 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 	
 	private final static String openingBrackets = "([{<", closingBrackets = ")]}>";
 	
-	private final void endGuard(final char guard) {
+	private final void endGuard(final char guard, final boolean consume) {
 		final char last = guards.removeLast();
 		assert last == guard;
 		assert last == lastGuard;
@@ -267,8 +235,12 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 				}
 			}
 			if (t != null) {
-				t.setParent(this);
-				in.skipWhitespace();
+				if (consume) {
+					t.setParent(this);
+					in.skipWhitespace();
+				} else {
+					in.backward();
+				}
 				// TODO required? or only if no errors so far? or make a different error?
 				errorFatal("Unexpected data before '" + guard + "'", start, t.regionStart() - start);
 			} else {
@@ -278,8 +250,10 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 		} else {
 			success = true;
 			next.setParent(this);
-			in.forward();
-			in.skipWhitespace();
+			if (consume) {
+				in.forward();
+				in.skipWhitespace();
+			}
 		}
 		// same as in oneFromTry, but without throwing an exception
 		oneFromTryNoException(success);
@@ -392,11 +366,15 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 		} catch (final ParseException ex) {
 			
 		} finally {
-			endGuard(until);
+			endGuard(until, true);
 		}
 	}
 	
 	protected void repeatUntil(final AbstractASTElement.VoidProcessor lambda, final char until, final boolean allowEmpty) {
+		repeatUntil(lambda, until, allowEmpty, true);
+	}
+	
+	protected void repeatUntil(final AbstractASTElement.VoidProcessor lambda, final char until, final boolean allowEmpty, final boolean consumeEndChar) {
 		if (allowEmpty && try_(until)) {
 			return;
 		}
@@ -411,7 +389,7 @@ public abstract class AbstractASTElement<E extends ASTElement> implements ASTEle
 					break;
 			} while (peekNext() != null);
 		} finally {
-			endGuard(until);
+			endGuard(until, consumeEndChar);
 		}
 	}
 	

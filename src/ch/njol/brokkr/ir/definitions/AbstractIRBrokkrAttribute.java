@@ -17,80 +17,87 @@ import ch.njol.brokkr.ast.ASTMembers.ASTSimpleParameter;
 import ch.njol.brokkr.common.MethodModifiability;
 import ch.njol.brokkr.interpreter.InterpretedNormalObject;
 import ch.njol.brokkr.interpreter.InterpretedObject;
+import ch.njol.brokkr.interpreter.InterpretedTuple;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
+import ch.njol.brokkr.ir.AbstractIRElement;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.IRError;
-import ch.njol.brokkr.ir.nativetypes.IRTuple;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
 
-public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefinition {
+public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implements IRAttributeRedefinition {
 	
-	public final ASTAttributeDeclaration declaration;
+	public final ASTAttributeDeclaration ast;
+	public final @Nullable IRAttributeRedefinition overridden;
 	
-	public AbstractIRBrokkrAttribute(final ASTAttributeDeclaration declaration) {
-		this.declaration = declaration;
+	public AbstractIRBrokkrAttribute(final ASTAttributeDeclaration ast) {
+		this(ast, null);
+	}
+	
+	public AbstractIRBrokkrAttribute(final ASTAttributeDeclaration ast, @Nullable final IRAttributeRedefinition overridden) {
+		this.ast = ast;
 		
-		final IRAttributeRedefinition parent = parentRedefinition();
-		if (parent == null && (declaration.hasParameterDots || declaration.hasResultDots))
-			throw new InterpreterException("Use of '...' in non-overriding method");
-		
+		assert (overridden == null) == (this instanceof IRAttributeDefinition);
+		this.overridden = overridden;
+	}
+	
+	@Override
+	public IRContext getIRContext() {
+		return ast.getIRContext();
 	}
 	
 	@Override
 	public String toString() {
-		return declaration.getParentOfType(ASTTypeDeclaration.class) + "." + declaration.name();
+		return ast.getParentOfType(ASTTypeDeclaration.class) + "." + ast.name();
 	}
 	
 	private @Nullable List<IRParameterRedefinition> parameters = null;
 	
-	@SuppressWarnings("null")
 	@Override
 	public List<IRParameterRedefinition> parameters() {
-		if (parameters == null) {
-			parameters = new ArrayList<>();
-			final IRAttributeRedefinition parent = parentRedefinition();
-			if ((declaration.hasParameterDots || !declaration.hasParameterDefinitions) && parent != null)
-				parameters.addAll(parent.parameters());
-			// FIXME overridden parameters
-			for (final ASTSimpleParameter p : declaration.parameters)
-				parameters.add(p.interpreted(this));
-		}
+		if (parameters != null)
+			return parameters;
+		final List<IRParameterRedefinition> parameters = new ArrayList<>();
+		if ((ast.hasParameterDots || !ast.hasParameterDefinitions) && overridden != null)
+			parameters.addAll(overridden.parameters());
+		// FIXME overridden parameters
+		for (final ASTSimpleParameter p : ast.parameters)
+			parameters.add(p.getIR());
+		this.parameters = parameters;
 		return parameters;
 	}
 	
 	private @Nullable List<IRResultRedefinition> results = null;
 	
-	@SuppressWarnings("null")
 	@Override
 	public List<IRResultRedefinition> results() {
-		if (results == null) {
-			results = new ArrayList<>();
-			final IRAttributeRedefinition parent = parentRedefinition();
-			if ((declaration.hasResultDots || !declaration.hasResultDefinitions) && parent != null)
-				results.addAll(parent.results());
-			// FIXME overridden results
-			for (final ASTResult r : declaration.results)
-				results.add(r.interpreted(this));
-		}
+		if (results != null)
+			return results;
+		final List<IRResultRedefinition> results = new ArrayList<>();
+		if ((ast.hasResultDots || !ast.hasResultDefinitions) && overridden != null)
+			results.addAll(overridden.results());
+		// FIXME overridden results
+		for (final ASTResult r : ast.results)
+			results.add(r.getIR());
+		this.results = results;
 		return results;
 	}
 	
 	private @Nullable List<IRError> errors = null;
 	
-	@SuppressWarnings("null")
 	@Override
 	public List<IRError> errors() {
-		if (errors == null) {
-			errors = new ArrayList<>();
-			for (final ASTErrorDeclaration e : declaration.errors)
-				errors.add(e.getIR(this));
-		}
+		if (errors != null)
+			return errors;
+		final List<IRError> errors = new ArrayList<>();
+		for (final ASTErrorDeclaration e : ast.errors)
+			errors.add(e.getIRError());
+		this.errors = errors;
 		return errors;
 	}
 	
 	@Override
 	public boolean isModifying() {
-		final MethodModifiability modifiability = declaration.modifiers.modifiability;
+		final MethodModifiability modifiability = ast.modifiers.modifiability;
 		if (modifiability != null)
 			return modifiability == MethodModifiability.MODIFYING;
 		final IRAttributeRedefinition parentRedefinition = parentRedefinition();
@@ -99,24 +106,31 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 	
 	@Override
 	public boolean isVariable() {
-		return declaration.modifiers.var; // TOCO check that this is only set in classes? or can this actually be defined in interfaces too? (probably not)
+		return ast.modifiers.var; // TOCO check that this is only set in classes? or can this actually be defined in interfaces too? (probably not)
 	}
 	
 	@Override
 	public boolean isStatic() {
-		return declaration.modifiers.isStatic;
+		return ast.modifiers.isStatic;
 	}
 	
 	@Override
 	public String name() {
-		return "" + declaration.name();
+		return "" + ast.name();
 	}
 	
 	@Override
-	public @NonNull IRTypeDefinition declaringType() {
-		final ASTTypeDeclaration type = declaration.getParentOfType(ASTTypeDeclaration.class);
+	public String hoverInfo() {
+		final IRAttributeDefinition def = definition();
+		return "Attribute " + declaringType() + "." + name()
+				+ (def == this ? "" : " (defined in " + def.declaringType() + (def.name().equals(name()) ? "" : " as " + def.name()) + ")");
+	}
+	
+	@Override
+	public IRTypeDefinition declaringType() {
+		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
 		if (type == null)
-			throw new InterpreterException("Attribute not in type: " + this);
+			return new IRUnknownTypeDefinition(getIRContext(), "internal compiler error (attribute not in type: " + this + ")", ast);
 		return type.getIR();
 	}
 	
@@ -132,21 +146,18 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 	
 	@Override
 	public @Nullable ASTElementPart getLinked() {
-		return declaration;
+		return ast;
 	}
 	
 	@Override
 	public @Nullable IRAttributeRedefinition parentRedefinition() {
-		final IRMemberRedefinition m = declaration.modifiers.overridden.get();
-		if (m instanceof IRAttributeRedefinition)
-			return (IRAttributeRedefinition) m;
-		return null;
+		return overridden;
 	}
 	
-	protected @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
+	protected @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) throws InterpreterException {
 		if (!(thisObject instanceof InterpretedNormalObject))
 			return null;
-		final InterpreterContext localContext = new InterpreterContext((InterpretedNormalObject) thisObject); // new stack frame
+		final InterpreterContext localContext = new InterpreterContext(getIRContext(), (InterpretedNormalObject) thisObject); // new stack frame
 		for (final @NonNull IRParameterRedefinition p : parameters()) {
 			final IRParameterDefinition pd = p.definition();
 			InterpretedObject value = arguments.get(pd);
@@ -164,18 +175,20 @@ public abstract class AbstractIRBrokkrAttribute implements IRAttributeRedefiniti
 			if ("result".equals(r.name()))
 				mainResult = rd;
 		}
-		final ASTBlock body = declaration.body;
+		final ASTBlock body = ast.body;
 		if (body == null)
-			throw new InterpreterException("Missing method body in " + declaration);
-		body.interpret(localContext);
+			throw new InterpreterException("Missing method body in " + ast);
+		body.getIR().interpret(localContext);
 		if (allResults) {
-			final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
+//			final List<IRTupleEntryWithTypeUse> entries = new ArrayList<>();
+			final List<InterpretedObject> values = new ArrayList<>();
 			for (int i = 0; i < results().size(); i++) {
 				final IRResultDefinition res = results().get(i).definition();
 				final InterpretedObject resultValue = localContext.getLocalVariableValue(res);
-				entries.add(new IRNativeTupleValueAndEntry(i, res.type(), res.name(), resultValue));
+//				entries.add(new IRTupleEntryWithTypeUse(i, res.type(), res.name(), resultValue));
+				values.add(resultValue);
 			}
-			return IRTuple.newInstance(entries.stream());
+			return new InterpretedTuple(allResultTypes(), values);
 		}
 		if (mainResult != null)
 			return localContext.getLocalVariableValue(mainResult);

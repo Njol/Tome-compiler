@@ -5,9 +5,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNull;
@@ -15,26 +17,27 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTElementWithVariables;
-import ch.njol.brokkr.ast.ASTInterfaces.ASTError;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTExpression;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTLocalVariable;
-import ch.njol.brokkr.ast.ASTInterfaces.ASTParameter;
+import ch.njol.brokkr.ast.ASTInterfaces.ASTMember;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeExpression;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.brokkr.ast.ASTInterfaces.TypedASTElement;
+import ch.njol.brokkr.ast.ASTMembers.ASTAttributeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTGenericTypeDeclaration;
-import ch.njol.brokkr.ast.ASTMembers.ASTMember;
 import ch.njol.brokkr.ast.ASTStatements.ASTStatement;
 import ch.njol.brokkr.ast.ASTStatements.ASTVariableDeclarations;
 import ch.njol.brokkr.ast.ASTStatements.ASTVariableDeclarationsVariable;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
+import ch.njol.brokkr.common.Borrowing;
+import ch.njol.brokkr.common.Cache;
 import ch.njol.brokkr.common.DebugString;
-import ch.njol.brokkr.common.Exclusivity;
+import ch.njol.brokkr.common.Exclusiveness;
 import ch.njol.brokkr.common.Kleenean;
 import ch.njol.brokkr.common.Modifiability;
-import ch.njol.brokkr.common.Optional;
+import ch.njol.brokkr.common.Optionality;
 import ch.njol.brokkr.compiler.Module;
 import ch.njol.brokkr.compiler.ParseException;
 import ch.njol.brokkr.compiler.Token;
@@ -47,37 +50,54 @@ import ch.njol.brokkr.compiler.Token.SymbolsWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WhitespaceToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.interpreter.InterpretedNormalObject;
-import ch.njol.brokkr.interpreter.InterpretedNullConstant;
-import ch.njol.brokkr.interpreter.InterpretedNullConstant.IRNativeNullClass;
-import ch.njol.brokkr.interpreter.InterpretedObject;
-import ch.njol.brokkr.interpreter.InterpreterContext;
-import ch.njol.brokkr.interpreter.InterpreterException;
+import ch.njol.brokkr.ir.IRContext;
+import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
-import ch.njol.brokkr.ir.definitions.IRBrokkrClass;
+import ch.njol.brokkr.ir.definitions.IRBrokkrClassDefinition;
 import ch.njol.brokkr.ir.definitions.IRBrokkrLocalVariable;
+import ch.njol.brokkr.ir.definitions.IRClassDefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterDefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinitionOrGenericTypeRedefinition;
-import ch.njol.brokkr.ir.definitions.IRVariableDefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableOrAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableRedefinition;
+import ch.njol.brokkr.ir.expressions.IRAnonymousObjectCreation;
+import ch.njol.brokkr.ir.expressions.IRArgumentsKeyword;
+import ch.njol.brokkr.ir.expressions.IRAttributeAccess;
+import ch.njol.brokkr.ir.expressions.IRAttributeAssignment;
+import ch.njol.brokkr.ir.expressions.IRBlock;
+import ch.njol.brokkr.ir.expressions.IRClosure;
+import ch.njol.brokkr.ir.expressions.IRExpression;
+import ch.njol.brokkr.ir.expressions.IRIf;
+import ch.njol.brokkr.ir.expressions.IRKleeneanConstant;
+import ch.njol.brokkr.ir.expressions.IRNull;
+import ch.njol.brokkr.ir.expressions.IRNumberConstant;
+import ch.njol.brokkr.ir.expressions.IROld;
+import ch.njol.brokkr.ir.expressions.IRString;
+import ch.njol.brokkr.ir.expressions.IRThis;
+import ch.njol.brokkr.ir.expressions.IRUnknownExpression;
+import ch.njol.brokkr.ir.expressions.IRVariableAssignment;
+import ch.njol.brokkr.ir.expressions.IRVariableExpression;
 import ch.njol.brokkr.ir.nativetypes.IRTuple;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
+import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTupleBuilderEntry;
 import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
+import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTupleBuilder;
 import ch.njol.brokkr.ir.uses.IRAndTypeUse;
 import ch.njol.brokkr.ir.uses.IRAttributeUse;
-import ch.njol.brokkr.ir.uses.IRClassUse;
+import ch.njol.brokkr.ir.uses.IRGenericTypeAccess;
 import ch.njol.brokkr.ir.uses.IRGenericTypeUse;
 import ch.njol.brokkr.ir.uses.IROrTypeUse;
-import ch.njol.brokkr.ir.uses.IRSimpleClassUse;
+import ch.njol.brokkr.ir.uses.IRSelfTypeUse;
 import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 import ch.njol.brokkr.ir.uses.IRUnknownTypeUse;
+import ch.njol.util.CollectionUtils;
+import ch.njol.util.PartialComparator;
+import ch.njol.util.PartialRelation;
 import ch.njol.util.StringUtils;
 
 public class ASTExpressions {
@@ -123,7 +143,7 @@ public class ASTExpressions {
 		WordToken assignmentOp;
 		SymbolToken sym;
 		if ((assignmentOp = parent.try2("=", "+=", "-=", "*=", "/=", "&=", "|=")) != null) {
-			// TODO this is way too complicated - make it simpler if possible (by changing the 'expr' line above/parsing assignment first)
+			// TODO this is way too complicated - make it simpler if possible (by changing the 'expr' line above or parsing assignment first)
 			// TODO directly determine if a variable is local or an unqualified attribute?
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse) {
 				final ASTVariableOrUnqualifiedAttributeUse varOrAttribute = (ASTVariableOrUnqualifiedAttributeUse) expr;
@@ -182,7 +202,7 @@ public class ASTExpressions {
 //				if (ep instanceof Return)
 //					((Return) ep).results;
 //			}));
-			return new IRUnknownTypeUse();
+			return new IRUnknownTypeUse(getIRContext());
 		}
 		
 		public ASTBlock() {}
@@ -192,14 +212,8 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			for (final ASTStatement s : statements) {
-				s.interpret(context);
-				if (context.isReturning)
-					return null; // a block doesn't return anything - the result is stored in whatever result variable(s) is/are used
-				// TODO different 'return's for returning from the outermost function, and only returning from a single block?
-			}
-			return null;
+		public String toString() {
+			return "{...}";
 		}
 		
 		@Override
@@ -218,9 +232,58 @@ public class ASTExpressions {
 			}, '}');
 			return this;
 		}
+		
+		@Override
+		public IRExpression getIR() {
+			if (expression != null)
+				return expression.getIR(); // FIXME actually returns a block like [[ {return expression;} ]]
+			return new IRBlock(getIRContext(), statements.stream().map(s -> s.getIR()));
+		}
 	}
 	
-	public static class ASTAnonymousObject extends AbstractASTElement<ASTAnonymousObject> implements ASTExpression, ASTTypeDeclaration {
+	public static class ASTAnonymousObject extends AbstractASTElement<ASTAnonymousObject> implements ASTExpression {
+		public @Nullable ASTAnonymousType type;
+		
+		@Override
+		public int linkStart() {
+			return type != null ? type.linkStart() : regionStart();
+		}
+		
+		@Override
+		public int linkEnd() {
+			return type != null ? type.linkEnd() : regionEnd();
+		}
+		
+		@Override
+		public String toString() {
+			return "create " + type;
+		}
+		
+		@Override
+		protected ASTAnonymousObject parse() throws ParseException {
+			one("create");
+			type = one(ASTAnonymousType.class);
+			return this;
+		}
+		
+		@Override
+		public IRTypeUse getIRType() {
+			final ASTAnonymousType type = this.type;
+			if (type == null)
+				return new IRUnknownTypeUse(getIRContext());
+			return new IRSimpleTypeUse(type.getIR());
+		}
+		
+		@Override
+		public IRExpression getIR() {
+			if (type != null)
+				return new IRAnonymousObjectCreation(type.getIR());
+			else
+				return new IRUnknownExpression("Syntax error. Proper syntax: [create SomeType { ... }]", this);
+		}
+	}
+	
+	public static class ASTAnonymousType extends AbstractASTElement<ASTAnonymousType> implements ASTTypeDeclaration {
 		public @Nullable ASTTypeUse type;
 		public List<ASTMember> members = new ArrayList<>();
 		
@@ -252,7 +315,7 @@ public class ASTExpressions {
 		// always has a parent type
 		@Override
 		public @NonNull IRTypeUse parentTypes() {
-			return type != null ? type.staticallyKnownType() : new IRUnknownTypeUse();
+			return type != null ? type.getIR() : new IRUnknownTypeUse(getIRContext());
 		}
 		
 		@Override
@@ -261,28 +324,24 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		protected ASTAnonymousObject parse() throws ParseException {
-			one("create");
+		public String toString() {
+			return type + " {...}";
+		}
+		
+		@Override
+		protected ASTAnonymousType parse() throws ParseException {
 			type = ASTTypeExpressions.parse(this, true, false);
 			oneRepeatingGroup('{', () -> {
-				members.add(ASTMember.parse(this));
+				members.add(ASTMembers.parse(this));
 			}, '}');
 			return this;
 		}
 		
-		@Override
-		public IRTypeUse getIRType() {
-			return new IRSimpleTypeUse(getIR()); // a new anonymous object (which this represents) is an instance of its anonymous type (which this also represents)
-		}
+		private final Cache<IRClassDefinition> ir = new Cache<>(() -> new IRBrokkrClassDefinition(this));
 		
 		@Override
-		public IRBrokkrClass getIR() {
-			return new IRBrokkrClass(this);
-		}
-		
-		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			return new InterpretedNormalObject(new IRSimpleClassUse(getIR()));
+		public IRClassDefinition getIR() {
+			return ir.get();
 		}
 	}
 	
@@ -295,6 +354,16 @@ public class ASTExpressions {
 		public ASTLambda(final ASTLambdaParameter param) {
 			parameters.add(param);
 			param.setParent(this);
+		}
+		
+		@Override
+		public String toString() {
+			return parameters + " -> " + code;
+		}
+		
+		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			return null; // TODO return description of this function
 		}
 		
 		@Override
@@ -315,25 +384,13 @@ public class ASTExpressions {
 		
 		@Override
 		public List<? extends IRVariableRedefinition> allVariables() {
-			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
+			return parameters.stream().map(p -> p.getIR()).collect(Collectors.toList());
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			// TODO wrong, is actually a function type
-			return code != null ? code.getIRType() : new IRUnknownTypeUse();
-		}
-		
-		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
-//			return new IRClosure() {
-//				@Override
-//				IRObject interpret(final Map<IRParameter, IRObject> arguments) {
-//					// TODO Auto-generated method stub
-//					return null;
-//				}
-//			};
+		public IRExpression getIR() {
+			final ASTExpression code = this.code;
+			return new IRClosure(parameters.stream().map(p -> p.getIR()).collect(Collectors.toList()), code == null ? new IRUnknownExpression("missing expression for lambda function", this) : code.getIR());
 		}
 	}
 	
@@ -360,6 +417,11 @@ public class ASTExpressions {
 		}
 		
 		@Override
+		public String toString() {
+			return (type != null ? type + " " : "") + name;
+		}
+		
+		@Override
 		protected @NonNull ASTLambdaParameter parse() throws ParseException {
 			if (type == null && !withoutType && !try_("var"))
 				type = ASTTypeExpressions.parse(this, false, false);
@@ -368,15 +430,15 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRVariableRedefinition interpreted() {
+		public IRVariableRedefinition getIR() {
 			return new IRBrokkrLocalVariable(this);
 		}
 		
 		@Override
 		public IRTypeUse getIRType() {
 			if (type != null)
-				return type.staticallyKnownType();
-			throw new InterpreterException("not implemented"); // TODO infer type
+				return type.getIR();
+			return new IRUnknownTypeUse(getIRContext()); // TODO infer type
 		}
 	}
 	
@@ -393,50 +455,77 @@ public class ASTExpressions {
 		
 		@Override
 		public IRTypeUse getIRType() {
-			return value != null ? value.getIRType() : new IRUnknownTypeUse();
+			return value != null ? value.getIRType() : new IRUnknownTypeUse(getIRContext());
 		}
 		
-		protected abstract @Nullable InterpretedObject target(InterpreterContext context);
+//		protected abstract @Nullable InterpretedObject target(InterpreterContext context);
+//
+//		protected abstract @Nullable IRVariableOrAttributeRedefinition varOrAttribute();
+//
+//		@Override
+//		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
+//			final ASTExpression expression = value;
+//			if (expression == null)
+//				return null;
+//			InterpretedObject value = expression.interpret(context);
+//			if (value == null)
+//				return null;
+//			final IRVariableOrAttributeRedefinition varOrAttribute = varOrAttribute();
+//			if (varOrAttribute == null)
+//				return null;
+//			final IRAttributeRedefinition operator = assignmentOpLink != null ? assignmentOpLink.get() : null;
+//			if (operator == null && assignmentOpLink != null)
+//				return null;
+//			if (varOrAttribute instanceof IRVariableRedefinition) {
+//				final IRVariableDefinition variableDefinition = ((IRVariableRedefinition) varOrAttribute).definition();
+//				if (operator != null)
+//					value = operator.interpretDispatched(context.getLocalVariableValue(variableDefinition), Collections.singletonMap(operator.parameters().get(0).definition(), value), false);
+//				context.setLocalVariableValue(variableDefinition, value);
+//			} else {
+//				final InterpretedObject target = target(context);
+//				if (target == null)
+//					return null;
+//				final IRAttributeDefinition attributeDefinition = ((IRAttributeRedefinition) varOrAttribute).definition();
+//				if (target instanceof InterpretedNormalObject) {
+//					if (operator != null)
+//						value = operator.interpretDispatched(((InterpretedNormalObject) target).getAttributeValue(attributeDefinition), Collections.singletonMap(operator.parameters().get(0).definition(), value), false);
+//					((InterpretedNormalObject) target).setAttributeValue(attributeDefinition, value);
+//				} else {// TODO tuples
+//					throw new InterpreterException("Tried to set an attribute on a native object");
+//				}
+//			}
+//			return value;
+//		}
 		
-		protected abstract @Nullable IRVariableOrAttributeRedefinition varOrAttribute();
+		protected abstract IRExpression makeAssignmentIR(IRExpression value);
+		
+		protected abstract IRExpression makeAccessIR();
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
+		public final IRExpression getIR() {
 			final ASTExpression expression = value;
 			if (expression == null)
-				return null;
-			InterpretedObject value = expression.interpret(context);
-			if (value == null)
-				return null;
-			final IRVariableOrAttributeRedefinition varOrAttribute = varOrAttribute();
-			if (varOrAttribute == null)
-				return null;
-			final IRAttributeRedefinition operator = assignmentOpLink != null ? assignmentOpLink.get() : null;
-			if (operator == null && assignmentOpLink != null)
-				return null;
-			if (varOrAttribute instanceof IRVariableRedefinition) {
-				final IRVariableDefinition variableDefinition = ((IRVariableRedefinition) varOrAttribute).definition();
-				if (operator != null)
-					value = operator.interpretDispatched(context.getLocalVariableValue(variableDefinition), Collections.singletonMap(operator.parameters().get(0).definition(), value), false);
-				context.setLocalVariableValue(variableDefinition, value);
-			} else {
-				final InterpretedObject target = target(context);
-				if (target == null)
-					return null;
-				final IRAttributeDefinition attributeDefinition = ((IRAttributeRedefinition) varOrAttribute).definition();
-				if (target instanceof InterpretedNormalObject) {
-					if (operator != null)
-						value = operator.interpretDispatched(((InterpretedNormalObject) target).getAttributeValue(attributeDefinition), Collections.singletonMap(operator.parameters().get(0).definition(), value), false);
-					((InterpretedNormalObject) target).setAttributeValue(attributeDefinition, value);
-				} else {// TODO tuples
-					throw new InterpreterException("Tried to set an attribute on a native object");
-				}
+				return new IRUnknownExpression("Missing right-hand side of assignment", this);
+			final IRExpression val = expression.getIR();
+			final ASTOperatorLink assignmentOpLink = this.assignmentOpLink;
+			if (assignmentOpLink == null) // simple assignment (without operator)
+				return makeAssignmentIR(val);
+			final IRAttributeRedefinition operator = assignmentOpLink.get();
+			if (operator == null)
+				return new IRUnknownExpression("Operator with invalid parameter name: " + operator, this);
+			final IRParameterRedefinition param = operator.getParameterByName("other");
+			if (param == null) {
+				final WordToken nameToken = assignmentOpLink.getNameToken();
+				assert nameToken != null;
+				return new IRUnknownExpression("Operator with invalid parameter name: " + operator, nameToken);
 			}
-			return value;
+			return makeAssignmentIR(new IRAttributeAccess(makeAccessIR(), operator, Collections.singletonMap(param.definition(), val), false, false, false));
 		}
 	}
 	
 	// TODO think about whether assignment should really be an expression - this can be handy, but can also hide state changes.
+	// pro: [while ((toSleep = ...) > 0) Thread.sleep(toSleep);]
+	// remember to issue a warning when used like [if (var = some bool)]
 	public static class ASTLocalVariableOrUnqualifiedAttributeAssignment extends AbstractASTAssignment<ASTLocalVariableOrUnqualifiedAttributeAssignment> {
 		public final ASTVariableOrUnqualifiedAttributeUse varOrAttribute;
 		
@@ -447,19 +536,38 @@ public class ASTExpressions {
 		}
 		
 		@Override
+		public String toString() {
+			return varOrAttribute + " = " + value;
+		}
+		
+		@Override
 		protected ASTLocalVariableOrUnqualifiedAttributeAssignment parse() throws ParseException {
 			value = ASTExpressions.parse(this);
 			return this;
 		}
 		
 		@Override
-		protected @Nullable InterpretedObject target(final InterpreterContext context) {
-			return context.getThisObject();
+		protected IRExpression makeAssignmentIR(final IRExpression value) {
+			final IRVariableOrAttributeRedefinition varOrAttr = varOrAttribute.link.get();
+			if (varOrAttr == null)
+				return new IRUnknownExpression("Cannot find the local variable or attribute " + varOrAttribute.link.getName(), varOrAttribute);
+			if (varOrAttr instanceof IRAttributeRedefinition) {
+				return new IRAttributeAssignment(IRThis.makeNew(this), ((IRAttributeRedefinition) varOrAttr).definition(), value);
+			} else {
+				return new IRVariableAssignment(((IRVariableRedefinition) varOrAttr).definition(), value);
+			}
 		}
 		
 		@Override
-		protected @Nullable IRVariableOrAttributeRedefinition varOrAttribute() {
-			return varOrAttribute.link.get();
+		protected IRExpression makeAccessIR() {
+			final IRVariableOrAttributeRedefinition varOrAttr = varOrAttribute.link.get();
+			if (varOrAttr == null)
+				return new IRUnknownExpression("Cannot find the local variable or attribute " + varOrAttribute.link.getName(), varOrAttribute);
+			if (varOrAttr instanceof IRAttributeRedefinition) {
+				return new IRAttributeAccess(IRThis.makeNew(this), ((IRAttributeRedefinition) varOrAttr).definition(), Collections.EMPTY_MAP, false, false, false);
+			} else {
+				return new IRVariableExpression((IRVariableRedefinition) varOrAttr);
+			}
 		}
 	}
 	
@@ -476,19 +584,34 @@ public class ASTExpressions {
 		}
 		
 		@Override
+		public String toString() {
+			return target + "." + attribute + " = " + value;
+		}
+		
+		@Override
 		protected ASTAttributeAssignment parse() throws ParseException {
 			value = ASTExpressions.parse(this);
 			return this;
 		}
 		
 		@Override
-		protected @Nullable InterpretedObject target(final InterpreterContext context) {
-			return target.interpret(context);
+		protected IRExpression makeAssignmentIR(final IRExpression value) {
+			final IRAttributeRedefinition attr = attribute.get();
+			if (attr == null) {
+				final WordToken a = attribute.getNameToken();
+				return new IRUnknownExpression("Cannot find an attribute named " + attribute.getName() + " in the type " + target.getIRType(), a == null ? this : a);
+			}
+			return new IRAttributeAssignment(target.getIR(), attr.definition(), value);
 		}
 		
 		@Override
-		protected @Nullable IRVariableOrAttributeRedefinition varOrAttribute() {
-			return attribute.get();
+		protected IRExpression makeAccessIR() {
+			final IRAttributeRedefinition attr = attribute.get();
+			if (attr == null) {
+				final WordToken a = attribute.getNameToken();
+				return new IRUnknownExpression("Cannot find an attribute named " + attribute.getName() + " in the type " + target.getIRType(), a == null ? this : a);
+			}
+			return new IRAttributeAccess(target.getIR(), attr.definition(), Collections.EMPTY_MAP, false, false, false);
 		}
 	}
 	
@@ -502,6 +625,11 @@ public class ASTExpressions {
 		}
 		
 		@Override
+		public String toString() {
+			return condition + " ? " + then + " : " + otherwise;
+		}
+		
+		@Override
 		protected ASTTernaryIf parse() throws ParseException {
 			then = ASTExpressions.parse(this);
 			one(':');
@@ -511,24 +639,22 @@ public class ASTExpressions {
 		
 		@Override
 		public IRTypeUse getIRType() {
-			return new IROrTypeUse(then != null ? then.getIRType() : new IRUnknownTypeUse(), otherwise != null ? otherwise.getIRType() : new IRUnknownTypeUse());
+			return IROrTypeUse.makeNew(then != null ? then.getIRType() : new IRUnknownTypeUse(getIRContext()), otherwise != null ? otherwise.getIRType() : new IRUnknownTypeUse(getIRContext()));
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			final InterpretedObject cond = condition.interpret(context);
-			if (cond == null)
-				return null;
-			return cond.equals(getInterpreter().bool(true)) ? (then != null ? then.interpret(context) : null) : (otherwise != null ? otherwise.interpret(context) : null);
+		public IRExpression getIR() {
+			return new IRIf(condition.getIR(), then != null ? then.getIR() : new IRUnknownExpression("Syntax error. Correct syntax: [test ? then : otherwise]", this), otherwise != null ? otherwise.getIR() : null);
 		}
 	}
 	
+	// FIXME think about this some more
 	public static class ASTErrorHandlingExpression extends AbstractASTElement<ASTElement> implements ASTExpression {
 		public ASTExpression expression;
 		public boolean negated;
-		public ASTLink<ASTError> error = new ASTLink<ASTError>(this) {
+		public ASTLink<IRError> error = new ASTLink<IRError>(this) {
 			@Override
-			protected @Nullable ASTError tryLink(final String name) {
+			protected @Nullable IRError tryLink(final String name) {
 				//expression.type();
 				// TODO Auto-generated method stub
 				return null;
@@ -540,6 +666,11 @@ public class ASTExpressions {
 		public ASTErrorHandlingExpression(final ASTExpression expression) {
 			this.expression = expression;
 			expression.setParent(this);
+		}
+		
+		@Override
+		public String toString() {
+			return "";
 		}
 		
 		@Override
@@ -559,19 +690,19 @@ public class ASTExpressions {
 		
 		@Override
 		public IRTypeUse getIRType() {
-			return value != null ? value.getIRType() : new IRUnknownTypeUse();
+			return value != null ? value.getIRType() : new IRUnknownTypeUse(getIRContext());
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
+		public IRExpression getIR() {
+			return new IRUnknownExpression("not implemented", this);
 		}
 	}
 	
 	public static class ASTErrorHandlingExpressionParameter extends AbstractASTElement<ASTErrorHandlingExpressionParameter> implements ASTLocalVariable {
-		public final ASTLink<ASTParameter> parameter = new ASTLink<ASTParameter>(this) {
+		public final ASTLink<IRParameterRedefinition> parameter = new ASTLink<IRParameterRedefinition>(this) {
 			@Override
-			protected @Nullable ASTParameter tryLink(final String name) {
+			protected @Nullable IRParameterRedefinition tryLink(final String name) {
 				// TODO parameter named like this link, or parameter with same position as this parameter (either from left or right, depending on where the dots are (if any)).
 				return null;
 			}
@@ -581,6 +712,11 @@ public class ASTExpressions {
 		@Override
 		public @Nullable WordToken nameToken() {
 			return parameter.getNameToken();
+		}
+		
+		@Override
+		public String toString() {
+			return "";
 		}
 		
 		@Override
@@ -594,15 +730,15 @@ public class ASTExpressions {
 		@Override
 		public IRTypeUse getIRType() {
 			if (type != null)
-				return type.staticallyKnownType();
-			final ASTParameter param = parameter.get();
+				return type.getIR();
+			final IRParameterRedefinition param = parameter.get();
 			if (param != null)
-				return param.getIRType();
-			return new IRUnknownTypeUse();
+				return param.type();
+			return new IRUnknownTypeUse(getIRContext());
 		}
 		
 		@Override
-		public IRVariableRedefinition interpreted() {
+		public IRVariableRedefinition getIR() {
 			return new IRBrokkrLocalVariable(this); // TODO correct?
 		}
 	}
@@ -634,22 +770,40 @@ public class ASTExpressions {
 			return "" + b;
 		}
 		
+		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			for (final ASTLink<IRAttributeRedefinition> opLink : operators) {
+				final WordToken linkToken = opLink.getNameToken();
+				if (linkToken != null && linkToken.equals(token)
+						|| linkToken instanceof SymbolsWordToken && token instanceof SymbolToken
+								&& ((SymbolsWordToken) linkToken).contains((SymbolToken) token)) {
+					final IRAttributeRedefinition attr = opLink.get();
+					return attr == null ? null : attr.hoverInfo();
+				}
+			}
+			return null;
+		}
+		
 		private final static String[] opsWithoutComp = {//
 				"&", "|", "+", "-", "*", "/", "^", //
-				"implies", "extends", "super", "is"};
+				"implies"};
+		//, "extends", "super", "is"}; // FIXME extends, super, and is are problematic, as extensions (which can make a class/interface implement a new interface) may or may not be loaded at runtime
+		// (e.g. they may not be included, but another loaded library loads them), making these operations quite volatile.
 		private final static String[] opsWithComp = {//
 				"&", "|", "+", "-", "*", "/", "^", // copy of above
-				"&=", "|=", "+=", "-=", "*=", "/=", // TODO should these exist or not? could possibly be confused with modifying an object instead of changing a variable (the most common use, numbers, has no ambiguity though)
 				">=", ">", "<=", "<", //
-				"===", "==", "!==", "!=", //
+				"===", "==", "!==", "!=",
 				"implies", "extends", "super", "is"}; // copy of above
+		private final Set<String> assingmentOps = new HashSet<>(Arrays.asList("&", "|", "+", "-", "*", "/"));
 		
 		@Override
 		protected ASTExpression parse() throws ParseException {
 			final ASTExpression first = one(ASTOperatorExpressionPart.class);
 			expressions.add(first);
 			WordToken op;
-			while ((op = try2(allowComparisons ? opsWithComp : opsWithoutComp)) != null) {
+			Token next;
+			while (!((next = peekNext()) instanceof SymbolToken && assingmentOps.contains("" + ((SymbolToken) next).symbol) && peekNext('=', 1, true)) // +=/*=/etc.
+					&& (op = try2(allowComparisons ? opsWithComp : opsWithoutComp)) != null) {
 				operators.add(new ASTOperatorLink(this, op, true));
 				expressions.add(one(ASTOperatorExpressionPart.class));
 			}
@@ -659,34 +813,99 @@ public class ASTExpressions {
 				return this;
 		}
 		
-		// TODO use proper operator order
+		/**
+		 * Sets of operators of equal precedence, ordered by set precedence (higher index = higher precedence)
+		 */
+		@SuppressWarnings("null")
+		final static String @NonNull [] @NonNull [] precedenceSets = {
+				{">=", ">", "<=", "<", "===", "==", "!==", "!="},
+				{"|"},
+				{"&"},
+				{"+", "-"},
+				{"*", "/"},
+				{"^"},
+		};
+		final static Set<String> allOrderableOperators = new HashSet<>();
+		static {
+			for (final String[] set : precedenceSets)
+				allOrderableOperators.addAll(Arrays.asList(set));
+		}
 		
-		@Override
-		public IRTypeUse getIRType() {
-			final IRAttributeRedefinition attributeRedefinition = operators.get(operators.size() - 1).get();
-			return attributeRedefinition == null ? new IRUnknownTypeUse() : attributeRedefinition.mainResultType();
+		private static int getPrecedence(final String o) {
+			for (int i = 0; i < precedenceSets.length; i++) {
+				final String[] set = precedenceSets[i];
+				if (CollectionUtils.contains(set, o))
+					return i;
+			}
+			return -1;
+		}
+		
+		/**
+		 * Defines operator precedence as a a partial order. Incomparable operators result in a semantic error, equal operators have the same precedence (e.g. <code>*</code> and
+		 * <code>/</code>), and for other operators the relation is as follows: if o1 &lt; o2, then o1 has lower precedence than o2 (e.g. <code>a o1 b o2 c == a o1 (b o2 c)</code>)
+		 */
+		public final static PartialComparator<String> binaryOperatorComparator = new PartialComparator<String>() {
+			@Override
+			public PartialRelation compare(final String o1, final String o2) {
+				if (o1.equals(o2))
+					return PartialRelation.EQUAL;
+				final int p1 = getPrecedence(o1), p2 = getPrecedence(o2);
+				if (p1 < 0 || p2 < 0)
+					return PartialRelation.INCOMPARABLE;
+				return p1 == p2 ? PartialRelation.EQUAL : p1 < p2 ? PartialRelation.LESS : PartialRelation.GREATER;
+			}
+		};
+		
+		// TODO -x^2 should be -(x^2), not (-x)^2 == x^2 (or could also make this an error)
+		
+		private IRExpression build(final int fromExpressionIndex, final int toExpressionIndex) {
+			if (fromExpressionIndex == toExpressionIndex)
+				return expressions.get(fromExpressionIndex).getIR();
+			int maxPrec = -1;
+			for (int i = fromExpressionIndex; i < toExpressionIndex; i++) {
+				@SuppressWarnings("null")
+				final int p = getPrecedence(operators.get(i).getName());
+				if (p > maxPrec)
+					maxPrec = p;
+			}
+			for (int i = fromExpressionIndex; i < toExpressionIndex; i++) {
+				final ASTLink<IRAttributeRedefinition> op = operators.get(i);
+				final WordToken w = op.getNameToken();
+				assert w != null;
+				final int p = getPrecedence(w.word);
+				if (p == maxPrec) {
+					final IRAttributeRedefinition attr = op.get();
+					if (attr == null)
+						return new IRUnknownExpression("Cannot find operator [" + w.word + "]", w);
+					return new IRAttributeAccess(build(fromExpressionIndex, i), attr, Collections.singletonMap(attr.definition().parameters().get(0).definition(), build(i + 1, toExpressionIndex)), false, false, false);
+				}
+			}
+			assert false;
+			return new IRUnknownExpression("Unexpected compiler error", this);
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			InterpretedObject o = expressions.get(0).interpret(context);
-			for (int i = 0; i < operators.size(); i++) {
-				final InterpretedObject o2 = expressions.get(i + 1).interpret(context);
-				if (o == null || o2 == null)
-					return null;
-				final IRAttributeRedefinition operatorAttribute = operators.get(i).get();
-				if (operatorAttribute == null)
-					return null;
-				final IRAttributeDefinition attr = operatorAttribute.definition();
-				o = attr.interpretDispatched(o, Collections.singletonMap(attr.parameters().get(0).definition(), o2), false);
+		public IRExpression getIR() {
+			if (operators.size() > 1) {
+				for (final ASTLink<IRAttributeRedefinition> op : operators) {
+					final WordToken w = op.getNameToken();
+					assert w != null; // operators are only added to the list if they can be parsed
+					if (!allOrderableOperators.contains(w.word))
+						return new IRUnknownExpression("The operator [" + op.getName() + "] must not be used together with other operators, as the ordering of operators is nonobvious.", w);
+				}
 			}
-			return o;
+			return build(0, expressions.size() - 1);
 		}
 	}
 	
 	public static class ASTOperatorExpressionPart extends AbstractASTElement<ASTExpression> implements ASTExpression {
 		public @Nullable ASTExpression expression;
 		public ASTLink<IRAttributeRedefinition> prefixOperator = new ASTOperatorLink(this, null, false);
+		
+		@Override
+		public String toString() {
+			return prefixOperator.getName() + expression;
+		}
 		
 		@Override
 		protected ASTExpression parse() throws ParseException {
@@ -715,16 +934,21 @@ public class ASTExpressions {
 		@Override
 		public IRTypeUse getIRType() {
 			final IRAttributeRedefinition attributeRedefinition = prefixOperator.get();
-			return attributeRedefinition == null ? new IRUnknownTypeUse() : attributeRedefinition.mainResultType();
+			return attributeRedefinition == null ? new IRUnknownTypeUse(getIRContext()) : attributeRedefinition.mainResultType();
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			final InterpretedObject object = expression != null ? expression.interpret(context) : null;
-			if (object == null)
-				return null;
-			final IRAttributeRedefinition attributeRedefinition = prefixOperator.get();
-			return attributeRedefinition == null ? null : attributeRedefinition.interpretDispatched(object, Collections.EMPTY_MAP, false);
+		public IRExpression getIR() {
+			final IRAttributeRedefinition attribute = prefixOperator.get();
+			if (attribute == null) {
+				final WordToken op = prefixOperator.getNameToken();
+				return new IRUnknownExpression("Cannot find the attribute for the prefix operator " + op, op == null ? this : op);
+			}
+			final ASTExpression expression = this.expression;
+			if (expression == null)
+				return new IRUnknownExpression("Syntax error, expected an expression", this);
+			final IRExpression target = expression.getIR();
+			return new IRAttributeAccess(target, attribute, Collections.EMPTY_MAP, false, false, false);
 		}
 	}
 	
@@ -733,14 +957,14 @@ public class ASTExpressions {
 		public boolean nullSafe, meta;
 		public @Nullable ASTDirectAttributeAccess access;
 		
-		@Override
-		public IRTypeUse getIRType() {
-			return access != null ? access.getIRType() : new IRUnknownTypeUse();
-		}
-		
 		public ASTAccessExpression(final ASTExpression target) {
 			this.target = target;
 			target.setParent(this);
+		}
+		
+		@Override
+		public String toString() {
+			return target + (nullSafe ? "?" : "") + (meta ? "~" : ".") + access;
 		}
 		
 		public final static @Nullable ASTExpression parse(final AbstractASTElement<?> parent) throws ParseException {
@@ -759,23 +983,8 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			final InterpretedObject target = this.target.interpret(context);
-			if (target == null)
-				return null;
-			if (nullSafe && target instanceof InterpretedNullConstant)
-				return new InterpretedNullConstant();
-			final ASTDirectAttributeAccess daa = access;
-			if (daa == null)
-				return null;
-			final IRAttributeRedefinition attributeRedefinition = daa.attribute.get();
-			if (attributeRedefinition == null)
-				return null;
-			final IRAttributeDefinition attributeDefinition = attributeRedefinition.definition();
-			final InterpretedObject obj = attributeDefinition.interpretDispatched(target, ASTArgument.makeIRArgumentMap(attributeDefinition, daa.arguments, context), daa.allResults);
-//			if (daa.negated)
-//				return getInterpreter().getInterface("lang", "Boolean").getAttributeByName("negated").interpretDispatched(obj, Collections.EMPTY_MAP, false);
-			return obj;
+		public IRTypeUse getIRType() {
+			return access != null ? access.getIRType() : new IRUnknownTypeUse(getIRContext());
 		}
 		
 		@Override
@@ -787,6 +996,20 @@ public class ASTExpressions {
 			meta = op.endsWith("~");
 			access = one(ASTDirectAttributeAccess.class);
 			return this;
+		}
+		
+		@Override
+		public IRExpression getIR() {
+			final IRExpression target = this.target.getIR();
+			final ASTDirectAttributeAccess access = this.access;
+			if (access == null)
+				return new IRUnknownExpression("Syntax error, expected an attribute", this);
+			final IRAttributeRedefinition attribute = access.attribute.get();
+			if (attribute == null) {
+				final WordToken a = access.attribute.getNameToken();
+				return new IRUnknownExpression("Cannot find an attribute named " + a + " in the type " + target.type(), a == null ? this : a);
+			}
+			return new IRAttributeAccess(target, attribute, ASTArgument.makeIRArgumentMap(attribute.definition(), access.arguments), access.allResults, nullSafe, meta);
 		}
 	}
 	
@@ -812,16 +1035,8 @@ public class ASTExpressions {
 		public final List<ASTArgument> arguments = new ArrayList<>();
 		
 		@Override
-		public @Nullable IRAttributeRedefinition attribute() {
-			return attribute.get();
-		}
-		
-		@Override
-		public IRTypeUse getIRType() {
-			final IRAttributeRedefinition attributeRedefinition = attribute.get();
-			if (attributeRedefinition == null)
-				return new IRUnknownTypeUse();
-			return allResults ? attributeRedefinition.allResultTypes() : attributeRedefinition.mainResultType();
+		public String toString() {
+			return /*(negated ? "!" : "") +*/ attribute.getName() + (arguments.size() == 0 ? "" : "(...)");
 		}
 		
 		@Override
@@ -839,8 +1054,16 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public String toString() {
-			return /*(negated ? "!" : "") +*/ attribute.getName() + (arguments.size() == 0 ? "" : "(...)");
+		public @Nullable IRAttributeRedefinition attribute() {
+			return attribute.get();
+		}
+		
+		@Override
+		public IRTypeUse getIRType() {
+			final IRAttributeRedefinition attributeRedefinition = attribute.get();
+			if (attributeRedefinition == null)
+				return new IRUnknownTypeUse(getIRContext());
+			return allResults ? attributeRedefinition.allResultTypes() : attributeRedefinition.mainResultType();
 		}
 	}
 	
@@ -848,7 +1071,8 @@ public class ASTExpressions {
 		public static @Nullable ASTExpression parse(final AbstractASTElement<?> parent) throws ParseException {
 			// peek is acceptable here, as nobody needs content assist for expression *syntax*.
 			if (parent.try_('(')) {
-				final ASTExpression[] e = new ASTExpression[1];
+				@SuppressWarnings("null")
+				final @Nullable ASTExpression[] e = new ASTExpression[1];
 				parent.until(() -> {
 					e[0] = ASTExpressions.parse(parent);
 				}, ')', false);
@@ -922,18 +1146,28 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return getInterpreter().numberConstant(value).nativeClass();
+		public @Nullable String hoverInfo(final Token token) {
+			try {
+				final long l = value.longValueExact();
+				return l + " (0x" + Long.toHexString(l).toUpperCase(Locale.ENGLISH) + ")";
+			} catch (final NumberFormatException e) {
+				return "" + value;
+			}
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			return getInterpreter().numberConstant(value);
+		public IRTypeUse getIRType() {
+			return IRNumberConstant.type(getIRContext(), value);
 		}
 		
 		@Override
 		protected ASTNumberConstant parse() throws ParseException {
 			return this;
+		}
+		
+		@Override
+		public IRExpression getIR() {
+			return new IRNumberConstant(getIRContext(), value);
 		}
 	}
 	
@@ -963,14 +1197,10 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return getInterpreter().getTypeUse("lang", value == Kleenean.UNKNOWN ? "Kleenean" : "Boolean");
+		public IRExpression getIR() {
+			return new IRKleeneanConstant(getIRContext(), value);
 		}
 		
-		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			return getInterpreter().kleenean(value);
-		}
 	}
 	
 	/**
@@ -978,19 +1208,13 @@ public class ASTExpressions {
 	 */
 	public static class ASTThis extends AbstractASTElement<ASTThis> implements ASTExpression {
 		@Override
-		public IRTypeUse getIRType() {
-			final ASTTypeDeclaration type = getParentOfType(ASTTypeDeclaration.class);
-			return type == null ? new IRUnknownTypeUse() : new IRSimpleTypeUse(type.getIR());
-		}
-		
-		@Override
 		public String toString() {
 			return "this";
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			return context.getThisObject();
+		public @Nullable String hoverInfo(final Token token) {
+			return null; // TODO current type, and maybe more
 		}
 		
 		@Override
@@ -998,10 +1222,21 @@ public class ASTExpressions {
 			one("this");
 			return this;
 		}
+		
+		@Override
+		public IRTypeUse getIRType() {
+			final ASTTypeDeclaration type = getParentOfType(ASTTypeDeclaration.class);
+			return type == null ? new IRUnknownTypeUse(getIRContext()) : new IRSelfTypeUse(type.getIR().getRawUse());
+		}
+		
+		@Override
+		public IRExpression getIR() {
+			return IRThis.makeNew(this);
+		}
 	}
 	
 	/**
-	 * The keyword 'null', representing 'no value'.
+	 * The keyword 'null', representing 'no value' for 'optional' variables.
 	 */
 	public static class ASTNull extends AbstractASTElement<ASTNull> implements ASTExpression {
 		@Override
@@ -1016,13 +1251,8 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return new IRSimpleTypeUse(new IRNativeNullClass());
-		}
-		
-		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			return new InterpretedNullConstant();
+		public IRExpression getIR() {
+			return new IRNull(getIRContext());
 		}
 	}
 	
@@ -1044,21 +1274,15 @@ public class ASTExpressions {
 		@Override
 		public IRTypeUse getIRType() {
 			final ASTAttribute attribute = getParentOfType(ASTAttribute.class);
-			return attribute == null ? new IRUnknownTypeUse() : attribute.getIR().allParameterTypes();
+			return attribute == null ? new IRUnknownTypeUse(getIRContext()) : attribute.getIR().allParameterTypes();
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
+		public IRExpression getIR() {
 			final ASTAttribute attribute = getParentOfType(ASTAttribute.class);
 			if (attribute == null)
-				return null;
-			final List<IRParameterRedefinition> parameters = attribute.getIR().parameters();
-			final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-			for (int i = 0; i < parameters.size(); i++) {
-				final IRParameterRedefinition p = parameters.get(i);
-				entries.add(new IRNativeTupleValueAndEntry(i, p.type(), p.name(), context.getLocalVariableValue(p.definition())));
-			}
-			return IRTuple.newInstance(entries.stream());
+				return new IRUnknownExpression("Internal compiler error", this);
+			return new IRArgumentsKeyword(attribute.getIR());
 		}
 	}
 	
@@ -1085,18 +1309,13 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return getInterpreter().getTypeUse("lang", "String");
-		}
-		
-		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			return getInterpreter().stringConstant(value);
+		public IRExpression getIR() {
+			return new IRString(getIRContext(), value);
 		}
 	}
 	
 	/**
-	 * A first-order logic quantifier for contracts, i.e. 'for all' or 'there exists'.
+	 * A first-order logic quantifier for contracts, i.e. a 'for all' or 'there exists'.
 	 */
 	public static class ASTQuantifier extends AbstractASTElement<ASTQuantifier> implements ASTExpression/*, ASTElementWithVariables*/ {
 		boolean forall;
@@ -1132,18 +1351,23 @@ public class ASTExpressions {
 		
 		@Override
 		public IRTypeUse getIRType() {
-			return getInterpreter().getTypeUse("lang", "Boolean");
+			return getIRContext().getTypeUse("lang", "Boolean");
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
+		public IRExpression getIR() {
+			return new IRUnknownExpression("not implemented", this);
 		}
 	}
 	
 	public static class ASTQuantifierVars extends AbstractASTElement<ASTQuantifierVars> {
 		public @Nullable ASTTypeUse type;
 		public final List<ASTQuantifierVar> vars = new ArrayList<>();
+		
+		@Override
+		public String toString() {
+			return type + " " + StringUtils.join(vars, ", ");
+		}
 		
 		@Override
 		protected ASTQuantifierVars parse() throws ParseException {
@@ -1155,12 +1379,17 @@ public class ASTExpressions {
 		}
 	}
 	
-	public static class ASTQuantifierVar extends AbstractASTElement<ASTQuantifierVar> implements ASTParameter {
+	public static class ASTQuantifierVar extends AbstractASTElement<ASTQuantifierVar> /*implements ASTParameter*/ {
 		public @Nullable LowercaseWordToken name;
 		
+//		@Override
+//		public @Nullable WordToken nameToken() {
+//			return name;
+//		}
+		
 		@Override
-		public @Nullable WordToken nameToken() {
-			return name;
+		public String toString() {
+			return "" + name;
 		}
 		
 		@Override
@@ -1169,21 +1398,21 @@ public class ASTExpressions {
 			return this;
 		}
 		
-		@Override
-		public IRTypeUse getIRType() {
-			final ASTQuantifierVars vars = (ASTQuantifierVars) parent;
-			if (vars == null)
-				return new IRUnknownTypeUse();
-			final ASTTypeUse type = vars.type;
-			if (type == null)
-				return new IRUnknownTypeUse();
-			return type.staticallyKnownType();
-		}
-		
-		@Override
-		public IRParameterRedefinition interpreted(final IRAttributeRedefinition attribute) {
-			throw new InterpreterException("not implemented");
-		}
+//		@Override
+//		public IRTypeUse getIRType() {
+//			final ASTQuantifierVars vars = (ASTQuantifierVars) parent;
+//			if (vars == null)
+//				return new IRUnknownTypeUse(getIRContext());
+//			final ASTTypeUse type = vars.type;
+//			if (type == null)
+//				return new IRUnknownTypeUse(getIRContext());
+//			return type.getIR();
+//		}
+//
+//		@Override
+//		public IRParameterRedefinition getIR() {
+//			throw new IRBrokkrQuantifierParameterDefinition(this);
+//		}
 	}
 	
 	/**
@@ -1193,12 +1422,8 @@ public class ASTExpressions {
 		public List<ASTTupleEntry> entries = new ArrayList<>();
 		
 		@Override
-		public IRTypeUse getIRType() {
-			final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-			for (int i = 0; i < this.entries.size(); i++) {
-				entries.add(this.entries.get(i).nativeType(i));
-			}
-			return new IRTypeTuple(entries);
+		public String toString() {
+			return "" + entries;
 		}
 		
 		@Override
@@ -1212,16 +1437,15 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-			for (int i = 0; i < this.entries.size(); i++) {
-				final IRNativeTupleValueAndEntry entry = this.entries.get(i).interpret(context, i);
-				if (entry == null)
-					return null;
-				entries.add(entry);
-			}
-			return IRTuple.newInstance(entries.stream());
+		public IRExpression getIR() {
+			return ASTTupleEntry.makeIRNormalTuple(getIRContext(), entries);
 		}
+		
+		@Override
+		public IRTypeTuple getIRType() {
+			return ASTTupleEntry.makeIRTypeTuple(getIRContext(), entries);
+		}
+		
 	}
 	
 	/**
@@ -1231,18 +1455,8 @@ public class ASTExpressions {
 	 */
 	public static class ASTTypeTuple extends ASTTuple implements ASTTypeExpression {
 		@Override
-		public IRTypeTuple staticallyKnownType() {
-			final List<IRNativeTupleValueAndEntry> entries = new ArrayList<>();
-			for (int i = 0; i < this.entries.size(); i++) {
-				entries.add(this.entries.get(i).nativeType(i));
-			}
-			return new IRTypeTuple(entries.stream().collect(Collectors.toList()));
-		}
-		
-		@Override
-		public @NonNull IRTypeUse interpret(final InterpreterContext context) {
-			final InterpretedObject t = super.interpret(context);
-			return t == null ? new IRUnknownTypeUse() : (IRTypeTuple) t;
+		public IRTypeTuple getIR() {
+			return (IRTypeTuple) ASTTupleEntry.makeIRNormalTuple(getIRContext(), entries);
 		}
 	}
 	
@@ -1260,6 +1474,11 @@ public class ASTExpressions {
 		}
 		
 		@Override
+		public String toString() {
+			return (name != null ? name + ": " : "") + value;
+		}
+		
+		@Override
 		protected ASTTupleEntry parse() throws ParseException {
 			if (peekNext() instanceof WordToken && peekNext(':', 1, true)) {
 				name = oneIdentifierToken();
@@ -1274,22 +1493,31 @@ public class ASTExpressions {
 			return wordToken != null ? wordToken.word : null;
 		}
 		
-		public @Nullable IRNativeTupleValueAndEntry interpret(final InterpreterContext context, final int index) {
-			final ASTExpression expression = value;
-			final WordToken nameToken = name;
-			if (expression == null || nameToken == null)
-				return null;
-			final InterpretedObject value = expression.interpret(context);
-			if (value == null)
-				return null;
-			return new IRNativeTupleValueAndEntry(index, expression.getIRType(), nameToken.word, value);
+		public static IRTuple makeIRNormalTuple(final IRContext irContext, final List<ASTTupleEntry> entries) {
+			final IRTypeTupleBuilder builder = new IRTypeTupleBuilder(irContext);
+			for (final ASTTupleEntry e : entries)
+				builder.addEntry(e.getNormalIR());
+			return builder.build();
 		}
 		
-		public IRNativeTupleValueAndEntry nativeType(final int index) {
+		public static IRTypeTuple makeIRTypeTuple(final IRContext irContext, final List<ASTTupleEntry> entries) {
+			final IRTypeTupleBuilder builder = new IRTypeTupleBuilder(irContext);
+			for (final ASTTupleEntry e : entries)
+				builder.addEntry(e.getTypeIR());
+			return builder.build();
+		}
+		
+		public IRTupleBuilderEntry getNormalIR() {
 			final ASTExpression expression = value;
 			final WordToken nameToken = name;
-			final IRTypeUse valueType = expression == null ? new IRUnknownTypeUse() : expression.getIRType();
-			return new IRNativeTupleValueAndEntry(index, valueType.nativeClass(), nameToken == null ? "<unknown>" : nameToken.word, valueType); // TODO make an UnknownString? maybe as a constant?
+			final IRTypeUse valueType = expression == null ? new IRUnknownTypeUse(getIRContext()) : expression.getIRType();
+			return new IRTupleBuilderEntry(nameToken == null ? "<unknown>" : nameToken.word, valueType); // TODO make an UnknownString? maybe as a constant?
+		}
+		
+		public IRTupleBuilderEntry getTypeIR() {
+			final ASTExpression expression = value;
+			final WordToken nameToken = name;
+			return new IRTupleBuilderEntry(nameToken == null ? "<unknown>" : nameToken.word, expression == null ? new IRUnknownExpression("Syntax error, expected an expression", this) : expression.getIR());
 		}
 	}
 	
@@ -1302,7 +1530,8 @@ public class ASTExpressions {
 	
 	/**
 	 * A variable of unqualified attribute. Since both are just a lowercase word, these cases cannot be distinguished before linking.
-	 * Also handles unqualified attribute calls.
+	 * <p>
+	 * Also handles unqualified attribute calls, but not unqualified meta accesses (see {@link ASTUnqualifiedMetaAccess})
 	 */
 	public static class ASTVariableOrUnqualifiedAttributeUse extends AbstractASTElement<ASTVariableOrUnqualifiedAttributeUse> implements ASTExpression, ASTMethodCall, DebugString {
 		public ASTLink<IRVariableOrAttributeRedefinition> link = new ASTLink<IRVariableOrAttributeRedefinition>(this) {
@@ -1315,7 +1544,7 @@ public class ASTExpressions {
 							for (final ASTVariableDeclarationsVariable var : vars.variables) {
 								final LowercaseWordToken nameToken = var.nameToken;
 								if (nameToken != null && name.equals(nameToken.word))
-									return var.interpreted();
+									return var.getIR();
 							}
 						}
 					}
@@ -1328,6 +1557,8 @@ public class ASTExpressions {
 						final IRAttributeRedefinition attribute = ((ASTTypeDeclaration) p).getIR().getAttributeByName(name);
 						if (attribute != null)
 							return attribute;
+//						else
+//							System.out.println(((ASTTypeDeclaration) p).getIR() + ": " + ((ASTTypeDeclaration) p).getIR().allInterfaces() + " :: " + ((ASTTypeDeclaration) p).getIR().members()); // FIXME debug
 					}
 				}
 				// TODO semantic error; maybe set directly in Link: (copied from old code, so needs modification)
@@ -1355,27 +1586,43 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			final IRVariableOrAttributeRedefinition variableOrAttributeRedefinition = link.get();
-			return variableOrAttributeRedefinition == null ? new IRUnknownTypeUse() : variableOrAttributeRedefinition.mainResultType();
+		public String toString() {
+			return "" + link.getName();
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			final IRVariableOrAttributeRedefinition varOrAttr = link.get();
-			if (varOrAttr == null)
+		public @Nullable String hoverInfo(final Token token) {
+			final IRVariableOrAttributeRedefinition varOrAttrib = link.get();
+			if (varOrAttrib == null)
 				return null;
-			if (varOrAttr instanceof IRVariableRedefinition) {
-				return context.getLocalVariableValue(((IRVariableRedefinition) varOrAttr).definition());
-			} else {
-				return ((IRAttributeRedefinition) varOrAttr).interpretDispatched(context.getThisObject(), Collections.EMPTY_MAP, false);
-			}
+			return varOrAttrib.hoverInfo();
+		}
+		
+		@Override
+		public IRTypeUse getIRType() {
+			final IRVariableOrAttributeRedefinition variableOrAttributeRedefinition = link.get();
+			return variableOrAttributeRedefinition == null ? new IRUnknownTypeUse(getIRContext()) : variableOrAttributeRedefinition.mainResultType();
 		}
 		
 		@Override
 		public @Nullable IRAttributeRedefinition attribute() {
 			final IRVariableOrAttributeRedefinition varOrAttr = link.get();
 			return varOrAttr instanceof IRAttributeRedefinition ? (IRAttributeRedefinition) varOrAttr : null;
+		}
+		
+		@SuppressWarnings("null")
+		@Override
+		public IRExpression getIR() {
+			final IRVariableOrAttributeRedefinition varOrAttribute = link.get();
+			if (varOrAttribute == null) {
+				final ASTTypeDeclaration selfAST = getParentOfType(ASTTypeDeclaration.class);
+				return new IRUnknownExpression("Cannot find an attribute with the name " + link.getName() + " in the type " + (selfAST == null ? "<unknown type>" : selfAST.name()), link.getNameToken());
+			}
+			if (varOrAttribute instanceof IRVariableRedefinition)
+				return new IRVariableExpression((IRVariableRedefinition) varOrAttribute);
+			else
+				return new IRAttributeAccess(IRThis.makeNew(this), (IRAttributeRedefinition) varOrAttribute, ASTArgument.makeIRArgumentMap(((IRAttributeRedefinition) varOrAttribute).definition(), arguments),
+						false, false, false);
 		}
 	}
 	
@@ -1403,6 +1650,11 @@ public class ASTExpressions {
 		public @Nullable ASTExpression value;
 		
 		@Override
+		public String toString() {
+			return "" + value;
+		}
+		
+		@Override
 		protected ASTArgument parse() throws ParseException {
 			isDots = try_("...");
 			if (!isDots) {
@@ -1415,17 +1667,38 @@ public class ASTExpressions {
 			return this;
 		}
 		
-		public static Map<IRParameterDefinition, InterpretedObject> makeIRArgumentMap(final IRAttributeDefinition method, final List<ASTArgument> args, final InterpreterContext context) {
+//		public static Map<IRParameterDefinition, InterpretedObject> makeInterpretedArgumentMap(final IRAttributeDefinition method, final List<ASTArgument> args, final InterpreterContext context) {
+//			final List<IRParameterRedefinition> parameters = method.parameters();
+//			final Map<IRParameterDefinition, InterpretedObject> r = new HashMap<>();
+//			for (int i = 0; i < args.size(); i++) {
+//				final ASTArgument arg = args.get(i);
+//				final ASTExpression expression = arg.value;
+//				if (expression == null)
+//					continue;
+//				final InterpretedObject value = expression.interpret(context);
+//				if (value == null)
+//					continue;
+//				if (arg.parameter.getNameToken() == null) {
+//					r.put(parameters.get(i).definition(), value);
+//				} else {
+//					final IRParameterRedefinition parameter = arg.parameter.get();
+//					if (parameter == null)
+//						continue;
+//					r.put(parameter.definition(), value);
+//				}
+//			}
+//			return r;
+//		}
+		
+		public static Map<IRParameterDefinition, IRExpression> makeIRArgumentMap(final IRAttributeDefinition method, final List<ASTArgument> args) {
 			final List<IRParameterRedefinition> parameters = method.parameters();
-			final Map<IRParameterDefinition, InterpretedObject> r = new HashMap<>();
+			final Map<IRParameterDefinition, IRExpression> r = new HashMap<>();
 			for (int i = 0; i < args.size(); i++) {
 				final ASTArgument arg = args.get(i);
 				final ASTExpression expression = arg.value;
 				if (expression == null)
 					continue;
-				final InterpretedObject value = expression.interpret(context);
-				if (value == null)
-					continue;
+				final IRExpression value = expression.getIR();
 				if (arg.parameter.getNameToken() == null) {
 					r.put(parameters.get(i).definition(), value);
 				} else {
@@ -1440,7 +1713,11 @@ public class ASTExpressions {
 	}
 	
 	/**
-	 * A meta access without a target (like '~a'), i.e. targets 'this'.
+	 * A meta access without a target (like '~a'), i.e. targets 'this'. Can thus also not be null-safe ('this' is never null).
+	 * <p>
+	 * TODO different symbol? maybe '::' like in Java?
+	 * <p>
+	 * TODO how to handle allResults here?
 	 */
 	public static class ASTUnqualifiedMetaAccess extends AbstractASTElement<ASTUnqualifiedMetaAccess> implements ASTExpression {
 		public ASTLink<IRAttributeRedefinition> attribute = new ASTLink<IRAttributeRedefinition>(this) {
@@ -1454,6 +1731,11 @@ public class ASTExpressions {
 		};
 		
 		@Override
+		public String toString() {
+			return "~" + attribute.getName();
+		}
+		
+		@Override
 		protected ASTUnqualifiedMetaAccess parse() throws ParseException {
 			one('~');
 			attribute.setName(oneVariableIdentifierToken());
@@ -1463,16 +1745,32 @@ public class ASTExpressions {
 		@Override
 		public IRTypeUse getIRType() {
 			final IRAttributeRedefinition attr = attribute.get();
-			if (attr == null)
-				return new IRUnknownTypeUse();
+			final ASTTypeDeclaration selfAST = getParentOfType(ASTTypeDeclaration.class);
+			if (attr == null || selfAST == null)
+				return new IRUnknownTypeUse(getIRContext());
 			final boolean isPure = !attr.isModifying();
-			return getInterpreter().getTypeUse("lang", isPure ? "Function" : "Procedure");
+			final IRTypeDefinition functionType = getIRContext().getTypeDefinition("lang", isPure ? "Function" : "Procedure");
+			final IRGenericTypeRedefinition parameters = functionType.getGenericTypeByName("Parameters"),
+					results = functionType.getGenericTypeByName("Results");
+			if (parameters == null || results == null)
+				return functionType.getUse(Collections.EMPTY_MAP);
+			final Map<IRGenericTypeDefinition, IRTypeUse> genericArgs = new HashMap<>();
+			final IRTypeUse self = selfAST.getIR().getUse(Collections.EMPTY_MAP);
+			genericArgs.put(parameters.definition(), new IRTypeTuple(getIRContext(), Collections.singletonList(new IRTupleBuilderEntry("this", self)))
+					.add(attr.allParameterTypes()));
+			genericArgs.put(results.definition(), attr.allResultTypes());
+			return functionType.getUse(genericArgs);
 		}
 		
+		@SuppressWarnings("null")
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
-//			return context.getThisObject().getAttributeClosure(attribute.get().definition());
+		public IRExpression getIR() {
+			final IRAttributeRedefinition attributeRedefinition = attribute.get();
+			if (attributeRedefinition == null) {
+				final ASTTypeDeclaration selfAST = getParentOfType(ASTTypeDeclaration.class);
+				return new IRUnknownExpression("Cannot find an attribute with the name " + attribute.getName() + " in the type " + (selfAST == null ? "<unknown type>" : selfAST.name()), attribute.getNameToken());
+			}
+			return new IRAttributeAccess(IRThis.makeNew(this), attributeRedefinition, Collections.EMPTY_MAP, false, false, true);
 		}
 	}
 	
@@ -1491,7 +1789,18 @@ public class ASTExpressions {
 		@Override
 		public IRTypeUse getIRType() {
 			final IRAttributeRedefinition attribute = attribute();
-			return attribute == null ? new IRUnknownTypeUse() : attribute.mainResultType();
+			return attribute == null ? new IRUnknownTypeUse(getIRContext()) : attribute.mainResultType();
+		}
+		
+		@Override
+		public String toString() {
+			return "recurse(...)";
+		}
+		
+		@Override
+		public @Nullable String hoverInfo(final Token token) {
+			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
+			return attribute == null ? null : attribute.hoverInfo(token);
 		}
 		
 		@Override
@@ -1506,13 +1815,13 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
+		public IRExpression getIR() {
 			final IRAttributeRedefinition attribute = attribute();
-			if (attribute == null)
-				return null;
-			// this is dispatched as 'recurse' may be in a result's default value
-			// (A 'recurse' in a body could just call that same body immediately without a dispatch, since if that body is executed it has to be the last one)
-			return attribute.definition().interpretDispatched(context.getThisObject(), ASTArgument.makeIRArgumentMap(attribute.definition(), arguments, context), false);
+			final ASTTypeDeclaration type = getParentOfType(ASTTypeDeclaration.class);
+			if (attribute == null || type == null)
+				return new IRUnknownExpression("Internal compiler error", this);
+			return new IRAttributeAccess(attribute.isStatic() ? null : new IRThis(new IRSelfTypeUse(type.getIR().getRawUse())),
+					attribute, ASTArgument.makeIRArgumentMap(attribute.definition(), arguments), false, false, false);
 		}
 	}
 	
@@ -1532,13 +1841,25 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return expression != null ? expression.getIRType() : new IRUnknownTypeUse();
+		public String toString() {
+			return "old(" + expression + ")";
 		}
 		
 		@Override
-		public @Nullable InterpretedObject interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
+		public IRTypeUse getIRType() {
+			return expression != null ? expression.getIRType() : new IRUnknownTypeUse(getIRContext());
+		}
+		
+		@Override
+		public IRExpression getIR() {
+			// TODO make sure to register this to the attribute so that it can be calculated when the attribute is called (and the IROld just returns that value later)
+			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
+			final ASTExpression expression = this.expression;
+			if (attribute == null)
+				return new IRUnknownExpression("Internal compiler error", this);
+			if (expression == null)
+				return new IRUnknownExpression("Syntax error. Proper syntax: [old(some expression)]", this);
+			return new IROld(attribute.getIR(), expression.getIR());
 		}
 	}
 	
@@ -1587,10 +1908,11 @@ public class ASTExpressions {
 	 * The keyword 'Self', representing the class of the current object (i.e. equal to this.class, but can be used in more contexts like interfaces and generics)
 	 */
 	public static class ASTSelf extends AbstractASTElement<ASTSelf> implements ASTTypeExpression {
-		ASTLink<ASTTypeDeclaration> link = new ASTLink<ASTTypeDeclaration>(this) {
+		ASTLink<IRTypeDefinition> link = new ASTLink<IRTypeDefinition>(this) {
 			@Override
-			protected @Nullable ASTTypeDeclaration tryLink(final String name) {
-				return ASTSelf.this.getParentOfType(ASTTypeDeclaration.class);
+			protected @Nullable IRTypeDefinition tryLink(final String name) {
+				final ASTTypeDeclaration astTypeDeclaration = ASTSelf.this.getParentOfType(ASTTypeDeclaration.class);
+				return astTypeDeclaration == null ? null : astTypeDeclaration.getIR();
 			}
 		};
 		
@@ -1606,14 +1928,9 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public @NonNull IRClassUse interpret(final InterpreterContext context) {
-			return context.getThisObject().nativeClass();
-		}
-		
-		@Override
-		public IRTypeUse staticallyKnownType() {
+		public IRTypeUse getIR() {
 			final ASTTypeDeclaration typeDeclaration = getParentOfType(ASTTypeDeclaration.class);
-			return typeDeclaration == null ? new IRUnknownTypeUse() : new IRSimpleTypeUse(typeDeclaration.getIR());
+			return typeDeclaration == null ? new IRUnknownTypeUse(getIRContext()) : new IRSelfTypeUse(typeDeclaration.getIR().getRawUse());
 		}
 	}
 	
@@ -1625,7 +1942,6 @@ public class ASTExpressions {
 			this.isBinary = isBinary;
 		}
 		
-		@SuppressWarnings("null")
 		private final static Map<String, @NonNull String[]> binaryOperators = new HashMap<String, @NonNull String[]>() {
 			private static final long serialVersionUID = 1L;
 			
@@ -1658,7 +1974,6 @@ public class ASTExpressions {
 			}
 		};
 		
-		@SuppressWarnings("null")
 		private final static Map<String, @NonNull String[]> unaryPrefixOperators = new HashMap<String, @NonNull String[]>() {
 			private static final long serialVersionUID = 1L;
 			
@@ -1673,7 +1988,7 @@ public class ASTExpressions {
 			final @NonNull String[] s = (isBinary ? binaryOperators : unaryPrefixOperators).get(name);
 			if (s == null)
 				return null;
-			return ASTBrokkrFile.getInterpreter(parentElement).getType("lang", s[0]).getAttributeByName(s[1]);
+			return parentElement.getIRContext().getTypeDefinition("lang", s[0]).getAttributeByName(s[1]);
 		}
 	}
 	
@@ -1711,27 +2026,14 @@ public class ASTExpressions {
 		// TODO use proper operator order
 		
 		@Override
-		public @NonNull IRTypeUse staticallyKnownType() {
-			IRTypeUse o = types.get(0).staticallyKnownType();
+		public IRTypeUse getIR() {
+			IRTypeUse o = types.get(0).getIR();
 			for (int i = 0; i < operators.size(); i++) {
-				final IRTypeUse o2 = types.get(i + 1).staticallyKnownType();
+				final IRTypeUse o2 = types.get(i + 1).getIR();
 				if ("&".equals(operators.get(i).getName()))
-					o = new IRAndTypeUse(o, o2);
+					o = IRAndTypeUse.makeNew(o, o2);
 				else
-					o = new IROrTypeUse(o, o2);
-			}
-			return o;
-		}
-		
-		@Override
-		public @NonNull IRTypeUse interpret(final InterpreterContext context) {
-			IRTypeUse o = types.get(0).interpret(context);
-			for (int i = 0; i < operators.size(); i++) {
-				final IRTypeUse o2 = types.get(i + 1).interpret(context);
-				if ("&".equals(operators.get(i).getName()))
-					o = new IRAndTypeUse(o, o2);
-				else
-					o = new IROrTypeUse(o, o2);
+					o = IROrTypeUse.makeNew(o, o2);
 			}
 			return o;
 		}
@@ -1795,15 +2097,9 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse interpret(final InterpreterContext context) {
+		public IRTypeUse getIR() {
 			final IRTypeDefinitionOrGenericTypeRedefinition type = typeDeclaration.get();
-			return type == null ? new IRUnknownTypeUse() : type.getUse(Collections.EMPTY_MAP);
-		}
-		
-		@Override
-		public IRTypeUse staticallyKnownType() {
-			final IRTypeDefinitionOrGenericTypeRedefinition type = typeDeclaration.get();
-			return type == null ? new IRUnknownTypeUse() : type.getUse(Collections.EMPTY_MAP);
+			return type == null ? new IRUnknownTypeUse(getIRContext()) : type.getUse(Collections.EMPTY_MAP);
 		}
 		
 		public @Nullable IRTypeDefinitionOrGenericTypeRedefinition definition() {
@@ -1850,21 +2146,9 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse interpret(final InterpreterContext context) {
-			final IRTypeUse result = type != null ? type.interpret(context) : new IRUnknownTypeUse();
-//			for (final ModifierTypeUseModifierElement mod : modifiers) {
-//				if (mod.modifiability != null) {
-//					result.setModifiability(mod.modifiability);
-//				} else if (mod.exclusivity != null) {
-//					result.setExclusivity(mod.exclusivity);
-//				}
-//			}
-			return result;
-		}
-		
-		@Override
-		public IRTypeUse staticallyKnownType() {
-			final IRTypeUse result = type != null ? type.staticallyKnownType() : new IRUnknownTypeUse();
+		public IRTypeUse getIR() {
+			final IRTypeUse result = type != null ? type.getIR() : new IRUnknownTypeUse(getIRContext());
+			// TODO
 //			for (final ModifierTypeUseModifierElement mod : modifiers) {
 //				if (mod.modifiability != null) {
 //					result.setModifiability(mod.modifiability);
@@ -1882,8 +2166,9 @@ public class ASTExpressions {
 	public static class ASTModifierTypeUseModifier extends AbstractASTElement<ASTModifierTypeUseModifier> {
 		
 		public final @Nullable Modifiability modifiability;
-		public final @Nullable Exclusivity exclusivity;
-		public final @Nullable Optional optional;
+		public final @Nullable Exclusiveness exclusivity;
+		public final @Nullable Optionality optional;
+		public final @Nullable Borrowing borrowing;
 		
 		public @Nullable ASTExpression from;
 		
@@ -1891,12 +2176,15 @@ public class ASTExpressions {
 			final Modifiability modifiability = Modifiability.parse(parent);
 			if (modifiability != null)
 				return parent.one(new ASTModifierTypeUseModifier(modifiability));
-			final Exclusivity exclusivity = Exclusivity.parse(parent);
+			final Exclusiveness exclusivity = Exclusiveness.parse(parent);
 			if (exclusivity != null)
 				return parent.one(new ASTModifierTypeUseModifier(exclusivity));
-			final Optional optional = Optional.parse(parent);
+			final Optionality optional = Optionality.parse(parent);
 			if (optional != null)
 				return parent.one(new ASTModifierTypeUseModifier(optional));
+			final Borrowing borrowing = Borrowing.parse(parent);
+			if (borrowing != null)
+				return parent.one(new ASTModifierTypeUseModifier(borrowing));
 			return null;
 		}
 		
@@ -1904,18 +2192,28 @@ public class ASTExpressions {
 			this.modifiability = modifiability;
 			exclusivity = null;
 			optional = null;
+			borrowing = null;
 		}
 		
-		private ASTModifierTypeUseModifier(final Exclusivity exclusivity) {
+		private ASTModifierTypeUseModifier(final Exclusiveness exclusivity) {
 			modifiability = null;
 			this.exclusivity = exclusivity;
 			optional = null;
+			borrowing = null;
 		}
 		
-		private ASTModifierTypeUseModifier(final Optional optional) {
+		private ASTModifierTypeUseModifier(final Optionality optional) {
 			modifiability = null;
 			exclusivity = null;
 			this.optional = optional;
+			borrowing = null;
+		}
+		
+		private ASTModifierTypeUseModifier(final Borrowing borrowing) {
+			modifiability = null;
+			exclusivity = null;
+			optional = null;
+			this.borrowing = borrowing;
 		}
 		
 		@Override
@@ -1980,27 +2278,18 @@ public class ASTExpressions {
 			return this;
 		}
 		
-		private IRTypeUse _interpret(final @Nullable InterpreterContext context) {
+		@Override
+		public IRTypeUse getIR() {
 			final Map<IRGenericTypeDefinition, IRTypeUse> genericArguments = new HashMap<>();
 			for (final ASTGenericArgument ga : this.genericArguments) {
 				final IRGenericTypeRedefinition param = ga.parameter.get();
 				final ASTTypeExpression value = ga.value;
 				if (param == null || value == null)
 					continue;
-				genericArguments.put(param.definition(), context == null ? value.staticallyKnownType() : value.interpret(context));
+				genericArguments.put(param.definition(), value.getIR());
 			}
 			final IRTypeDefinitionOrGenericTypeRedefinition baseDefinition = baseType.definition();
-			return baseDefinition == null ? new IRUnknownTypeUse() : baseDefinition.getUse(genericArguments);
-		}
-		
-		@Override
-		public IRTypeUse staticallyKnownType() {
-			return _interpret(null);
-		}
-		
-		@Override
-		public @NonNull IRTypeUse interpret(final InterpreterContext context) {
-			return _interpret(context);
+			return baseDefinition == null ? new IRUnknownTypeUse(getIRContext()) : baseDefinition.getUse(genericArguments);
 		}
 	}
 	
@@ -2012,7 +2301,7 @@ public class ASTExpressions {
 			@Override
 			protected @Nullable IRGenericTypeRedefinition tryLink(final String name) {
 				assert parent != null;
-				final IRGenericTypeUse genericTypeUse = ((ASTTypeWithGenericArguments) parent).baseType.staticallyKnownType().getGenericTypeByName(name);
+				final IRGenericTypeUse genericTypeUse = ((ASTTypeWithGenericArguments) parent).baseType.getIR().getGenericTypeByName(name);
 				if (genericTypeUse == null)
 					return null;
 				return genericTypeUse.redefinition();
@@ -2053,14 +2342,14 @@ public class ASTExpressions {
 	
 	/**
 	 * Access to a generic type of a type, e.g. 'A.B'.
-	 * TODO is this the same as a static attribute access?
+	 * TODO is this the same as a static attribute access? and is this allowed on objects (and not only types) too?
 	 */
 	public static class ASTGenericTypeAccess extends AbstractASTElement<ASTGenericTypeAccess> implements ASTTypeExpression {
 		public final ASTTypeUse target;
 		private final ASTLink<IRGenericTypeUse> genericType = new ASTLink<IRGenericTypeUse>(this) {
 			@Override
 			protected @Nullable IRGenericTypeUse tryLink(final String name) {
-				return target.staticallyKnownType().getGenericTypeByName(name);
+				return target.getIR().getGenericTypeByName(name);
 			}
 		};
 		
@@ -2087,22 +2376,12 @@ public class ASTExpressions {
 		}
 		
 		@Override
-		public IRTypeUse getIRType() {
-			return staticallyKnownType();
-		}
-		
-		@Override
-		public IRTypeUse staticallyKnownType() {
+		public IRTypeUse getIR() {
 			final IRGenericTypeUse gtu = genericType.get();
-			return gtu == null ? new IRUnknownTypeUse() : gtu;
-		}
-		
-		@Override
-		public @NonNull IRTypeUse interpret(final InterpreterContext context) {
-			final IRGenericTypeUse genericTypeUse = genericType.get();
-			if (genericTypeUse == null)
-				return new IRUnknownTypeUse();
-			return target.interpret(context).nativeClass().getGenericType(genericTypeUse.definition());
+			final IRTypeUse t = target.getIR();
+			if (gtu == null)
+				return new IRUnknownTypeUse(getIRContext());
+			return new IRGenericTypeAccess(t, gtu);
 		}
 	}
 	

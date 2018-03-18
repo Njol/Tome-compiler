@@ -20,6 +20,7 @@ import ch.njol.brokkr.ast.AbstractASTElement;
 import ch.njol.brokkr.common.ModuleIdentifier;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 
 /**
@@ -29,7 +30,7 @@ import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
  */
 public class Module extends ModuleFileElement {
 	
-	public @Nullable ModuleIdentifier id;
+	public ModuleIdentifier id;
 	
 	public final Modules modules;
 	
@@ -39,9 +40,15 @@ public class Module extends ModuleFileElement {
 	}
 	
 	// for loading only
+	@SuppressWarnings("null")
 	private Module(final Modules modules) {
 		this.modules = modules;
 		id = null;
+	}
+	
+	@Override
+	public IRContext getIRContext() {
+		return modules.irContext;
 	}
 	
 	public String version = "0.1";
@@ -184,12 +191,15 @@ public class Module extends ModuleFileElement {
 		}
 	}
 	
-	public final static Module load(final Modules modules, final TokenStream tokens) {
+	@SuppressWarnings({"null", "unused"})
+	public final static @Nullable Module load(final Modules modules, final TokenStream tokens) {
 		final Module m = new Module(modules);
 		try {
 			m.parse(tokens);
 		} catch (final ParseException e) {}
 		m.compactFatalParseErrors();
+		if (m.id == null)
+			return null;
 		return m;
 	}
 	

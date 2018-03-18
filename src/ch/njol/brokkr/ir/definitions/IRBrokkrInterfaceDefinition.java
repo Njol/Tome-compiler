@@ -5,9 +5,9 @@ import ch.njol.brokkr.ast.ASTTopLevelElements.ASTInterfaceDeclaration;
 /**
  * The native description of a Brokkr interface.
  */
-public class IRBrokkrInterface extends AbstractIRBrokkrTypeDefinition {
+public class IRBrokkrInterfaceDefinition extends AbstractIRBrokkrTypeDefinition {
 	
-	public IRBrokkrInterface(final ASTInterfaceDeclaration declaration) {
+	public IRBrokkrInterfaceDefinition(final ASTInterfaceDeclaration declaration) {
 		super(declaration);
 	}
 	

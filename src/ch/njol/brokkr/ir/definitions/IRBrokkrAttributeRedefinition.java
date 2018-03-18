@@ -4,8 +4,8 @@ import ch.njol.brokkr.ast.ASTMembers.ASTAttributeDeclaration;
 
 public class IRBrokkrAttributeRedefinition extends AbstractIRBrokkrAttribute {
 	
-	public IRBrokkrAttributeRedefinition(final ASTAttributeDeclaration declaration) {
-		super(declaration);
+	public IRBrokkrAttributeRedefinition(final ASTAttributeDeclaration declaration, final IRAttributeRedefinition overridden) {
+		super(declaration, overridden);
 	}
 	
 }

@@ -5,9 +5,9 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 
-public class IRBrokkrClass extends AbstractIRBrokkrTypeDefinition implements IRClassDefinition {
+public class IRBrokkrClassDefinition extends AbstractIRBrokkrTypeDefinition implements IRClassDefinition {
 	
-	public IRBrokkrClass(final ASTTypeDeclaration declaration) {
+	public IRBrokkrClassDefinition(final ASTTypeDeclaration declaration) {
 		super(declaration);
 	}
 	

@@ -1,19 +1,21 @@
 package ch.njol.brokkr.ir.definitions;
 
 import ch.njol.brokkr.ast.ASTInterfaces.ASTVariable;
+import ch.njol.brokkr.ir.AbstractIRElement;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
-public abstract class AbstractIRBrokkrVariable implements IRVariableRedefinition {
+public abstract class AbstractIRBrokkrVariable extends AbstractIRElement implements IRVariableRedefinition {
 	
-	protected final ASTVariable var;
+	protected final ASTVariable ast;
 	protected final String name;
 	protected final IRTypeUse type;
 	
-	public AbstractIRBrokkrVariable(final ASTVariable var) {
-		this.var = var;
-		final String name = var.name();
+	public AbstractIRBrokkrVariable(final ASTVariable ast) {
+		this.ast = ast;
+		final String name = ast.name();
 		this.name = name == null ? "result" : name; // TODO what if it's not a result?
-		type = var.getIRType();
+		type = ast.getIRType();
 	}
 	
 	@Override
@@ -24,6 +26,16 @@ public abstract class AbstractIRBrokkrVariable implements IRVariableRedefinition
 	@Override
 	public IRTypeUse type() {
 		return type;
+	}
+	
+	@Override
+	public IRContext getIRContext() {
+		return ast.getIRContext();
+	}
+	
+	@Override
+	public String hoverInfo() {
+		return "Variable " + name() + ", type: " + type();
 	}
 	
 }

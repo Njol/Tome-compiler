@@ -6,6 +6,7 @@ import ch.njol.brokkr.ast.ASTInterfaces.ASTExpression;
 import ch.njol.brokkr.ast.ASTMembers.ASTSimpleParameter;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
+import ch.njol.brokkr.interpreter.InterpreterException;
 
 public class IRBrokkrNormalParameterRedefinition extends AbstractIRBrokkrParameter {
 	
@@ -22,9 +23,9 @@ public class IRBrokkrNormalParameterRedefinition extends AbstractIRBrokkrParamet
 	}
 	
 	@Override
-	public @Nullable InterpretedObject defaultValue(final InterpreterContext context) {
-		final ASTExpression defaultValueExpr = ((ASTSimpleParameter) param).defaultValue;
-		return defaultValueExpr == null ? null : defaultValueExpr.interpret(context);
+	public @Nullable InterpretedObject defaultValue(final InterpreterContext context) throws InterpreterException {
+		final ASTExpression defaultValueExpr = ((ASTSimpleParameter) ast).defaultValue;
+		return defaultValueExpr == null ? null : defaultValueExpr.getIR().interpret(context);
 	}
 	
 }

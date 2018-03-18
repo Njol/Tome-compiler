@@ -4,6 +4,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
+import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
 public interface IRParameterRedefinition extends IRVariableRedefinition {
@@ -18,7 +19,7 @@ public interface IRParameterRedefinition extends IRVariableRedefinition {
 	IRParameterDefinition definition();
 	
 	@Nullable
-	InterpretedObject defaultValue(InterpreterContext context);
+	InterpretedObject defaultValue(InterpreterContext context) throws InterpreterException;
 	
 	IRAttributeRedefinition attribute();
 	

@@ -7,11 +7,11 @@ public interface IRClassDefinition extends IRTypeDefinition {
 	@Nullable
 	IRAttributeImplementation getAttributeImplementation(final IRAttributeDefinition definition);
 	
-	@Override
-	default boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
-		return equalsType(other); // classes cannot be subtyped // TODO actually, tuples can - or should those be split into interfaces and classes?
-	}
-	
+//	@Override
+//	default boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
+//		return equalsType(other); // classes cannot be subtyped // TODO actually, tuples can - or should those be split into interfaces and classes?
+//	}
+
 //	default @Nullable IRAttributeImplementation getAttributeImplementation(final IRAttributeDefinition definition) {
 //		final IRAttributeRedefinition redefinition = getAttributeRedefinition(definition);
 //		if (redefinition == null)

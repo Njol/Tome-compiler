@@ -6,6 +6,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTMembers.ASTAttributeDeclaration;
 import ch.njol.brokkr.interpreter.InterpretedObject;
+import ch.njol.brokkr.interpreter.InterpreterException;
 
 public class IRBrokkrAttributeDefinitionAndImplementation extends AbstractIRBrokkrAttribute implements IRAttributeDefinition, IRAttributeImplementation {
 	
@@ -19,7 +20,7 @@ public class IRBrokkrAttributeDefinitionAndImplementation extends AbstractIRBrok
 	}
 	
 	@Override
-	public @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
+	public @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) throws InterpreterException {
 		return super.interpretImplementation(thisObject, arguments, allResults);
 	}
 	

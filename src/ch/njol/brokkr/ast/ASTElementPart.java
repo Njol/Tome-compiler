@@ -7,6 +7,7 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.SourceCodeLinkable;
+import ch.njol.brokkr.ir.IRContext;
 
 public interface ASTElementPart extends SourceCodeLinkable {
 	
@@ -53,7 +54,9 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	public void print(PrintStream out, String indent);
 	
 	/**
-	 * Traverses this AST in a depth-first manner.
+	 * Traverses this AST in a depth-first manner, i.e. in the order in the source code usually.
+	 * <p>
+	 * An {@link ASTElement} is visited before its children are.
 	 * 
 	 * @param function
 	 */
@@ -64,6 +67,11 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	@Override
 	default @NonNull ASTElementPart getLinked() {
 		return this;
+	}
+	
+	default IRContext getIRContext() {
+		final ASTElement parent = parent();
+		return parent != null ? parent.getIRContext() : new IRContext();
 	}
 	
 }

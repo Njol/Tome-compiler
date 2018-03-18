@@ -2,27 +2,32 @@ package ch.njol.brokkr.ir.nativetypes.internal;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeObject;
+import ch.njol.brokkr.ir.AbstractIRElement;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeImplementation;
-import ch.njol.brokkr.ir.definitions.IRClassDefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
+import ch.njol.brokkr.ir.nativetypes.IRTypeClassDefinition;
+import ch.njol.brokkr.ir.uses.IRTypeUse;
 
 /**
- * The native description of a native type, e.g. the type of NativeInt8.
+ * The class of a native type, e.g. the type of NativeInt8.
  */
-public class IRSimpleNativeClass implements IRClassDefinition {
+public class IRNativeTypeClassDefinition extends AbstractIRElement implements IRTypeClassDefinition {
 	
+	private final IRContext irContext;
 	private final Class<? extends InterpretedNativeObject> interpretedType;
 	private final String name;
 	
-	private IRSimpleNativeClass(final Class<? extends InterpretedNativeObject> interpretedType) {
+	private IRNativeTypeClassDefinition(final IRContext irContext, final Class<? extends InterpretedNativeObject> interpretedType) {
+		this.irContext = irContext;
 		this.interpretedType = interpretedType;
 		assert interpretedType.getSimpleName().startsWith("Interpreted") : interpretedType;
 		name = "" + interpretedType.getSimpleName().substring("Interpreted".length());
@@ -32,14 +37,17 @@ public class IRSimpleNativeClass implements IRClassDefinition {
 		return name;
 	}
 	
-	private static Map<Class<? extends InterpretedNativeObject>, IRSimpleNativeClass> cache = new HashMap<>();
+	@Override
+	public IRContext getIRContext() {
+		return irContext;
+	}
 	
-	public static IRSimpleNativeClass get(final Class<? extends InterpretedNativeObject> interpretedType) {
-		IRSimpleNativeClass cached = cache.get(interpretedType);
+	public static IRNativeTypeClassDefinition get(final IRContext irContext, final Class<? extends InterpretedNativeObject> interpretedType) {
+		IRNativeTypeClassDefinition cached = irContext.nativeTypeClassCache.get(interpretedType);
 		if (cached != null)
 			return cached;
-		cached = new IRSimpleNativeClass(interpretedType);
-		cache.put(interpretedType, cached);
+		cached = new IRNativeTypeClassDefinition(irContext, interpretedType);
+		irContext.nativeTypeClassCache.put(interpretedType, cached);
 		return cached;
 	}
 	
@@ -61,7 +69,7 @@ public class IRSimpleNativeClass implements IRClassDefinition {
 			attributes = new ArrayList<>();
 			for (final Method m : interpretedType.getDeclaredMethods()) {
 				if (m.getName().startsWith("_"))
-					attributes.add(new IRNativeNativeMethod(m, "" + m.getName().substring(1)));
+					attributes.add(new IRNativeMethod(m, "" + m.getName().substring(1), irContext));
 			}
 		}
 		return attributes;
@@ -69,7 +77,7 @@ public class IRSimpleNativeClass implements IRClassDefinition {
 	
 	@Override
 	public boolean equalsType(final IRTypeDefinition other) {
-		return other.getClass() == this.getClass() && interpretedType == ((IRSimpleNativeClass) other).interpretedType;
+		return other.getClass() == this.getClass() && interpretedType == ((IRNativeTypeClassDefinition) other).interpretedType;
 	}
 	
 	@Override
@@ -77,15 +85,18 @@ public class IRSimpleNativeClass implements IRClassDefinition {
 		return name.hashCode();
 	}
 	
-	// native classes do not implement any interfaces
+	// native classes do not implement any interfaces (not even [Any]?)
 	@Override
-	public boolean isSubtypeOfOrEqual(final IRTypeDefinition other) {
-		return equalsType(other);
+	public Set<? extends IRTypeUse> allInterfaces() {
+		return Collections.EMPTY_SET;
 	}
 	
 	@Override
-	public boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
-		return equalsType(other);
+	public int compareTo(final IRTypeDefinition other) {
+		if (other instanceof IRNativeTypeClassDefinition) {
+			return name.compareTo(((IRNativeTypeClassDefinition) other).name);
+		}
+		return IRTypeDefinition.compareTypeDefinitionClasses(this.getClass(), other.getClass());
 	}
 	
 }

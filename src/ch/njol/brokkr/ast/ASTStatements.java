@@ -1,7 +1,6 @@
 package ch.njol.brokkr.ast;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,11 +16,10 @@ import ch.njol.brokkr.ast.ASTExpressions.ASTTypeExpressions;
 import ch.njol.brokkr.ast.ASTExpressions.ASTVariableOrUnqualifiedAttributeUse;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTElementWithVariables;
-import ch.njol.brokkr.ast.ASTInterfaces.ASTError;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTExpression;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTLocalVariable;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.brokkr.ast.ASTMembers.ASTMember;
+import ch.njol.brokkr.ast.ASTMembers.ASTAttributeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTPostcondition;
 import ch.njol.brokkr.ast.ASTMembers.ASTPrecondition;
 import ch.njol.brokkr.compiler.ParseException;
@@ -29,22 +27,31 @@ import ch.njol.brokkr.compiler.Token;
 import ch.njol.brokkr.compiler.Token.CodeGenerationToken;
 import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
-import ch.njol.brokkr.interpreter.InterpretedNativeClosure;
+import ch.njol.brokkr.interpreter.InterpretedNormalObject;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
+import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeCodeGenerationResult;
 import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRBrokkrLocalVariable;
-import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterDefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRResultRedefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableOrAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableRedefinition;
-import ch.njol.brokkr.ir.nativetypes.IRTuple;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNativeTupleValueAndEntry;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRNormalTuple;
-import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
+import ch.njol.brokkr.ir.expressions.IRAttributeAccess;
+import ch.njol.brokkr.ir.expressions.IRClosure;
+import ch.njol.brokkr.ir.expressions.IRExpression;
+import ch.njol.brokkr.ir.expressions.IRThis;
+import ch.njol.brokkr.ir.expressions.IRUnknownExpression;
+import ch.njol.brokkr.ir.expressions.IRVariableAssignment;
+import ch.njol.brokkr.ir.statements.IRCodeGenerationStatement;
+import ch.njol.brokkr.ir.statements.IRExpressionStatement;
+import ch.njol.brokkr.ir.statements.IRReturn;
+import ch.njol.brokkr.ir.statements.IRStatement;
+import ch.njol.brokkr.ir.statements.IRStatementList;
+import ch.njol.brokkr.ir.statements.IRUnknownStatement;
+import ch.njol.brokkr.ir.statements.IRVariableDeclaration;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 import ch.njol.brokkr.ir.uses.IRUnknownTypeUse;
 import ch.njol.util.StringUtils;
@@ -61,7 +68,7 @@ public class ASTStatements {
 			if (parent.peekNext() instanceof CodeGenerationToken)
 				return parent.one(ASTCodeGenerationStatement.class);
 			if (parent.peekNext("$="))
-				return parent.one(ASTCodeGenerationCall.class);
+				return parent.one(ASTCodeGenerationCallStatement.class);
 			if (parent.peekNext("return"))
 				return parent.one(ASTReturn.class);
 //			if (parent.peekNext("assert"))
@@ -74,6 +81,8 @@ public class ASTStatements {
 				return parent.one(ASTVariableDeclarations.class);
 			
 			// TODO ErrorHandlingStatement
+			
+			// TODO tuple variable assignment, e.g. [[ [a,b] = method(); ]] or [[ [a,b] = [b,a]; ]]
 			
 			final ASTExpression expr = ASTExpressions.parse(parent);
 			if (parent.peekNext(';'))
@@ -102,7 +111,12 @@ public class ASTStatements {
 			return (ASTStatement) parse_(parent, false);
 		}
 		
-		public void interpret(InterpreterContext context);
+		// TODO remove
+//		public default void interpret(final InterpreterContext context) {
+//			getIR().interpret(context);
+//		}
+		
+		public IRStatement getIR();
 		
 	}
 	
@@ -127,18 +141,13 @@ public class ASTStatements {
 		}
 		
 		@Override
-		public void interpret(final InterpreterContext context) {
-			expression.interpret(context);
+		public IRStatement getIR() {
+			return new IRExpressionStatement(expression.getIR());
 		}
 	}
 	
-	public static class ASTCodeGenerationCall extends AbstractASTElement<ASTCodeGenerationCall> implements ASTMember, ASTStatement {
+	public static class ASTCodeGenerationCallStatement extends AbstractASTElement<ASTCodeGenerationCallStatement> implements ASTStatement {
 		public @Nullable ASTExpression code;
-		
-		@Override
-		public boolean isInherited() {
-			return false; // only generates code at the current location
-		}
 		
 		@Override
 		public String toString() {
@@ -146,7 +155,7 @@ public class ASTStatements {
 		}
 		
 		@Override
-		protected ASTCodeGenerationCall parse() throws ParseException {
+		protected ASTCodeGenerationCallStatement parse() throws ParseException {
 			one("$=");
 			until(() -> {
 				code = ASTExpressions.parse(this);
@@ -155,13 +164,18 @@ public class ASTStatements {
 		}
 		
 		@Override
-		public void interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
-		}
-		
-		@Override
-		public IRMemberRedefinition getIR() {
-			throw new InterpreterException("not implemented");
+		public IRStatement getIR() {
+			final ASTExpression code = this.code;
+			if (code == null)
+				return new IRUnknownStatement("Snytax error. proper sytnax: [$= some_expression;]", this);
+			try {
+				final InterpretedObject result = code.getIR().interpret(new InterpreterContext(getIRContext(), (InterpretedNormalObject) null));
+				if (!(result instanceof InterpretedNativeCodeGenerationResult))
+					return new IRUnknownStatement("Must call a code generation template", this);
+				return ((InterpretedNativeCodeGenerationResult) result).parseStatements(this);
+			} catch (final InterpreterException e) {
+				return new IRUnknownStatement("" + e.getMessage(), this);
+			}
 		}
 	}
 	
@@ -176,11 +190,11 @@ public class ASTStatements {
 			this.withReturn = withReturn;
 		}
 		
-		public ASTLink<ASTError> error = new ASTLink<ASTError>(this) {
+		public ASTLink<IRResultRedefinition> error = new ASTLink<IRResultRedefinition>(this) {
 			@Override
-			protected @Nullable ASTError tryLink(final String name) {
-				// TODO Auto-generated method stub
-				return null;
+			protected @Nullable IRResultRedefinition tryLink(final String name) {
+				final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
+				return attribute == null ? null : attribute.getResult(name);
 			}
 		};
 		List<ASTReturnResult> results = new ArrayList<>();
@@ -211,13 +225,21 @@ public class ASTStatements {
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
-		public void interpret(final InterpreterContext context) {
-			for (final ASTReturnResult r : results) {
-				context.setLocalVariableValue(r.result.get().definition(), r.value.interpret(context));
+		public IRStatement getIR() {
+			if (error.getName() != null) {
+				// TODO
 			}
-			context.isReturning = true;
+			final List<IRStatement> statements = new ArrayList<>();
+			for (final ASTReturnResult r : results) {
+				final IRResultRedefinition result = r.result.get();
+				final ASTExpression value = r.value;
+				if (result != null && value != null) {
+					statements.add(new IRExpressionStatement(new IRVariableAssignment(result.definition(), value.getIR())));
+				}
+			}
+			statements.add(new IRReturn(getIRContext()));
+			return new IRStatementList(getIRContext(), statements);
 		}
 	}
 	
@@ -289,6 +311,11 @@ public class ASTStatements {
 		}
 		
 		@Override
+		public String toString() {
+			return (type == null ? "var" : type) + " " + StringUtils.join(variables, ", ") + ";";
+		}
+		
+		@Override
 		protected ASTVariableDeclarations parse() throws ParseException {
 			until(() -> {
 				if (type == null)
@@ -301,10 +328,8 @@ public class ASTStatements {
 		}
 		
 		@Override
-		public void interpret(final InterpreterContext context) {
-			for (final ASTVariableDeclarationsVariable v : variables) {
-				context.defineLocalVariable(v.interpreted().definition(), v.initialValue != null ? v.initialValue.interpret(context) : null);
-			}
+		public IRStatement getIR() {
+			return new IRStatementList(getIRContext(), variables.stream().map(v -> v.getIRDeclaration()).collect(Collectors.toList()));
 		}
 	}
 	
@@ -315,6 +340,11 @@ public class ASTStatements {
 		@Override
 		public @Nullable WordToken nameToken() {
 			return nameToken;
+		}
+		
+		@Override
+		public String toString() {
+			return nameToken + (initialValue == null ? "" : " = " + initialValue);
 		}
 		
 		@Override
@@ -329,16 +359,23 @@ public class ASTStatements {
 		public IRTypeUse getIRType() {
 			final ASTVariableDeclarations variableDeclarations = (ASTVariableDeclarations) parent;
 			if (variableDeclarations == null)
-				return new IRUnknownTypeUse();
+				return new IRUnknownTypeUse(getIRContext());
 			final ASTTypeUse typeUse = variableDeclarations.type;
-			if (typeUse == null)
-				return new IRUnknownTypeUse();
-			return typeUse.staticallyKnownType();
+			if (typeUse == null) {
+				if (initialValue != null)
+					return initialValue.getIRType();
+				return new IRUnknownTypeUse(getIRContext()); // FIXME semantics of inferred types? just use the supertype of any assignment?
+			}
+			return typeUse.getIR();
 		}
 		
 		@Override
-		public IRVariableRedefinition interpreted() {
+		public IRVariableRedefinition getIR() {
 			return new IRBrokkrLocalVariable(this);
+		}
+		
+		public IRVariableDeclaration getIRDeclaration() {
+			return new IRVariableDeclaration(getIR());
 		}
 	}
 	
@@ -399,11 +436,17 @@ public class ASTStatements {
 		public @Nullable ASTExpression target;
 		public ASTLink<? extends IRVariableOrAttributeRedefinition> method;
 		public List<ASTLambdaMethodCallPart> parts = new ArrayList<>();
+		private final boolean withSemicolon;
 		
 		public ASTLambdaMethodCall(final ASTVariableOrUnqualifiedAttributeUse method) {
+			this(method, true);
+		}
+		
+		public ASTLambdaMethodCall(final ASTVariableOrUnqualifiedAttributeUse method, final boolean withSemicolon) {
 			target = null;
 			method.setParent(this);
 			this.method = method.link;
+			this.withSemicolon = withSemicolon;
 		}
 		
 		public ASTLambdaMethodCall(final ASTAccessExpression target, final ASTDirectAttributeAccess methodAccess) {
@@ -411,6 +454,12 @@ public class ASTStatements {
 			this.target = target;
 			target.setParent(this);
 			method = methodAccess.attribute;
+			withSemicolon = true;
+		}
+		
+		@Override
+		public String toString() {
+			return "<lambda method call>"; // TODO
 		}
 		
 		@Override
@@ -419,36 +468,28 @@ public class ASTStatements {
 			repeatUntil(() -> {
 				parts.add(one(new ASTLambdaMethodCallPart(!first[0])));
 				first[0] = false;
-			}, ';', false);
+			}, ';', false, withSemicolon);
 			return this;
 		}
 		
-		@SuppressWarnings("null")
 		@Override
-		public void interpret(final InterpreterContext context) {
-			final InterpretedObject object = target != null ? target.interpret(context) : context.getThisObject();
-			final IRVariableOrAttributeRedefinition m = method.get();
-			if (!(m instanceof IRAttributeRedefinition))
-				throw new InterpreterException("not an attribute");
-			final Map<IRParameterDefinition, InterpretedObject> arguments = new HashMap<>();
-			for (final ASTLambdaMethodCallPart part : parts) {
-				final List<IRParameterRedefinition> parameters = new ArrayList<>();
-				part.parameters.forEach(p -> parameters.add(p.parameter.get()));
-				final List<IRNativeTupleValueAndEntry> parameterTupleEntries = new ArrayList<>();
-				for (int i = 0; i < parameters.size(); i++) {
-					final IRParameterRedefinition p = parameters.get(i);
-					parameterTupleEntries.add(new IRNativeTupleValueAndEntry(i, p.type().nativeClass(), p.name(), p.type()));
-				}
-				arguments.put(part.parameter.get().definition(), new InterpretedNativeClosure(new IRTypeTuple(parameterTupleEntries), new IRTypeTuple(Collections.EMPTY_LIST), false) {
-					@Override
-					protected IRTuple interpret(final IRTuple arguments) {
-						arguments.entries.forEach(e -> context.defineLocalVariable(parameters.get(e.entry.index).definition(), e.value));
-						part.block.interpret(context);
-						return new IRNormalTuple(Collections.EMPTY_LIST);
-					}
-				});
+		public IRStatement getIR() {
+			final IRExpression target = this.target != null ? this.target.getIR() : IRThis.makeNew(this);
+			final IRVariableOrAttributeRedefinition attribute = method.get();
+			if (!(attribute instanceof IRAttributeRedefinition)) {
+				final WordToken m = method.getNameToken();
+				return new IRUnknownStatement("Must be a method", m == null ? this : m);
 			}
-			((ASTAttribute) m).getIR().interpretDispatched(object, arguments, false);
+			final Map<IRParameterDefinition, IRExpression> arguments = new HashMap<>();
+			for (final ASTLambdaMethodCallPart part : parts) {
+				final List<IRVariableRedefinition> parameters = new ArrayList<>();
+				part.parameters.forEach(p -> parameters.add(p.getIR()));
+				final IRParameterRedefinition param = part.parameter.get();
+				if (param != null)
+					arguments.put(param.definition(), new IRClosure(parameters,
+							part.expression != null ? part.expression.getIR() : new IRUnknownExpression("Syntax error. Proper syntax: [[name [optional, params] {...}]] or [[name [optional, params] nextMethod {...}]]", this)));
+			}
+			return new IRExpressionStatement(new IRAttributeAccess(target, (IRAttributeRedefinition) attribute, arguments, false, false, false));
 		}
 	}
 	
@@ -463,17 +504,22 @@ public class ASTStatements {
 			}
 		};
 		public List<ASTLambdaMethodCallPartParameter> parameters = new ArrayList<>();
-		public @Nullable ASTBlock block;
+		public @Nullable ASTExpression expression;
 		
 		@Override
 		public List<? extends IRVariableRedefinition> allVariables() {
-			return parameters.stream().map(p -> p.interpreted()).collect(Collectors.toList());
+			return parameters.stream().map(p -> p.getIR()).collect(Collectors.toList());
 		}
 		
 		private final boolean withName;
 		
 		public ASTLambdaMethodCallPart(final boolean withName) {
 			this.withName = withName;
+		}
+		
+		@Override
+		public String toString() {
+			return "<lambda method call part>"; // TODO
 		}
 		
 		@Override
@@ -485,14 +531,20 @@ public class ASTStatements {
 					parameters.add(one(ASTLambdaMethodCallPartParameter.class));
 				} while (try_(','));
 			}, ']');
-			block = one(ASTBlock.class);
+			if (peekNext('{')) {
+				expression = one(ASTBlock.class);
+			} else if (withName) {
+				// TODO limit this some more? this only exists for [else if]
+				expression = new ASTBlock(one(new ASTLambdaMethodCall(one(ASTVariableOrUnqualifiedAttributeUse.class), false)));
+				expression.setParent(this);
+			}
 			return this;
 		}
 	}
 	
 	/**
 	 * TODO what exactly is this? and is it a parameter? or just a link to one (in which case the interface might need to be removed - still should be a linkable local variable
-	 * though)
+	 * though, as it is now a variable in scope (and maybe has a different name too))
 	 */
 	public static class ASTLambdaMethodCallPartParameter extends AbstractASTElement<ASTLambdaMethodCallPartParameter> implements ASTLocalVariable {
 		public final ASTLink<IRParameterRedefinition> parameter = new ASTLink<IRParameterRedefinition>(this) {
@@ -510,6 +562,11 @@ public class ASTStatements {
 		}
 		
 		@Override
+		public String toString() {
+			return "<lambda method call part parameter>"; // TODO
+		}
+		
+		@Override
 		protected ASTLambdaMethodCallPartParameter parse() throws ParseException {
 			if (!try_("var") && !(peekNext() instanceof LowercaseWordToken && (peekNext(',', 1, true) || peekNext(']', 1, true))))
 				type = ASTTypeExpressions.parse(this, true, true);
@@ -520,23 +577,35 @@ public class ASTStatements {
 		@Override
 		public IRTypeUse getIRType() {
 			if (type != null)
-				return type.staticallyKnownType();
+				return type.getIR();
 			final IRParameterRedefinition param = parameter.get();
 			if (param != null)
 				return param.type();
-			return new IRUnknownTypeUse();
+			return new IRUnknownTypeUse(getIRContext());
 		}
 		
 		@Override
-		public IRVariableRedefinition interpreted() {
+		public IRVariableRedefinition getIR() {
 			return new IRBrokkrLocalVariable(this);
 		}
 		
 	}
 	
+	/**
+	 * A line of code that will generate a line of code when called (i.e. must always be in a code generation method)
+	 * TODO allow this outside of code generation methods? i.e. just execute it statically in that case?
+	 * -> actually, should use different syntax for 'code here' (currently [$=]) and 'code for later' (currently [$]), so that this statement is still only valid in code generation
+	 * methods.
+	 */
 	public static class ASTCodeGenerationStatement extends AbstractASTElement<ASTCodeGenerationStatement> implements ASTStatement {
+		// TODO make these a single list?
 		public final List<CodeGenerationToken> code = new ArrayList<>();
 		public final List<ASTExpression> expressions = new ArrayList<>();
+		
+		@Override
+		public String toString() {
+			return "$...$";
+		}
 		
 		@Override
 		protected ASTCodeGenerationStatement parse() throws ParseException {
@@ -559,8 +628,8 @@ public class ASTStatements {
 		}
 		
 		@Override
-		public void interpret(final InterpreterContext context) {
-			throw new InterpreterException("not implemented");
+		public IRStatement getIR() {
+			return new IRCodeGenerationStatement(getIRContext(), code, expressions.stream().map(e -> e.getIR()).collect(Collectors.toList()));
 		}
 	}
 }
