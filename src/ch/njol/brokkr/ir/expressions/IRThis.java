@@ -14,8 +14,9 @@ public class IRThis extends AbstractIRExpression {
 	
 	private final IRSelfTypeUse self;
 	
-	public IRThis(final IRSelfTypeUse self) {
+	public IRThis(final IRSelfTypeUse self, final ASTElement ast) {
 		this.self = self;
+		registerDependency(ast);
 	}
 	
 	/**
@@ -27,8 +28,8 @@ public class IRThis extends AbstractIRExpression {
 	 * @return
 	 */
 	public static IRThis makeNew(final ASTElement ast) {
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
-		return new IRThis(new IRSelfTypeUse(type == null ? new IRUnknownTypeUse(ast.getIRContext()) : type.getIR().getRawUse()));
+		final ASTTypeDeclaration type = ast instanceof ASTTypeDeclaration ? (ASTTypeDeclaration) ast : ast.getParentOfType(ASTTypeDeclaration.class);
+		return new IRThis(new IRSelfTypeUse(type == null ? new IRUnknownTypeUse(ast.getIRContext()) : type.getIR().getRawUse()), ast);
 	}
 	
 	@Override

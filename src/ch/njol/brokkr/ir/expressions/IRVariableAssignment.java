@@ -15,13 +15,13 @@ public class IRVariableAssignment extends AbstractIRExpression {
 	
 	public IRVariableAssignment(final IRVariableDefinition variable, final IRExpression value) {
 		IRElement.assertSameIRContext(variable, value);
-		this.variable = variable;
-		this.value = value;
+		this.variable = registerDependency(variable);
+		this.value = registerDependency(value);
 	}
 	
 	@Override
 	public IRTypeUse type() {
-		return value.type();
+		return value.type(); // TODO or the type of the variable? the value's type may be more specific
 	}
 	
 	@Override

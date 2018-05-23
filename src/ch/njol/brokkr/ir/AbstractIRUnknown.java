@@ -2,6 +2,7 @@ package ch.njol.brokkr.ir;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.ast.ASTElement;
 import ch.njol.brokkr.ast.ASTElementPart;
 
 public abstract class AbstractIRUnknown extends AbstractIRElement {
@@ -13,6 +14,8 @@ public abstract class AbstractIRUnknown extends AbstractIRElement {
 	public AbstractIRUnknown(final String errorMessage, final ASTElementPart location) { // TODO allow arbitrary error index + length (need to find a better way than to use ints first though)
 		this.errorMessage = errorMessage;
 		this.location = location;
+		if (location instanceof ASTElement)
+			registerDependency((ASTElement) location);
 		irContext = location.getIRContext();
 	}
 	

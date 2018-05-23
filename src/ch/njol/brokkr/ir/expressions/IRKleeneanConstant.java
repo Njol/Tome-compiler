@@ -1,5 +1,6 @@
 package ch.njol.brokkr.ir.expressions;
 
+import ch.njol.brokkr.ast.ASTExpressions.ASTKleeneanConstant;
 import ch.njol.brokkr.common.Kleenean;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
@@ -13,9 +14,9 @@ public class IRKleeneanConstant extends AbstractIRExpression {
 	private final IRContext irContext;
 	private final Kleenean value;
 	
-	public IRKleeneanConstant(final IRContext irContext, final Kleenean value) {
-		this.irContext = irContext;
-		this.value = value;
+	public IRKleeneanConstant(ASTKleeneanConstant ast) {
+		this.irContext = ast.getIRContext();
+		this.value = registerDependency(ast).value;
 	}
 	
 	@Override

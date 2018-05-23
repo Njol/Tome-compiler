@@ -32,9 +32,9 @@ public class IRBrokkrConstructor extends AbstractIRElement implements IRAttribut
 	
 	// TODO can a constructor override another attribute? then overridden parameters need to be considered too.
 	public IRBrokkrConstructor(final ASTConstructor constructor) {
-		ast = constructor;
+		ast = registerDependency(constructor);
 		final ASTClassDeclaration classDeclaration = constructor.getParentOfType(ASTClassDeclaration.class);
-		type = classDeclaration != null ? classDeclaration.getIR() : new IRUnknownTypeDefinition(ast.getIRContext(), "Constructor not in a class", ast);
+		type = registerDependency(classDeclaration != null ? classDeclaration.getIR() : new IRUnknownTypeDefinition(ast.getIRContext(), "Constructor not in a class", ast));
 	}
 	
 	@Override
@@ -59,6 +59,11 @@ public class IRBrokkrConstructor extends AbstractIRElement implements IRAttribut
 	}
 	
 	private final class ImplicitConstructorResult extends AbstractIRElement implements IRResultDefinition {
+		
+		public ImplicitConstructorResult() {
+			registerDependency(IRBrokkrConstructor.this);
+		}
+		
 		@Override
 		public String name() {
 			return "result";

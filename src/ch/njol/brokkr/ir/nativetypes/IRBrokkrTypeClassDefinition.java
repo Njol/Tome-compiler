@@ -27,7 +27,7 @@ public class IRBrokkrTypeClassDefinition extends AbstractIRElement implements IR
 	private final IRBrokkrTypeDefinition definition;
 	
 	public IRBrokkrTypeClassDefinition(final IRBrokkrTypeDefinition definition) {
-		this.definition = definition;
+		this.definition = registerDependency(definition);
 	}
 	
 	@Override

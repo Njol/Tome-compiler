@@ -24,9 +24,9 @@ public class IRIf extends AbstractIRExpression {
 			IRElement.assertSameIRContext(condition, then);
 		else
 			IRElement.assertSameIRContext(condition, then, otherwise);
-		this.condition = condition;
-		this.then = then;
-		this.otherwise = otherwise;
+		this.condition = registerDependency(condition);
+		this.then = registerDependency(then);
+		this.otherwise = registerDependency(otherwise);
 	}
 	
 	@Override

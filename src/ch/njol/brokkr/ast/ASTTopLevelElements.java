@@ -17,9 +17,11 @@ import ch.njol.brokkr.ast.ASTMembers.ASTCodeGenerationCallMember;
 import ch.njol.brokkr.ast.ASTMembers.ASTGenericTypeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.ast.ASTMembers.ASTTemplate;
+import ch.njol.brokkr.common.Invalidatable;
+import ch.njol.brokkr.common.InvalidateListener;
 import ch.njol.brokkr.common.ModuleIdentifier;
 import ch.njol.brokkr.common.Visibility;
-import ch.njol.brokkr.compiler.Module;
+import ch.njol.brokkr.compiler.ASTModule;
 import ch.njol.brokkr.compiler.Modules;
 import ch.njol.brokkr.compiler.ParseException;
 import ch.njol.brokkr.compiler.Token;
@@ -40,10 +42,10 @@ import ch.njol.util.StringUtils;
 
 public class ASTTopLevelElements {
 	
-	public static class ASTBrokkrFile extends AbstractASTElement<ASTBrokkrFile> {
+	public static class ASTBrokkrFile extends AbstractASTElement<ASTBrokkrFile> implements InvalidateListener {
 		public final String identifier;
 		public final Modules modules;
-		public @Nullable Module module;
+		public @Nullable ASTModule module;
 		
 		public @Nullable ASTModuleDeclaration moduleDeclaration;
 		public List<ASTElement> declarations = new ArrayList<>();
@@ -60,11 +62,8 @@ public class ASTTopLevelElements {
 		
 		@Override
 		protected ASTBrokkrFile parse() throws ParseException {
-			final ASTModuleDeclaration moduleDeclaration = this.moduleDeclaration = one(ASTModuleDeclaration.class);
-			final ASTModuleIdentifier moduleIdentifier = moduleDeclaration.module;
-			module = moduleIdentifier == null ? null : modules.get(moduleIdentifier.identifier);
-			if (module != null)
-				module.registerFile(identifier, this);
+			moduleDeclaration = one(ASTModuleDeclaration.class);
+			updateModule();
 			repeatUntilEnd(() -> {
 				if (peekNext('$')) {
 					declarations.add(one(ASTCodeGenerationCallMember.class));
@@ -91,6 +90,51 @@ public class ASTTopLevelElements {
 				assert declaration == null || modifiers.parent() != this : declaration;
 			});
 			return this;
+		}
+		
+		/**
+		 * Updates the module link of this file and registers/unregister this file from the changed module(s), if any.
+		 */
+		public void updateModule() {
+			final ASTModule oldModule = module;
+			final ASTModuleDeclaration moduleDeclaration = this.moduleDeclaration;
+			if (moduleDeclaration == null) {
+				if (oldModule != null) {
+					oldModule.clearFile(identifier);
+					oldModule.removeInvalidateListener(this);
+				}
+				module = null;
+				return;
+			}
+			final ASTModuleIdentifier moduleIdentifier = moduleDeclaration.module;
+			final ASTModule newModule = module = moduleIdentifier == null ? null : modules.get(moduleIdentifier.identifier);
+			if (oldModule == newModule)
+				return;
+			if (oldModule != null) {
+				oldModule.clearFile(identifier);
+				oldModule.removeInvalidateListener(this);
+			}
+			if (newModule != null) {
+				newModule.registerFile(identifier, this);
+				newModule.registerInvalidateListener(this);
+			}
+		}
+		
+		@Override
+		public void onInvalidate(final Invalidatable source) {
+			assert source instanceof ASTModule;
+			updateModule(); // find new, valid module, and register this file again
+			// no need to invalidate this whole file - any types or such taken from the module are depended on separately
+		}
+		
+		@Override
+		protected synchronized void invalidate() {
+			super.invalidate();
+			final ASTModule module = this.module;
+			if (module != null) {
+				module.clearFile(identifier);
+				module.removeInvalidateListener(this);
+			}
 		}
 		
 		public final static ASTBrokkrFile parseFile(final Modules modules, final String identifier, final TokenStream in) {

@@ -30,7 +30,7 @@ import ch.njol.brokkr.ast.ASTTopLevelElements.ASTClassDeclaration;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTInterfaceDeclaration;
 import ch.njol.brokkr.common.MethodModifiability;
 import ch.njol.brokkr.common.Visibility;
-import ch.njol.brokkr.compiler.Module;
+import ch.njol.brokkr.compiler.ASTModule;
 import ch.njol.brokkr.compiler.ParseException;
 import ch.njol.brokkr.compiler.Token;
 import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
@@ -151,7 +151,7 @@ public class ASTMembers {
 				final ASTBrokkrFile file = getParentOfType(ASTBrokkrFile.class);
 				if (file == null)
 					return null;
-				final Module module = file.module;
+				final ASTModule module = file.module;
 				return module == null ? null : module.getType(name);
 			}
 		};

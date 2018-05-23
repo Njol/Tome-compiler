@@ -12,7 +12,7 @@ public class IRVariableExpression extends AbstractIRExpression {
 	private final IRVariableRedefinition variable;
 	
 	public IRVariableExpression(final IRVariableRedefinition variable) {
-		this.variable = variable;
+		this.variable = registerDependency(variable);
 	}
 	
 	@Override

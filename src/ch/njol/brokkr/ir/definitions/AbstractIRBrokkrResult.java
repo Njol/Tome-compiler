@@ -13,7 +13,7 @@ public abstract class AbstractIRBrokkrResult extends AbstractIRBrokkrVariable im
 	
 	public AbstractIRBrokkrResult(final ASTNormalResult ast, final IRAttributeRedefinition attribute) {
 		super(ast);
-		this.attribute = attribute;
+		this.attribute = registerDependency(attribute);
 	}
 	
 	@Override

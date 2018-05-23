@@ -24,8 +24,16 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	public void setParent(@Nullable ASTElement parent);
 	
 	@SuppressWarnings("unchecked")
-	public default <T> @Nullable T getParentOfType(final Class<T> type) {
+	public default <T extends ASTElement> @Nullable T getParentOfType(final Class<T> type) {
 		ASTElement e = parent();
+		while (!type.isInstance(e) && e != null)
+			e = e.parent();
+		return (T) e;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public default <T extends ASTElementPart> @Nullable T getParentOrSelfOfType(final Class<T> type) {
+		ASTElementPart e = this;
 		while (!type.isInstance(e) && e != null)
 			e = e.parent();
 		return (T) e;

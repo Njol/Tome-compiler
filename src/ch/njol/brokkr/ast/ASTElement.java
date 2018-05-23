@@ -3,12 +3,15 @@ package ch.njol.brokkr.ast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
+import ch.njol.brokkr.common.BrokkrContentAssistProposal;
 import ch.njol.brokkr.common.Invalidatable;
-import ch.njol.brokkr.compiler.Module;
+import ch.njol.brokkr.common.StringMatcher;
+import ch.njol.brokkr.compiler.ASTModule;
 import ch.njol.brokkr.compiler.ParseError;
 import ch.njol.brokkr.compiler.Token;
 
@@ -31,6 +34,16 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	 * @return Information to display on hover, or null for none.
 	 */
 	default public @Nullable String hoverInfo(final Token token) {
+		return null;
+	}
+	
+	/**
+	 * 
+	 * @param token The token where the content assist was executed on, or the left one if it was done between two tokens.
+	 * @param matcher A mather to filter resulting proposals
+	 * @return A {@link Stream} of proposals
+	 */
+	default public @Nullable Stream<BrokkrContentAssistProposal> getContentAssistProposals(final Token token, final StringMatcher matcher) {
 		return null;
 	}
 	
@@ -57,7 +70,7 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	 * Invalidates this element and any of its ancestors or descendants.
 	 * <p>
 	 * This method is used on the topmost AST element that was changed on editing, as any ancestors and descendants may be created anew or changed (in particular, on the
-	 * {@link ASTBrokkrFile} or {@link Module} if the whole file was modified somehow, e.g. deleted or reloaded).
+	 * {@link ASTBrokkrFile} or {@link ASTModule} if the whole file was modified somehow, e.g. deleted or reloaded).
 	 * <p>
 	 * TODO maybe, instead of just assuming this behaviour, the elements actually affected on a change should just be unlinked (still unlinking a whole subtree at once though)
 	 */
@@ -71,14 +84,13 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	 * <p>
 	 * Invalidating is currently used to unlink any links in this element to and from other elements.
 	 */
-	@Override
-	void invalidate();
+	void invalidateSelf();
 	
 	/**
 	 * Invalidates this element and any descendants.
 	 */
 	default void invalidateSubtree() {
-		invalidate();
+		invalidateSelf();
 		for (final ASTElementPart part : parts()) {
 			if (part instanceof ASTElement)
 				((ASTElement) part).invalidateSubtree();
@@ -93,7 +105,7 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	default void invalidateParents() {
 		final ASTElement parent = parent();
 		if (parent != null) {
-			parent.invalidate();
+			parent.invalidateSelf();
 			parent.invalidateParents();
 		}
 	}

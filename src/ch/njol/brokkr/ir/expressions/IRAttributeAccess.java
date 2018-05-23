@@ -33,9 +33,10 @@ public class IRAttributeAccess extends AbstractIRExpression {
 	public IRAttributeAccess(@Nullable final IRExpression target, final IRAttributeRedefinition attribute, final Map<IRParameterDefinition, IRExpression> arguments,
 			final boolean allResults, final boolean nullSafe, final boolean meta) {
 		IRElement.assertSameIRContext(target == null ? Arrays.asList(attribute) : Arrays.asList(target, attribute), arguments.keySet(), arguments.values());
-		this.target = target;
-		this.attribute = attribute;
+		this.target = registerDependency(target);
+		this.attribute = registerDependency(attribute);
 		this.arguments = arguments;
+		registerDependencies(arguments.keySet());
 		this.allResults = allResults;
 		this.nullSafe = nullSafe;
 		this.meta = meta;

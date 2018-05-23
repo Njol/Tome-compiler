@@ -14,9 +14,12 @@ import ch.njol.brokkr.ir.uses.IRTypeUse;
 public abstract class AbstractIRBrokkrGenericType extends AbstractIRElement implements IRGenericTypeRedefinition {
 	
 	private final ASTGenericTypeDeclaration ast;
+	private final IRTypeDefinition declaringType;
 	
 	public AbstractIRBrokkrGenericType(final ASTGenericTypeDeclaration ast) {
-		this.ast = ast;
+		this.ast = registerDependency(ast);
+		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
+		declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (Generic type definition not in type: " + this + ")", ast));
 	}
 	
 	@Override
@@ -36,10 +39,7 @@ public abstract class AbstractIRBrokkrGenericType extends AbstractIRElement impl
 	
 	@Override
 	public IRTypeDefinition declaringType() {
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
-		if (type == null)
-			return new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (Generic type definition not in type: " + this + ")", ast);
-		return type.getIR();
+		return declaringType;
 	}
 	
 	@Override
@@ -55,11 +55,14 @@ public abstract class AbstractIRBrokkrGenericType extends AbstractIRElement impl
 		return (IRGenericTypeRedefinition) modifiers.overridden.get();
 	}
 	
+	/**
+	 * @return The upper bound of this generic type, either as declared or {@code Any} if not.
+	 */
 	@Override
 	public IRTypeUse upperBound() {
 		final ASTTypeUse extendedType = ast.extendedType;
 		if (extendedType != null)
-			return extendedType.getIRType();
+			return extendedType.getIR();
 		return getIRContext().getTypeUse("lang", "Any");
 	}
 	

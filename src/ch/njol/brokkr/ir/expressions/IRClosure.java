@@ -24,9 +24,10 @@ public class IRClosure extends AbstractIRExpression {
 	
 	public IRClosure(final List<? extends IRVariableRedefinition> parameters, final IRExpression value) {
 		IRElement.assertSameIRContext(parameters, value);
-		this.parameters = parameters;
+		this.parameters = registerDependencies(parameters);
+		registerDependencies(parameters);
 		parameterTypes = new IRTypeTuple(value.getIRContext(), parameters.stream().map(p -> new IRTupleBuilderEntry(p.name(), p.type())));
-		this.value = value;
+		this.value = registerDependency(value);
 	}
 	
 	@Override

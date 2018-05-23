@@ -10,7 +10,7 @@ public class IRExpressionStatement extends AbstractIRStatement {
 	private final IRExpression expression;
 	
 	public IRExpressionStatement(final IRExpression expression) {
-		this.expression = expression;
+		this.expression = registerDependency(expression);
 	}
 	
 	@Override

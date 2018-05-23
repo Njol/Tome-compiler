@@ -18,9 +18,9 @@ public abstract class AbstractIRPreOrPostCondition extends AbstractIRStatement {
 	
 	public AbstractIRPreOrPostCondition(final IRAttributeRedefinition attribute, final @Nullable String name, final IRExpression value) {
 		IRElement.assertSameIRContext(attribute, value);
-		this.attribute = attribute;
+		this.attribute = registerDependency(attribute);
 		this.name = name;
-		this.value = value;
+		this.value = registerDependency(value);
 	}
 	
 	@Override

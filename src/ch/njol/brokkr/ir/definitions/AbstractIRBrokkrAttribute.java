@@ -28,16 +28,19 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 	
 	public final ASTAttributeDeclaration ast;
 	public final @Nullable IRAttributeRedefinition overridden;
+	private final IRTypeDefinition declaringType;
 	
 	public AbstractIRBrokkrAttribute(final ASTAttributeDeclaration ast) {
 		this(ast, null);
 	}
 	
 	public AbstractIRBrokkrAttribute(final ASTAttributeDeclaration ast, @Nullable final IRAttributeRedefinition overridden) {
-		this.ast = ast;
-		
+		this.ast = registerDependency(ast);
 		assert (overridden == null) == (this instanceof IRAttributeDefinition);
-		this.overridden = overridden;
+		this.overridden = registerDependency(overridden);
+		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
+		this.declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (attribute not in type: " + this + ")", ast));
+	
 	}
 	
 	@Override
@@ -47,7 +50,7 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 	
 	@Override
 	public String toString() {
-		return ast.getParentOfType(ASTTypeDeclaration.class) + "." + ast.name();
+		return declaringType + "." + ast.name();
 	}
 	
 	private @Nullable List<IRParameterRedefinition> parameters = null;
@@ -126,12 +129,9 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 				+ (def == this ? "" : " (defined in " + def.declaringType() + (def.name().equals(name()) ? "" : " as " + def.name()) + ")");
 	}
 	
-	@Override
+	@Override                                                                                                                                                                
 	public IRTypeDefinition declaringType() {
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
-		if (type == null)
-			return new IRUnknownTypeDefinition(getIRContext(), "internal compiler error (attribute not in type: " + this + ")", ast);
-		return type.getIR();
+		return declaringType;
 	}
 	
 	@Override

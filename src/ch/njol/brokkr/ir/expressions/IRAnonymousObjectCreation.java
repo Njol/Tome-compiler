@@ -14,7 +14,7 @@ public class IRAnonymousObjectCreation extends AbstractIRExpression {
 	private final IRClassDefinition type;
 	
 	public IRAnonymousObjectCreation(final IRClassDefinition type) {
-		this.type = type;
+		this.type = registerDependency(type);
 	}
 	
 	@Override

@@ -6,6 +6,8 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.ir.AbstractIRElement;
+import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.definitions.IRAttributeDefinition;
 import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeDefinition;
@@ -16,7 +18,7 @@ import ch.njol.brokkr.ir.nativetypes.IRTuple.IRTypeTuple;
 /**
  * A used attribute, i.e. an attribute of a type use, which may or may not have a target type and argument types set (or only partially).
  */
-public class IRAttributeUse implements IRMemberUse {
+public class IRAttributeUse extends AbstractIRElement implements IRMemberUse {
 	
 	private final IRAttributeRedefinition attribute;
 	private @Nullable IRTypeUse targetType;
@@ -57,6 +59,11 @@ public class IRAttributeUse implements IRMemberUse {
 	
 	public IRTypeUse mainResultType() {
 		return attribute.mainResultType();
+	}
+	
+	@Override
+	public IRContext getIRContext() {
+		return attribute.getIRContext();
 	}
 	
 }

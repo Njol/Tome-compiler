@@ -105,7 +105,9 @@ public class IRGenericTypeUse extends AbstractIRTypeUse implements IRMemberUse {
 	
 	@Override
 	public String toString() {
-		return knownExactType != null ? knownExactType.toString() : redefinition.name();
+		if (knownExactType != null)
+			return knownExactType.toString();
+		return redefinition.name() + " (extends " + redefinition.upperBound() + ")";
 	}
 	
 	@Override

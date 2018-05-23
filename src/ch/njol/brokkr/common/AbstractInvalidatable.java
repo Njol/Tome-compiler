@@ -3,37 +3,50 @@ package ch.njol.brokkr.common;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.Nullable;
+
+/**
+ * This class is thread-safe.
+ */
 public abstract class AbstractInvalidatable implements Invalidatable {
 	
-	private boolean valid = true;
+	private volatile boolean valid = true;
 	
-	private final List<InvalidateListener> invalidateListeners = new ArrayList<>();
+	private volatile @Nullable List<InvalidateListener> invalidateListeners = null;
 	
 	@Override
-	public final void registerInvalidateListener(final InvalidateListener listener) {
-		assert valid;
+	public final synchronized void registerInvalidateListener(final InvalidateListener listener) {
+		if (!valid) {
+			listener.onInvalidate(this);
+			return;
+		}
+		List<InvalidateListener> invalidateListeners = this.invalidateListeners;
+		if (invalidateListeners == null)
+			invalidateListeners = this.invalidateListeners = new ArrayList<>();
 		invalidateListeners.add(listener);
 	}
 	
 	@Override
-	public final void removeInvalidateListener(final InvalidateListener listener) {
-		assert valid;
-		invalidateListeners.removeIf(l -> l == listener); // remove by reference
+	public final synchronized void removeInvalidateListener(final InvalidateListener listener) {
+		final List<InvalidateListener> invalidateListeners = this.invalidateListeners;
+		if (invalidateListeners != null)
+			invalidateListeners.removeIf(l -> l == listener); // remove by reference
 	}
 	
-	@Override
-	public final void invalidate() {
+	/**
+	 * Invalidates this AbstractInvalidatable. If overridden, must call the super implementation.
+	 */
+	protected synchronized void invalidate() {
 		if (!valid)
 			return;
 		valid = false;
-		for (final InvalidateListener l : invalidateListeners)
-			l.onInvalidate(this);
-		// clear references
-		invalidateListeners.clear();
-		invalidateInternal();
+		final List<InvalidateListener> invalidateListeners = this.invalidateListeners;
+		if (invalidateListeners != null) {
+			this.invalidateListeners = null; // clear references
+			for (final InvalidateListener l : invalidateListeners)
+				l.onInvalidate(this);
+		}
 	}
-	
-	protected void invalidateInternal() {}
 	
 	@Override
 	public final boolean isValid() {

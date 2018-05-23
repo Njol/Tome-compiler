@@ -134,7 +134,6 @@ public class IRSimpleTypeUse extends AbstractIRTypeUse implements SourceCodeLink
 		return memberRedefinition.getUse(this, genericArguments);
 	}
 	
-	@SuppressWarnings("null")
 	@Override
 	public List<IRMemberUse> members() {
 		return type.members().stream().map(m -> m.getUse(this, genericArguments)).filter(m -> m != null).collect(Collectors.toList());

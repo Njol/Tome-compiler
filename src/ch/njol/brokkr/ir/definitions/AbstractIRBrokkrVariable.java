@@ -12,7 +12,7 @@ public abstract class AbstractIRBrokkrVariable extends AbstractIRElement impleme
 	protected final IRTypeUse type;
 	
 	public AbstractIRBrokkrVariable(final ASTVariable ast) {
-		this.ast = ast;
+		this.ast = registerDependency(ast);
 		final String name = ast.name();
 		this.name = name == null ? "result" : name; // TODO what if it's not a result?
 		type = ast.getIRType();
@@ -36,6 +36,11 @@ public abstract class AbstractIRBrokkrVariable extends AbstractIRElement impleme
 	@Override
 	public String hoverInfo() {
 		return "Variable " + name() + ", type: " + type();
+	}
+	
+	@Override
+	public String toString() {
+		return name;
 	}
 	
 }

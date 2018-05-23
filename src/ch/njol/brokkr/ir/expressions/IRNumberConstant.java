@@ -2,6 +2,7 @@ package ch.njol.brokkr.ir.expressions;
 
 import java.math.BigDecimal;
 
+import ch.njol.brokkr.ast.ASTExpressions.ASTNumberConstant;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.InterpreterException;
@@ -22,9 +23,9 @@ public class IRNumberConstant extends AbstractIRExpression {
 	private final IRContext irContext;
 	private final BigDecimal value;
 	
-	public IRNumberConstant(final IRContext irContext, final BigDecimal value) {
-		this.irContext = irContext;
-		this.value = value;
+	public IRNumberConstant(final ASTNumberConstant ast) {
+		this.irContext = ast.getIRContext();
+		this.value = registerDependency(ast).value;
 	}
 	
 	@Override

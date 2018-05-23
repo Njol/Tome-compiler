@@ -17,9 +17,9 @@ public class IRAttributeAssignment extends AbstractIRExpression {
 	
 	public IRAttributeAssignment(final IRExpression target, final IRAttributeDefinition attribute, final IRExpression value) {
 		IRElement.assertSameIRContext(target, attribute, value);
-		this.target = target;
-		this.attribute = attribute;
-		this.value = value;
+		this.target = registerDependency(target);
+		this.attribute = registerDependency(attribute);
+		this.value = registerDependency(value);
 	}
 	
 	@Override

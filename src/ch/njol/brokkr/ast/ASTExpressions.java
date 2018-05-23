@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
@@ -24,6 +25,7 @@ import ch.njol.brokkr.ast.ASTInterfaces.ASTMember;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeExpression;
 import ch.njol.brokkr.ast.ASTInterfaces.ASTTypeUse;
+import ch.njol.brokkr.ast.ASTInterfaces.ASTVariable;
 import ch.njol.brokkr.ast.ASTInterfaces.TypedASTElement;
 import ch.njol.brokkr.ast.ASTMembers.ASTAttributeDeclaration;
 import ch.njol.brokkr.ast.ASTMembers.ASTGenericTypeDeclaration;
@@ -32,13 +34,15 @@ import ch.njol.brokkr.ast.ASTStatements.ASTVariableDeclarations;
 import ch.njol.brokkr.ast.ASTStatements.ASTVariableDeclarationsVariable;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
 import ch.njol.brokkr.common.Borrowing;
+import ch.njol.brokkr.common.BrokkrContentAssistProposal;
 import ch.njol.brokkr.common.Cache;
 import ch.njol.brokkr.common.DebugString;
 import ch.njol.brokkr.common.Exclusiveness;
 import ch.njol.brokkr.common.Kleenean;
 import ch.njol.brokkr.common.Modifiability;
 import ch.njol.brokkr.common.Optionality;
-import ch.njol.brokkr.compiler.Module;
+import ch.njol.brokkr.common.StringMatcher;
+import ch.njol.brokkr.compiler.ASTModule;
 import ch.njol.brokkr.compiler.ParseException;
 import ch.njol.brokkr.compiler.Token;
 import ch.njol.brokkr.compiler.Token.CommentToken;
@@ -59,10 +63,13 @@ import ch.njol.brokkr.ir.definitions.IRBrokkrLocalVariable;
 import ch.njol.brokkr.ir.definitions.IRClassDefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeRedefinition;
+import ch.njol.brokkr.ir.definitions.IRMemberRedefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterDefinition;
 import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
+import ch.njol.brokkr.ir.definitions.IRQuantifierVariable;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinitionOrGenericTypeRedefinition;
+import ch.njol.brokkr.ir.definitions.IRVariableDefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableOrAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRVariableRedefinition;
 import ch.njol.brokkr.ir.expressions.IRAnonymousObjectCreation;
@@ -789,6 +796,7 @@ public class ASTExpressions {
 				"implies"};
 		//, "extends", "super", "is"}; // FIXME extends, super, and is are problematic, as extensions (which can make a class/interface implement a new interface) may or may not be loaded at runtime
 		// (e.g. they may not be included, but another loaded library loads them), making these operations quite volatile.
+		// LANG better: allow check only for subinterfaces of interfaces marked in a specific way
 		private final static String[] opsWithComp = {//
 				"&", "|", "+", "-", "*", "/", "^", // copy of above
 				">=", ">", "<=", "<", //
@@ -1011,6 +1019,13 @@ public class ASTExpressions {
 			}
 			return new IRAttributeAccess(target, attribute, ASTArgument.makeIRArgumentMap(attribute.definition(), access.arguments), access.allResults, nullSafe, meta);
 		}
+		
+		@Override
+		public @Nullable Stream<BrokkrContentAssistProposal> getContentAssistProposals(final Token token, final StringMatcher matcher) {
+			// can only get here from operator or ASTDirectAttributeAccess
+			return target.getIR().type().members().stream().filter(m -> matcher.matches(m.redefinition().name())).map(ir -> new BrokkrContentAssistProposal(ir, ir.redefinition().name()));
+		}
+		
 	}
 	
 	public static interface ASTAccess extends TypedASTElement {}
@@ -1064,6 +1079,12 @@ public class ASTExpressions {
 			if (attributeRedefinition == null)
 				return new IRUnknownTypeUse(getIRContext());
 			return allResults ? attributeRedefinition.allResultTypes() : attributeRedefinition.mainResultType();
+		}
+		
+		@Override
+		public @Nullable Stream<BrokkrContentAssistProposal> getContentAssistProposals(Token token,
+				StringMatcher matcher) {
+			return parent != null ? parent.getContentAssistProposals(token, matcher) : null;
 		}
 	}
 	
@@ -1167,7 +1188,7 @@ public class ASTExpressions {
 		
 		@Override
 		public IRExpression getIR() {
-			return new IRNumberConstant(getIRContext(), value);
+			return new IRNumberConstant(this);
 		}
 	}
 	
@@ -1198,7 +1219,7 @@ public class ASTExpressions {
 		
 		@Override
 		public IRExpression getIR() {
-			return new IRKleeneanConstant(getIRContext(), value);
+			return new IRKleeneanConstant(this);
 		}
 		
 	}
@@ -1252,7 +1273,7 @@ public class ASTExpressions {
 		
 		@Override
 		public IRExpression getIR() {
-			return new IRNull(getIRContext());
+			return new IRNull(this);
 		}
 	}
 	
@@ -1310,14 +1331,14 @@ public class ASTExpressions {
 		
 		@Override
 		public IRExpression getIR() {
-			return new IRString(getIRContext(), value);
+			return new IRString(this);
 		}
 	}
 	
 	/**
 	 * A first-order logic quantifier for contracts, i.e. a 'for all' or 'there exists'.
 	 */
-	public static class ASTQuantifier extends AbstractASTElement<ASTQuantifier> implements ASTExpression/*, ASTElementWithVariables*/ {
+	public static class ASTQuantifier extends AbstractASTElement<ASTQuantifier> implements ASTExpression, ASTElementWithVariables {
 		boolean forall;
 		public final List<ASTQuantifierVars> vars = new ArrayList<>();
 		public @Nullable ASTExpression condition;
@@ -1344,10 +1365,10 @@ public class ASTExpressions {
 			return this;
 		}
 		
-//		@Override
-//		public List<? extends IRVariableRedefinition> allVariables() {
-//			return vars.stream().flatMap(vars -> vars.vars.stream()).map(v -> v.interpreted(null)).collect(Collectors.toList());
-//		}
+		@Override
+		public List<? extends IRVariableRedefinition> allVariables() {
+			return vars.stream().flatMap(vars -> vars.vars.stream()).map(v -> v.getIR()).collect(Collectors.toList());
+		}
 		
 		@Override
 		public IRTypeUse getIRType() {
@@ -1379,7 +1400,7 @@ public class ASTExpressions {
 		}
 	}
 	
-	public static class ASTQuantifierVar extends AbstractASTElement<ASTQuantifierVar> /*implements ASTParameter*/ {
+	public static class ASTQuantifierVar extends AbstractASTElement<ASTQuantifierVar> implements ASTVariable /*implements ASTParameter*/ {
 		public @Nullable LowercaseWordToken name;
 		
 //		@Override
@@ -1398,21 +1419,25 @@ public class ASTExpressions {
 			return this;
 		}
 		
-//		@Override
-//		public IRTypeUse getIRType() {
-//			final ASTQuantifierVars vars = (ASTQuantifierVars) parent;
-//			if (vars == null)
-//				return new IRUnknownTypeUse(getIRContext());
-//			final ASTTypeUse type = vars.type;
-//			if (type == null)
-//				return new IRUnknownTypeUse(getIRContext());
-//			return type.getIR();
-//		}
-//
-//		@Override
-//		public IRParameterRedefinition getIR() {
-//			throw new IRBrokkrQuantifierParameterDefinition(this);
-//		}
+		@Override
+		public @Nullable WordToken nameToken() {
+			return name;
+		}
+		
+		@Override
+		public IRTypeUse getIRType() {
+			final ASTQuantifierVars vars = (ASTQuantifierVars) parent;
+			if (vars == null)
+				return new IRUnknownTypeUse(getIRContext());
+			final ASTTypeUse type = vars.type;
+			if (type == null)
+				return new IRUnknownTypeUse(getIRContext());
+			return type.getIR();
+		}
+		
+		public IRVariableDefinition getIR() {
+			return new IRQuantifierVariable(this);
+		}
 	}
 	
 	/**
@@ -1624,6 +1649,40 @@ public class ASTExpressions {
 				return new IRAttributeAccess(IRThis.makeNew(this), (IRAttributeRedefinition) varOrAttribute, ASTArgument.makeIRArgumentMap(((IRAttributeRedefinition) varOrAttribute).definition(), arguments),
 						false, false, false);
 		}
+		
+		@Override
+		public @Nullable Stream<BrokkrContentAssistProposal> getContentAssistProposals(final Token token, final StringMatcher matcher) {
+			final List<BrokkrContentAssistProposal> result = new ArrayList<>();
+			for (ASTElement p = parent(); p != null; p = p.parent()) {
+				if (p instanceof ASTBlock) {
+					// note: does not care about order of variable use and declaration - TODO either check this here or just let the semantic checker handle it
+					for (final ASTVariableDeclarations vars : ((ASTBlock) p).getDirectChildrenOfType(ASTVariableDeclarations.class)) {
+						for (final ASTVariableDeclarationsVariable var : vars.variables) {
+							final LowercaseWordToken nameToken = var.nameToken;
+							if (nameToken != null && matcher.matches(nameToken.word))
+								result.add(new BrokkrContentAssistProposal(var.getIR(), nameToken.word));
+						}
+					}
+				}
+				if (p instanceof ASTElementWithVariables) {
+					for (final IRVariableRedefinition var : ((ASTElementWithVariables) p).allVariables()) {
+						if (matcher.matches(var.name()))
+							result.add(new BrokkrContentAssistProposal(var, var.name()));
+					}
+				}
+				if (p instanceof ASTTypeDeclaration) {
+					for (final IRMemberRedefinition member : ((ASTTypeDeclaration) p).getIR().members()) {
+						if (member instanceof IRAttributeRedefinition && matcher.matches(member.name())) {
+							if (result.stream().anyMatch(cap -> cap.getElementToShow() instanceof IRVariableRedefinition && ((IRVariableRedefinition) cap.getElementToShow()).name().equals(member.name())))
+								result.add(new BrokkrContentAssistProposal(member, "this." + member.name()));
+							else
+								result.add(new BrokkrContentAssistProposal(member, member.name()));
+						}
+					}
+				}
+			}
+			return result.stream();
+		}
 	}
 	
 	/**
@@ -1820,7 +1879,7 @@ public class ASTExpressions {
 			final ASTTypeDeclaration type = getParentOfType(ASTTypeDeclaration.class);
 			if (attribute == null || type == null)
 				return new IRUnknownExpression("Internal compiler error", this);
-			return new IRAttributeAccess(attribute.isStatic() ? null : new IRThis(new IRSelfTypeUse(type.getIR().getRawUse())),
+			return new IRAttributeAccess(attribute.isStatic() ? null : new IRThis(new IRSelfTypeUse(type.getIR().getRawUse()), this),
 					attribute, ASTArgument.makeIRArgumentMap(attribute.definition(), arguments), false, false, false);
 		}
 	}
@@ -1900,7 +1959,6 @@ public class ASTExpressions {
 				return e;
 			}
 			return parent.one(ASTTypeUseWithOperators.class);
-			
 		}
 	}
 	
@@ -1908,13 +1966,13 @@ public class ASTExpressions {
 	 * The keyword 'Self', representing the class of the current object (i.e. equal to this.class, but can be used in more contexts like interfaces and generics)
 	 */
 	public static class ASTSelf extends AbstractASTElement<ASTSelf> implements ASTTypeExpression {
-		ASTLink<IRTypeDefinition> link = new ASTLink<IRTypeDefinition>(this) {
-			@Override
-			protected @Nullable IRTypeDefinition tryLink(final String name) {
-				final ASTTypeDeclaration astTypeDeclaration = ASTSelf.this.getParentOfType(ASTTypeDeclaration.class);
-				return astTypeDeclaration == null ? null : astTypeDeclaration.getIR();
-			}
-		};
+//		ASTLink<IRTypeDefinition> link = new ASTLink<IRTypeDefinition>(this) {
+//			@Override
+//			protected @Nullable IRTypeDefinition tryLink(final String name) {
+//				final ASTTypeDeclaration astTypeDeclaration = ASTSelf.this.getParentOfType(ASTTypeDeclaration.class);
+//				return astTypeDeclaration == null ? null : astTypeDeclaration.getIR();
+//			}
+//		};
 		
 		@Override
 		public String toString() {
@@ -2070,7 +2128,7 @@ public class ASTExpressions {
 							}
 						}
 					} else if (p instanceof ASTBrokkrFile) {
-						final Module m = ((ASTBrokkrFile) p).module;
+						final ASTModule m = ((ASTBrokkrFile) p).module;
 						if (m == null)
 							return null;
 						return m.getType(name);

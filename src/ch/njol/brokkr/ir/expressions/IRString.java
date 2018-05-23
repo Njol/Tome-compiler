@@ -1,5 +1,6 @@
 package ch.njol.brokkr.ir.expressions;
 
+import ch.njol.brokkr.ast.ASTExpressions.ASTString;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
 import ch.njol.brokkr.interpreter.nativetypes.InterpretedNativeString;
@@ -11,9 +12,9 @@ public class IRString extends AbstractIRExpression {
 	private final IRContext irContext;
 	private final String value;
 	
-	public IRString(final IRContext irContext, final String value) {
-		this.irContext = irContext;
-		this.value = value;
+	public IRString(final ASTString ast) {
+		irContext = ast.getIRContext();
+		value = registerDependency(ast).value;
 	}
 	
 	@Override

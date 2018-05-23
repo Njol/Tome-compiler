@@ -629,7 +629,7 @@ public class ASTStatements {
 		
 		@Override
 		public IRStatement getIR() {
-			return new IRCodeGenerationStatement(getIRContext(), code, expressions.stream().map(e -> e.getIR()).collect(Collectors.toList()));
+			return new IRCodeGenerationStatement(this);
 		}
 	}
 }

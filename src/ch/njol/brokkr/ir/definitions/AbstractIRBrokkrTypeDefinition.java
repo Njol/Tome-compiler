@@ -26,7 +26,9 @@ public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement i
 	protected final ASTTypeDeclaration ast;
 	
 	public AbstractIRBrokkrTypeDefinition(final ASTTypeDeclaration ast) {
-		this.ast = ast;
+		this.ast = registerDependency(ast);
+		final ASTBrokkrFile astBrokkrFile = ast.getParentOfType(ASTBrokkrFile.class);
+		registerDependency(astBrokkrFile != null && astBrokkrFile.moduleDeclaration != null ? astBrokkrFile.moduleDeclaration : astBrokkrFile);
 	}
 	
 	@Override

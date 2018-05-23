@@ -17,7 +17,7 @@ public class IRArgumentsKeyword extends AbstractIRExpression {
 	private final IRAttributeRedefinition attribute;
 	
 	public IRArgumentsKeyword(final IRAttributeRedefinition attribute) {
-		this.attribute = attribute;
+		this.attribute = registerDependency(attribute);
 	}
 	
 	@Override

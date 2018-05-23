@@ -28,20 +28,19 @@ import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
  * 
  * @author Peter Güttinger
  */
-public class Module extends ModuleFileElement {
+public class ASTModule extends ASTModuleFileElement {
 	
-	public ModuleIdentifier id;
+	public @Nullable ModuleIdentifier id;
 	
 	public final Modules modules;
 	
-	public Module(final Modules modules, final ModuleIdentifier id) {
+	public ASTModule(final Modules modules, final ModuleIdentifier id) {
 		this.modules = modules;
 		this.id = id;
 	}
 	
 	// for loading only
-	@SuppressWarnings("null")
-	private Module(final Modules modules) {
+	private ASTModule(final Modules modules) {
 		this.modules = modules;
 		id = null;
 	}
@@ -58,22 +57,23 @@ public class Module extends ModuleFileElement {
 	
 	public String language = "Brokkr-0.1"; // instantly backwards and forwards compatible! 
 	
-	// TODO dependencies? or manage those differently?
 	// TODO more info?
 	// TODO warn about missing values? leaving the default value might be good or bad...
 	
+	// TODO dependencies? or manage those differently?
+	// TODO change to dependencies with: ID, version, imports, defaultImportPrefix (and Suffix?)
 	public Map<ModuleIdentifier, List<Import>> imports = new HashMap<>();
 	
 	public final static class Import extends AbstractASTElement<Import> {
 		public ASTLink<IRTypeDefinition> type = new ASTLink<IRTypeDefinition>(this) {
 			@Override
 			protected @Nullable IRTypeDefinition tryLink(final String name) {
-				final Module module = getParentOfType(Module.class);
+				final ASTModule module = getParentOfType(ASTModule.class);
 				assert module != null;
 				for (final Entry<ModuleIdentifier, List<Import>> e : module.imports.entrySet()) {
-					if (!e.getValue().stream().anyMatch(l -> l == Import.this)) // TODO why is this required?
+					if (!e.getValue().stream().anyMatch(l -> l == Import.this)) // find module of this import // TODO improve this to directly access parent element
 						continue;
-					final Module importedModule = module.modules.get(e.getKey());
+					final ASTModule importedModule = module.modules.get(e.getKey());
 					return importedModule == null ? null : importedModule.getDeclaredType(name);
 				}
 				return null;
@@ -117,15 +117,19 @@ public class Module extends ModuleFileElement {
 	private final transient Map<String, ASTBrokkrFile> files = new HashMap<>();
 	
 	public void clearFiles() {
-		for (final ASTBrokkrFile bf : files.values())
+		for (final ASTBrokkrFile bf : files.values()) {
 			bf.module = null;
+			bf.invalidateSubtree();
+		}
 		files.clear();
 	}
 	
 	public void clearFile(final String file) {
 		final ASTBrokkrFile ast = files.remove(file);
-		if (ast != null)
+		if (ast != null) {
 			ast.module = null;
+			ast.invalidateSubtree();
+		}
 	}
 	
 	public void registerFile(final String file, final ASTBrokkrFile ast) {
@@ -161,20 +165,24 @@ public class Module extends ModuleFileElement {
 		for (final Entry<ModuleIdentifier, List<Import>> e : imports.entrySet()) {
 			for (final Import i : e.getValue()) {
 				if (i.alias.equals(name)) {
-					return i.type.get();
+					final IRTypeDefinition t = i.type.get();
+					if (t != null)
+						registerInvalidateListener(t); // if this module is modified, any types accessed this way must be re-checked
+					return t;
 				}
 			}
 		}
 		return null;
 	}
 	
-	private final static Map<String, @NonNull String[]> defaultImports = new HashMap<>();
+	// TODO make this a code template instead
+	private final static Map<String, String[]> defaultImports = new HashMap<>();
 	static {
-		defaultImports.put("lang", new @NonNull String[] {"Any", "Object", "Function", "Procedure", "Type", "Tuple", "Boolean", "Kleenean", //
+		defaultImports.put("lang", new String[] {"Any", "Object", "Function", "Procedure", "Type", "Tuple", "Boolean", "Kleenean", //
 				"Copyable", "Comparable", "Orderable", "Relation", "Character", "String", //
 				"Number", "Integer", "Int", "UInt", "Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64", "Byte"});
-		defaultImports.put("util", new @NonNull String[] {"Vector", "Matrix"});
-		defaultImports.put("util.collection", new @NonNull String[] {"Collection", "Stream", "List", "Map", "Set", "Tree"});
+		defaultImports.put("util", new String[] {"Vector", "Matrix"});
+		defaultImports.put("util.collection", new String[] {"Collection", "Stream", "List", "Map", "Set", "Tree"});
 	}
 	
 	/**
@@ -191,22 +199,22 @@ public class Module extends ModuleFileElement {
 		}
 	}
 	
-	@SuppressWarnings({"null", "unused"})
-	public final static @Nullable Module load(final Modules modules, final TokenStream tokens) {
-		final Module m = new Module(modules);
+	public final static ASTModule load(final Modules modules, final TokenStream tokens) {
+		final ASTModule m = new ASTModule(modules);
 		try {
 			m.parse(tokens);
 		} catch (final ParseException e) {}
 		m.compactFatalParseErrors();
-		if (m.id == null)
-			return null;
 		return m;
 	}
 	
-	@SuppressWarnings("null")
 	public void save(final Writer out) throws IOException {
-		for (final List<Import> l : imports.values())
-			l.sort((i1, i2) -> i1.type.getName().compareTo(i2.type.getName()));
+		for (final List<Import> l : imports.values()) {
+			l.sort((i1, i2) -> {
+				final String n1 = i1.type.getName(), n2 = i2.type.getName();
+				return n1 == null ? 0 : n1.compareTo(n2);
+			});
+		}
 		save(this, out, null);
 		out.flush();
 	}

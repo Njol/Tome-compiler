@@ -7,6 +7,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.ir.IRElement;
 import ch.njol.brokkr.ir.IRError;
 import ch.njol.brokkr.ir.definitions.IRAttributeRedefinition;
 import ch.njol.brokkr.ir.definitions.IRGenericTypeRedefinition;
@@ -53,33 +54,40 @@ public class ASTInterfaces {
 		public IRTypeUse getIRType();
 	}
 	
+	public static interface ASTElementWithIR {
+		public IRElement getIR();
+	}
+	
 	public static interface ASTVariableOrAttribute extends NamedASTElement, TypedASTElement {}
 	
 	public static interface ASTVariable extends ASTVariableOrAttribute {
 		
 	}
 	
-	public static interface ASTLocalVariable extends ASTVariable {
+	public static interface ASTLocalVariable extends ASTVariable, ASTElementWithIR {
 		
+		@Override
 		public IRVariableRedefinition getIR();
 		
 	}
 	
-	public static interface ASTParameter extends ASTVariable {
+	public static interface ASTParameter extends ASTVariable, ASTElementWithIR {
 		
+		@Override
 		IRParameterRedefinition getIR();
 		
 //		public @Nullable FormalParameter overridden();
 	
 	}
 	
-	public static interface ASTResult extends TypedASTElement, NamedASTElement {
+	public static interface ASTResult extends TypedASTElement, NamedASTElement, ASTElementWithIR {
 		
+		@Override
 		IRResultRedefinition getIR();
 		
 	}
 	
-	public static interface ASTAttribute extends ASTVariableOrAttribute, ASTElementWithVariables, ASTMember {
+	public static interface ASTAttribute extends ASTVariableOrAttribute, ASTElementWithVariables, ASTMember, ASTElementWithIR {
 		public ASTMemberModifiers modifiers();
 		
 		public List<? extends ASTError> declaredErrors();
@@ -142,6 +150,7 @@ public class ASTInterfaces {
 			return Collections.singletonList(getIR());
 		}
 		
+		@Override
 		public IRAttributeRedefinition getIR();
 		
 	}
@@ -166,8 +175,9 @@ public class ASTInterfaces {
 		
 	}
 	
-	public static interface ASTExpression extends TypedASTElement {
+	public static interface ASTExpression extends TypedASTElement, ASTElementWithIR {
 		
+		@Override
 		IRExpression getIR();
 		
 		@Override
@@ -180,7 +190,7 @@ public class ASTInterfaces {
 	/**
 	 * A type declaration, with members and possible supertypes (currently either an interface, class, generic type, enum, or enum constant declaration).
 	 */
-	public static interface ASTTypeDeclaration extends NamedASTElement {
+	public static interface ASTTypeDeclaration extends NamedASTElement, ASTElementWithIR {
 		
 		List<? extends ASTMember> declaredMembers();
 		
@@ -190,6 +200,7 @@ public class ASTInterfaces {
 		@Nullable
 		IRTypeUse parentTypes();
 		
+		@Override
 		IRTypeDefinition getIR();
 		
 	}
@@ -222,8 +233,9 @@ public class ASTInterfaces {
 	 * A type use, e.g. in 'x(String): Int' or 'var x = String'.
 	 * It is also automatically a TypedElement whose type is Type&lt;<i>this</i>&gt;
 	 */
-	public static interface ASTTypeUse extends TypedASTElement {
+	public static interface ASTTypeUse extends TypedASTElement, ASTElementWithIR {
 		
+		@Override
 		IRTypeUse getIR();
 		
 		@Override

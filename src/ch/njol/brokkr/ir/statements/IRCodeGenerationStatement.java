@@ -1,7 +1,9 @@
 package ch.njol.brokkr.ir.statements;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
+import ch.njol.brokkr.ast.ASTStatements.ASTCodeGenerationStatement;
 import ch.njol.brokkr.compiler.Token.CodeGenerationToken;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
@@ -16,11 +18,11 @@ public class IRCodeGenerationStatement extends AbstractIRStatement {
 	private final List<CodeGenerationToken> code;
 	private final List<IRExpression> expressions;
 	
-	public IRCodeGenerationStatement(final IRContext irContext, final List<CodeGenerationToken> code, final List<IRExpression> expressions) {
-		this.irContext = irContext;
-		IRElement.assertSameIRContext(expressions);
-		this.code = code;
-		this.expressions = expressions;
+	public IRCodeGenerationStatement(ASTCodeGenerationStatement ast) {
+		registerDependency(ast);
+		this.irContext = ast.getIRContext();
+		this.code = ast.code;
+		this.expressions = ast.expressions.stream().map(e -> e.getIR()).collect(Collectors.toList());
 	}
 	
 	@Override

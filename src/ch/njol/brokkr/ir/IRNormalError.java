@@ -18,8 +18,8 @@ public class IRNormalError extends AbstractIRElement implements IRError {
 	public IRNormalError(final String name, final List<IRParameterRedefinition> parameters, final IRAttributeRedefinition attribute) {
 		IRElement.assertSameIRContext(parameters, Arrays.asList(attribute));
 		this.name = name;
-		this.parameters = parameters;
-		this.attribute = attribute;
+		this.parameters = registerDependencies(parameters);
+		this.attribute = registerDependency(attribute);
 	}
 	
 	@Override

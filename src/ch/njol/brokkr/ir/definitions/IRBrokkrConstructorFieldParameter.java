@@ -13,7 +13,7 @@ public class IRBrokkrConstructorFieldParameter extends AbstractIRBrokkrParameter
 	
 	public IRBrokkrConstructorFieldParameter(final ASTParameter param, final IRAttributeRedefinition field, final IRAttributeRedefinition attribute) {
 		super(param, attribute);
-		this.field = field;
+		this.field = registerDependency(field);
 	}
 	
 	// TODO allow a default value here? or does that make no sense? (can make default on the fields themselves, but that doesn't make this parameter optional!)

@@ -8,5 +8,6 @@ Require-Bundle: org.eclipse.jdt.annotation
 Export-Package: ch.njol.brokkr.ast,
  ch.njol.brokkr.common,
  ch.njol.brokkr.compiler,
+ ch.njol.brokkr.ir,
  ch.njol.brokkr.ir.definitions,
  ch.njol.util

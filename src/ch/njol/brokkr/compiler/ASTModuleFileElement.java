@@ -23,10 +23,10 @@ import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.NumberToken;
 import ch.njol.brokkr.compiler.Token.StringToken;
 
-public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileElement> {
+public abstract class ASTModuleFileElement extends AbstractASTElement<ASTModuleFileElement> {
 	
 	@Override
-	protected ModuleFileElement parse() throws ParseException {
+	protected ASTModuleFileElement parse() throws ParseException {
 		final VoidProcessor x = () -> {
 			do {
 				final LowercaseWordToken key = oneVariableIdentifierToken();
@@ -58,7 +58,7 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 				}
 			} while (try_(','));
 		};
-		if (getClass() == Module.class)
+		if (getClass() == ASTModule.class)
 			untilEnd(x);
 		else
 			oneGroup('{', x, '}');
@@ -76,7 +76,7 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 		return null;
 	}
 	
-	public final static class MapElement extends ModuleFileElement {
+	public final static class MapElement extends ASTModuleFileElement {
 		public final String name;
 		private final ParameterizedType genericType;
 		public final Map<Object, Object> value = new HashMap<>();
@@ -108,7 +108,7 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 		}
 	}
 	
-	public final static class ListElement extends ModuleFileElement {
+	public final static class ListElement extends ASTModuleFileElement {
 		public final String name;
 		private final ParameterizedType genericType;
 		public final List<Object> value = new ArrayList<>();
@@ -189,7 +189,7 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 	/**
 	 * whitespace: this method starts writing directly, and thus sub-calls must indent properly before the call. No whitespace is added at the end either.
 	 * <p>
-	 * The indentation parameters must be null if and only if the current value is the top level element (i.e. a {@link Module} usually)
+	 * The indentation parameters must be null if and only if the current value is the top level element (i.e. a {@link ASTModule} usually)
 	 * 
 	 * @param val
 	 * @param out
@@ -233,13 +233,13 @@ public abstract class ModuleFileElement extends AbstractASTElement<ModuleFileEle
 				else
 					out.write("\n" + indentation + "}");
 			}
-		} else if (val instanceof ModuleFileElement) {
+		} else if (val instanceof ASTModuleFileElement) {
 			if (indentation != null) // not top level element
 				out.write("{\n");
 			boolean first = true;
 			for (final Field f : val.getClass().getDeclaredFields()) {
 				try {
-					if (!ModuleFileElement.isValidField(f))
+					if (!ASTModuleFileElement.isValidField(f))
 						continue;
 					f.setAccessible(true);
 					final Object o = f.get(val);

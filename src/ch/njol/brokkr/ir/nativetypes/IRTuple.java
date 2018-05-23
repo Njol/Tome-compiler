@@ -61,7 +61,7 @@ public abstract class IRTuple extends AbstractIRElement implements IRExpression 
 		entries = new ArrayList<>();
 		for (int i = 0; i < builderEntries.size(); i++) {
 			final IRTupleBuilderEntry builderEntry = builderEntries.get(i);
-			entries.add(new IRTupleEntry(this, i, builderEntry.name, builderEntry.value));
+			entries.add(registerDependency(new IRTupleEntry(this, i, builderEntry.name, builderEntry.value)));
 		}
 	}
 	
@@ -187,10 +187,10 @@ public abstract class IRTuple extends AbstractIRElement implements IRExpression 
 		public final IRExpression value;
 		
 		public IRTupleEntry(final IRTuple tuple, final int index, final String name, final IRExpression value) {
-			this.tuple = tuple;
+			this.tuple = tuple; // dependency relation is the other way around
 			this.index = index;
 			this.name = name;
-			this.value = value;
+			this.value = registerDependency(value);
 		}
 		
 		@Override

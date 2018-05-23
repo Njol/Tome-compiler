@@ -42,7 +42,7 @@ public abstract class ASTLink<T extends Derived> extends AbstractInvalidatable {
 	
 	private final Cache<@Nullable T> cache = new Cache<>(() -> {
 		if (isLinking) {// recursion - abort
-			assert false : this;
+//			assert false : this;
 			return null;
 		}
 		final WordToken token = name;
@@ -55,23 +55,7 @@ public abstract class ASTLink<T extends Derived> extends AbstractInvalidatable {
 	});
 	
 	public final @Nullable T get() {
-		@Nullable
-		T value = cache.get();
-		if (value == null) {
-			if (isLinking) {// recursion - abort
-				assert false : this;
-				return null;
-			}
-			final WordToken token = name;
-			if (token != null) {
-				isLinking = true;
-				value = tryLink(token.word);
-				isLinking = false;
-				if (value != null)
-					registerInvalidateListener(value);
-			}
-		}
-		return value;
+		return cache.get();
 	}
 	
 	protected abstract @Nullable T tryLink(String name);
@@ -79,6 +63,11 @@ public abstract class ASTLink<T extends Derived> extends AbstractInvalidatable {
 	@Override
 	public String toString() {
 		return "" + name;
+	}
+	
+	@Override
+	public synchronized void invalidate() {
+		super.invalidate();
 	}
 	
 }

@@ -15,7 +15,7 @@ public class IRStatementList extends AbstractIRStatement {
 	public IRStatementList(final IRContext irContext, final List<IRStatement> statements) {
 		this.irContext = irContext;
 		IRElement.assertSameIRContext(statements);
-		this.statements = statements;
+		this.statements = registerDependencies(statements);
 	}
 	
 	@Override

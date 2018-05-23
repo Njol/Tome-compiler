@@ -1,5 +1,6 @@
 package ch.njol.brokkr.ir.expressions;
 
+import ch.njol.brokkr.ast.ASTExpressions.ASTNull;
 import ch.njol.brokkr.interpreter.InterpretedNullConstant;
 import ch.njol.brokkr.interpreter.InterpretedObject;
 import ch.njol.brokkr.interpreter.InterpreterContext;
@@ -13,8 +14,9 @@ public class IRNull extends AbstractIRExpression {
 	
 	private final IRContext irContext;
 	
-	public IRNull(final IRContext irContext) {
-		this.irContext = irContext;
+	public IRNull(final ASTNull ast) {
+		irContext = ast.getIRContext();
+		registerDependency(ast);
 	}
 	
 	@Override

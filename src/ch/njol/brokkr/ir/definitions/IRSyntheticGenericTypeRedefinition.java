@@ -17,9 +17,9 @@ public class IRSyntheticGenericTypeRedefinition extends AbstractIRElement implem
 	
 	public IRSyntheticGenericTypeRedefinition(final IRGenericTypeRedefinition parent, final IRTypeDefinition forType, final IRTypeUse knownExactType) {
 		IRElement.assertSameIRContext(parent, knownExactType);
-		this.parent = parent;
-		this.forType = forType;
-		this.knownExactType = knownExactType;
+		this.parent = registerDependency(parent);
+		this.forType = registerDependency(forType);
+		this.knownExactType = registerDependency(knownExactType);
 	}
 	
 	@Override

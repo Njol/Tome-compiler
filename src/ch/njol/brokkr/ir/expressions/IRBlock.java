@@ -28,7 +28,7 @@ public class IRBlock extends AbstractIRExpression {
 	
 	public IRBlock(final IRContext irContext, final List<IRStatement> statements) {
 		this.irContext = irContext;
-		this.statements = statements;
+		this.statements = registerDependencies(statements);
 		IRElement.assertSameIRContext(Arrays.asList(this), statements);
 	}
 	

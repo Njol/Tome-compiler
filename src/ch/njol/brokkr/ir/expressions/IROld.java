@@ -15,8 +15,8 @@ public class IROld extends AbstractIRExpression {
 	
 	public IROld(final IRAttributeRedefinition attribute, final IRExpression expression) {
 		IRElement.assertSameIRContext(attribute, expression);
-		this.attribute = attribute;
-		this.expression = expression;
+		this.attribute = registerDependency(attribute);
+		this.expression = registerDependency(expression);
 	}
 	
 	@Override

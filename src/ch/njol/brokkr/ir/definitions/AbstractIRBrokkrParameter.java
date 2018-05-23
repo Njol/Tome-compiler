@@ -12,8 +12,8 @@ public abstract class AbstractIRBrokkrParameter extends AbstractIRBrokkrVariable
 	
 	public AbstractIRBrokkrParameter(final ASTParameter ast, final IRAttributeRedefinition attribute) {
 		super(ast);
-		this.ast = ast;
-		this.attribute = attribute;
+		this.ast = ast; // already registered by AbstractIRBrokkrVariable
+		this.attribute = registerDependency(attribute);
 	}
 	
 	@Override

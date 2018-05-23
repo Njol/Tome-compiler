@@ -18,9 +18,12 @@ import ch.njol.brokkr.ir.definitions.IRUnknownTypeDefinition;
 public class IRBrokkrTemplate extends AbstractIRElement implements IRAttributeDefinition {
 	
 	private final ASTTemplate ast;
+	private final IRTypeDefinition declaringType;
 	
 	public IRBrokkrTemplate(final ASTTemplate ast) {
-		this.ast = ast;
+		this.ast = registerDependency(ast);
+		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
+		declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (template not in type: " + this + ")", ast));
 	}
 	
 	@Override
@@ -35,8 +38,7 @@ public class IRBrokkrTemplate extends AbstractIRElement implements IRAttributeDe
 	
 	@Override
 	public IRTypeDefinition declaringType() {
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
-		return type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (template not in type)", ast);
+		return declaringType;
 	}
 	
 	@Override

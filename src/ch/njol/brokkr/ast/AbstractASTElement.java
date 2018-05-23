@@ -83,6 +83,11 @@ public abstract class AbstractASTElement<E extends ASTElement> extends AbstractI
 		return links;
 	}
 	
+	@Override
+	public final void invalidateSelf() {
+		invalidate();
+	}
+	
 //		public @Nullable Symbol lastSymbol() {
 //			for (int i = parts.size() - 1; i >= 0; i--) {
 //				if (parts.get(i) instanceof Symbol)
