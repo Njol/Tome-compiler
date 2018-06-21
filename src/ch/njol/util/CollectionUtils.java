@@ -48,57 +48,59 @@ public abstract class CollectionUtils {
 	 * @param o The object to search for
 	 * @return The index of the first occurrence of the given object or -1 if not found
 	 */
-	public static <T> int indexOf(final @Nullable T[] array, final @Nullable T t) {
+	public static <T> int indexOf(final @Nullable T @Nullable [] array, final @Nullable T t) {
 		if (array == null)
 			return -1;
 		for (int i = 0; i < array.length; i++) {
-			final T elem = array[i];
+			final @Nullable T elem = array[i];
 			if (elem == null ? t == null : elem.equals(t))
 				return i;
 		}
 		return -1;
 	}
 	
-	public static <T> int lastIndexOf(final @Nullable T[] array, final @Nullable T t) {
+	public static <T> int lastIndexOf(final @Nullable T @Nullable [] array, final @Nullable T t) {
 		if (array == null)
 			return -1;
 		for (int i = array.length - 1; i >= 0; i--) {
-			final T elem = array[i];
+			final @Nullable T elem = array[i];
 			if (elem == null ? t == null : elem.equals(t))
 				return i;
 		}
 		return -1;
 	}
 	
-	public static <T> int indexOf(final @Nullable T[] array, final @Nullable T t, final int start, final int end) {
+	public static <T> int indexOf(final @Nullable T @Nullable [] array, final @Nullable T t, final int start, final int end) {
 		if (array == null)
 			return -1;
 		for (int i = start; i < end; i++) {
-			final T elem = array[i];
+			final @Nullable T elem = array[i];
 			if (elem == null ? t == null : elem.equals(t))
 				return i;
 		}
 		return -1;
 	}
 	
-	public static <T> boolean contains(final @Nullable T[] array, final @Nullable T o) {
+	public static <T> boolean contains(final @Nullable T @Nullable [] array, final @Nullable T o) {
 		return indexOf(array, o) != -1;
 	}
 	
-	public static <T> boolean containsAny(final @Nullable T[] array, final @Nullable T... os) {
+	@SafeVarargs
+	public static <T> boolean containsAny(final @Nullable T @Nullable [] array, final @Nullable T @Nullable... os) {
 		if (array == null || os == null)
 			return false;
-		for (final T o : os) {
+		for (final @Nullable T o : os) {
 			if (indexOf(array, o) != -1)
 				return true;
 		}
 		return false;
 	}
 	
-	public static <T> boolean containsAll(final @Nullable T[] array, final @Nullable T... os) {
+	@SafeVarargs
+	public static <T> boolean containsAll(final @Nullable T @Nullable [] array, final @Nullable T @Nullable... os) {
 		if (array == null || os == null)
 			return false;
-		for (final T o : os) {
+		for (final @Nullable T o : os) {
 			if (indexOf(array, o) == -1)
 				return false;
 		}
@@ -138,7 +140,7 @@ public abstract class CollectionUtils {
 	 * @param s the string to search for
 	 * @return the index of the first occurrence of the given string or -1 if not found
 	 */
-	public static int indexOfIgnoreCase(final @Nullable String[] array, final @Nullable String s) {
+	public static int indexOfIgnoreCase(final @Nullable String @Nullable [] array, final @Nullable String s) {
 		if (array == null)
 			return -1;
 		int i = 0;
@@ -180,7 +182,7 @@ public abstract class CollectionUtils {
 	 * @param s The string to search for
 	 * @return The index of the first occurrence of the given string or -1 if not found
 	 */
-	public static int indexOfIgnoreCase(final @Nullable Iterable<String> iter, final @Nullable String s) {
+	public static int indexOfIgnoreCase(final @Nullable Iterable<@Nullable String> iter, final @Nullable String s) {
 		if (iter == null)
 			return -1;
 		int i = 0;
@@ -197,7 +199,7 @@ public abstract class CollectionUtils {
 	 * @param c The class to look for
 	 * @return Whether the class or any of its superclasses are contained in the array
 	 */
-	public final static boolean containsSuperclass(final @Nullable Class<?>[] classes, final @Nullable Class<?> c) {
+	public final static boolean containsSuperclass(final @Nullable Class<?> @Nullable [] classes, final @Nullable Class<?> c) {
 		if (classes == null || c == null)
 			return false;
 		for (final Class<?> cl : classes) {
@@ -214,7 +216,7 @@ public abstract class CollectionUtils {
 	 * @param cs The classes to look for
 	 * @return Whether the classes or any of their superclasses are contained in the array
 	 */
-	public final static boolean containsAnySuperclass(final @Nullable Class<?>[] classes, final @Nullable Class<?>... cs) {
+	public final static boolean containsAnySuperclass(final @Nullable Class<?> @Nullable [] classes, final @Nullable Class<?> @Nullable... cs) {
 		if (classes == null || cs == null)
 			return false;
 		for (final Class<?> cl : classes) {
@@ -231,14 +233,14 @@ public abstract class CollectionUtils {
 	private final static Random random = new Random();
 	
 	@Nullable
-	public static <T> T getRandom(final @Nullable T[] os) {
+	public static <T> T getRandom(final @Nullable T @Nullable [] os) {
 		if (os == null || os.length == 0)
 			return null;
 		return os[random.nextInt(os.length)];
 	}
 	
 	@Nullable
-	public static <T> T getRandom(final @Nullable T[] os, final int start) {
+	public static <T> T getRandom(final @Nullable T @Nullable [] os, final int start) {
 		if (os == null || os.length == 0)
 			return null;
 		return os[random.nextInt(os.length - start) + start];
@@ -256,7 +258,7 @@ public abstract class CollectionUtils {
 	 * @param sub The set to test for being a subset of <tt>set</tt>
 	 * @return Whether <tt>sub</tt> only contains elements out of <tt>set</tt> or not
 	 */
-	public static boolean isSubset(final @Nullable Object[] set, final @Nullable Object[] sub) {
+	public static boolean isSubset(final @Nullable Object @Nullable [] set, final @Nullable Object @Nullable [] sub) {
 		if (set == null || sub == null)
 			return false;
 		for (final Object s : set) {
@@ -272,12 +274,10 @@ public abstract class CollectionUtils {
 	 * @param sets
 	 * @return
 	 */
-	@SuppressWarnings("null")
-	public final static <E> Set<E> intersection(final @Nullable Set<E>... sets) {
+	@SafeVarargs
+	public final static <E> Set<E> intersection(final @Nullable Set<E> @Nullable... sets) {
 		if (sets == null || sets.length == 0)
 			return Collections.emptySet();
-		if (sets.length == 1 && sets[0] != null)
-			return sets[0];
 		final Set<E> l = new HashSet<>(sets[0]);
 		for (int i = 1; i < sets.length; i++) {
 			if (sets[i] == null)
@@ -293,12 +293,10 @@ public abstract class CollectionUtils {
 	 * @param sets
 	 * @return
 	 */
-	@SuppressWarnings("null")
-	public final static <E> Set<E> union(final @Nullable Set<E>... sets) {
+	@SafeVarargs
+	public final static <E> Set<E> union(final @Nullable Set<E> @Nullable... sets) {
 		if (sets == null || sets.length == 0)
 			return Collections.emptySet();
-		if (sets.length == 1 && sets[0] != null)
-			return sets[0];
 		final Set<E> l = new HashSet<>(sets[0]);
 		for (int i = 1; i < sets.length; i++) {
 			if (sets[i] == null)
@@ -316,6 +314,7 @@ public abstract class CollectionUtils {
 	 * @param array Some objects
 	 * @return The passed array
 	 */
+	@SafeVarargs
 	public static <T> T[] array(final T... array) {
 		return array;
 	}
@@ -414,9 +413,7 @@ public abstract class CollectionUtils {
 		int length = 0;
 		for (final Object a : arrays)
 			length += Array.getLength(a);
-		@SuppressWarnings("null")
-		@NonNull
-		final Object r = Array.newInstance(componentType, length);
+		final @NonNull Object r = Array.newInstance(componentType, length);
 		int i = 0;
 		for (final Object a : arrays) {
 			System.arraycopy(a, 0, r, i, Array.getLength(a));

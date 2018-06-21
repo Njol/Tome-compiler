@@ -10,6 +10,7 @@ import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.brokkr.ir.AbstractIRElement;
 import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
+import ch.njol.brokkr.util.ASTCommentUtil;
 
 public abstract class AbstractIRBrokkrGenericType extends AbstractIRElement implements IRGenericTypeRedefinition {
 	
@@ -74,6 +75,11 @@ public abstract class AbstractIRBrokkrGenericType extends AbstractIRElement impl
 	@Override
 	public boolean equals(@Nullable final Object other) {
 		return other instanceof IRMemberRedefinition && equalsMember((IRMemberRedefinition) other);
+	}
+	
+	@Override
+	public String documentation() {
+		return declaringType + "." + ast.name() + "\n" + ASTCommentUtil.getCommentBefore(ast);
 	}
 	
 }

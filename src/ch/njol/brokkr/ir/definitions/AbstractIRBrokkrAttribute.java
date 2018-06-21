@@ -23,6 +23,7 @@ import ch.njol.brokkr.interpreter.InterpreterException;
 import ch.njol.brokkr.ir.AbstractIRElement;
 import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.IRError;
+import ch.njol.brokkr.util.ASTCommentUtil;
 
 public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implements IRAttributeRedefinition {
 	
@@ -39,8 +40,8 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 		assert (overridden == null) == (this instanceof IRAttributeDefinition);
 		this.overridden = registerDependency(overridden);
 		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
-		this.declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (attribute not in type: " + this + ")", ast));
-	
+		declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (attribute not in type: " + this + ")", ast));
+		
 	}
 	
 	@Override
@@ -123,13 +124,14 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 	}
 	
 	@Override
-	public String hoverInfo() {
+	public String documentation() {
 		final IRAttributeDefinition def = definition();
 		return "Attribute " + declaringType() + "." + name()
-				+ (def == this ? "" : " (defined in " + def.declaringType() + (def.name().equals(name()) ? "" : " as " + def.name()) + ")");
+				+ (def == this ? "" : " (defined in " + def.declaringType() + (def.name().equals(name()) ? "" : " as " + def.name()) + ")")
+				+ "\n" + ASTCommentUtil.getCommentBefore(ast);
 	}
 	
-	@Override                                                                                                                                                                
+	@Override
 	public IRTypeDefinition declaringType() {
 		return declaringType;
 	}

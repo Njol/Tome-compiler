@@ -120,7 +120,7 @@ public class ASTExpressions {
 		if (parent.peekNext("create"))
 			return parent.one(ASTAnonymousObject.class);
 		
-		// TODO "[params] ->" syntax
+		// TODO fix / change "[params] ->" syntax (or make content assist smart enough to work with both this syntax and tuples)
 		if (parent.peekNext("var") && parent.peekNext(1, true) instanceof LowercaseWordToken && parent.peekNext("->", 2, true))
 			return parent.one(ASTLambda.class);
 		if (parent.peekNext() instanceof LowercaseWordToken && parent.peekNext("->", 1, true))

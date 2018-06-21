@@ -37,4 +37,9 @@ public class IRUnknownGenericTypeDefinition extends AbstractIRUnknown implements
 		return location;
 	}
 	
+	@Override
+	public String documentation() {
+		return "Unknown generic type "+name;
+	}
+	
 }

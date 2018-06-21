@@ -418,7 +418,7 @@ public class ASTMembers {
 					hasParameterDots = true;
 				if (!hasParameterDots || try_(',')) {
 					do {
-						parameters.add(one(new ASTSimpleParameter(this, parameters.size())));
+						parameters.add(one(new ASTSimpleParameter(this)));
 					} while (try_(','));
 				}
 			}, ')');
@@ -463,7 +463,6 @@ public class ASTMembers {
 	
 	public static class ASTSimpleParameter extends AbstractASTElement<ASTSimpleParameter> implements ASTParameter {
 		public ASTAttribute attribute;
-		private final int index;
 		public @Nullable Visibility visibility;
 		public boolean override;
 		public final ASTLink<IRParameterRedefinition> overridden = new ASTLink<IRParameterRedefinition>(this) {
@@ -484,9 +483,8 @@ public class ASTMembers {
 		public @Nullable WordToken name;
 		public @Nullable ASTExpression defaultValue;
 		
-		public ASTSimpleParameter(final ASTAttribute attribute, final int index) {
+		public ASTSimpleParameter(final ASTAttribute attribute) {
 			this.attribute = attribute;
-			this.index = index;
 		}
 		
 		@Override
@@ -852,7 +850,7 @@ public class ASTMembers {
 					if (peekNext('=', 1, true) || peekNext(',', 1, true) || peekNext(')', 1, true))
 						parameters.add(one(new ASTConstructorFieldParameter(this)));
 					else
-						parameters.add(one(new ASTSimpleParameter(this, parameters.size())));
+						parameters.add(one(new ASTSimpleParameter(this)));
 				} while (try_(','));
 			}, ')');
 			if (!try_(';')) // field params syntax
@@ -1077,7 +1075,7 @@ public class ASTMembers {
 			name = oneVariableIdentifierToken();
 			tryGroup('(', () -> {
 				do {
-					parameters.add(one(new ASTSimpleParameter(this, parameters.size())));
+					parameters.add(one(new ASTSimpleParameter(this)));
 				} while (try_(','));
 			}, ')');
 			body = one(ASTBlock.class);

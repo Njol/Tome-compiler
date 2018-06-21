@@ -1,15 +1,16 @@
 package ch.njol.brokkr.compiler;
 
-import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTElement;
 import ch.njol.brokkr.ast.ASTElementPart;
 import ch.njol.brokkr.ast.ASTLink;
+import ch.njol.brokkr.util.PrettyPrinter;
 import ch.njol.util.StringUtils;
 
 public abstract class Token implements ASTElementPart {
@@ -67,8 +68,8 @@ public abstract class Token implements ASTElementPart {
 	}
 	
 	@Override
-	public void print(final PrintStream out, final String indent) {
-		out.println("" + this);
+	public void print(final PrettyPrinter out) {
+		out.print("" + this);
 	}
 	
 	@Override
@@ -290,17 +291,39 @@ public abstract class Token implements ASTElementPart {
 		public String toString() {
 			return comment;
 		}
+		
+		/**
+		 * @return A pretty version of this comment. For single-line comments, this just removes the leading "//" and any extra whitespace after that or at the end of the line.
+		 *         For multi-line comments, see {@link MultiLineCommentToken#toPrettyString()}.
+		 */
+		public abstract String toPrettyString();
 	}
 	
 	public final static class SingleLineCommentToken extends CommentToken {
 		public SingleLineCommentToken(final String comment, final int start, final int end) {
 			super(comment, start, end);
 		}
+
+		@Override
+		public String toPrettyString() {
+			return comment.substring("//".length()).trim();
+		}
 	}
 	
 	public final static class MultiLineCommentToken extends CommentToken {
 		public MultiLineCommentToken(final String comment, final int start, final int end) {
 			super(comment, start, end);
+		}
+
+		private final static Pattern prettyStringRemovalPattern = Pattern.compile("\\s*\n\\s*\\*?\\s*");
+		
+		/**
+		 * Returns a pretty version of this comment. Removes the leading "/*" and trailing "*﻿/", then trims whitespace from each line,
+		 * then removes an optional * from the start of each line (as well as following whitespace), then joins the lines with a space inbetween (ignoring empty lines).
+		 */
+		@Override
+		public String toPrettyString() {
+			return prettyStringRemovalPattern.matcher(comment.substring(2, comment.length() - 2)).replaceAll(" ").trim();
 		}
 	}
 	

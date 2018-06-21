@@ -31,9 +31,13 @@ public class Lexer {
 		this.in = in;
 		tokenize();
 	}
-	
+
 	public TokenStream newStream() {
 		return new TokenStream(tokens);
+	}
+
+	public TokenList list() {
+		return new TokenList(tokens);
 	}
 	
 	private List<Token> tokens = new ArrayList<>();

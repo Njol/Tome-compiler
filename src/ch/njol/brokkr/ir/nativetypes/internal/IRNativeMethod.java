@@ -203,7 +203,7 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 	}
 	
 	@Override
-	public String hoverInfo() {
+	public String documentation() {
 		return "Native method " + declaringType() + "." + name;
 	}
 	

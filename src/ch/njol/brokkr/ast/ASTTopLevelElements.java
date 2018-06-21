@@ -28,6 +28,7 @@ import ch.njol.brokkr.compiler.Token;
 import ch.njol.brokkr.compiler.Token.LowercaseWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
+import ch.njol.brokkr.compiler.TokenList;
 import ch.njol.brokkr.compiler.TokenStream;
 import ch.njol.brokkr.ir.IRContext;
 import ch.njol.brokkr.ir.definitions.IRBrokkrClassDefinition;
@@ -42,7 +43,7 @@ import ch.njol.util.StringUtils;
 
 public class ASTTopLevelElements {
 	
-	public static class ASTBrokkrFile extends AbstractASTElement<ASTBrokkrFile> implements InvalidateListener {
+	public static class ASTBrokkrFile extends AbstractASTElement<ASTBrokkrFile> implements InvalidateListener, ASTDocument<ASTBrokkrFile> {
 		public final String identifier;
 		public final Modules modules;
 		public @Nullable ASTModule module;
@@ -50,14 +51,32 @@ public class ASTTopLevelElements {
 		public @Nullable ASTModuleDeclaration moduleDeclaration;
 		public List<ASTElement> declarations = new ArrayList<>();
 		
-		public ASTBrokkrFile(final Modules modules, final String identifier) {
+		private TokenList tokens;
+		
+		public ASTBrokkrFile(final Modules modules, final String identifier, TokenList tokens) {
 			this.modules = modules;
 			this.identifier = identifier;
+			this.tokens = tokens;
 		}
 		
 		@Override
 		public String toString() {
 			return "file";
+		}
+		
+		@Override
+		public @NonNull ASTDocument document() {
+			return this;
+		}
+		
+		@Override
+		public TokenList tokens() {
+			return tokens;
+		}
+		
+		@Override
+		public ASTBrokkrFile root() {
+			return this;
 		}
 		
 		@Override
@@ -137,11 +156,14 @@ public class ASTTopLevelElements {
 			}
 		}
 		
-		public final static ASTBrokkrFile parseFile(final Modules modules, final String identifier, final TokenStream in) {
-			final ASTBrokkrFile r = new ASTBrokkrFile(modules, identifier);
+		public final static ASTBrokkrFile parseFile(final Modules modules, final String identifier, final TokenList tokens) {
+			final ASTBrokkrFile r = new ASTBrokkrFile(modules, identifier, tokens);
+			TokenStream in = tokens.stream();
 			try {
 				r.parse(in);
 			} catch (final ParseException e) {}
+			if (!in.isAfterEnd())
+				r.errorFatal("Unexpected data at end of document (or unable to parse due to previous errors)", in.getTextOffset(), 1);
 			r.compactFatalParseErrors();
 			return r;
 		}
@@ -431,7 +453,7 @@ public class ASTTopLevelElements {
 		}
 		
 	}
-	
+
 //	public static class EnumDeclaration extends AbstractElement<EnumDeclaration> implements TypeDeclaration {
 //		public final TopLevelElementModifiers modifiers;
 //

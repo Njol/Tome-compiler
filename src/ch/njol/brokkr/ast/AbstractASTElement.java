@@ -1,6 +1,5 @@
 package ch.njol.brokkr.ast;
 
-import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
@@ -28,6 +27,7 @@ import ch.njol.brokkr.compiler.Token.SymbolsWordToken;
 import ch.njol.brokkr.compiler.Token.UppercaseWordToken;
 import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.compiler.TokenStream;
+import ch.njol.brokkr.util.PrettyPrinter;
 
 public abstract class AbstractASTElement<E extends ASTElement> extends AbstractInvalidatable implements ASTElement {
 	
@@ -97,26 +97,25 @@ public abstract class AbstractASTElement<E extends ASTElement> extends AbstractI
 //		}
 	
 	@Override
-	public void print(final PrintStream out, String indent) {
+	public void print(final PrettyPrinter out) {
 		out.print("/*" + getClass().getSimpleName() + "*/ ");
 		for (final ASTElementPart part : parts()) {
 			if (part instanceof ASTElement) {
-				part.print(out, indent);
+				out.changeIndentation(2);
+				part.print(out);
+				out.changeIndentation(-2);
 			} else {
 				final String s = part.toString();
 				if (s.equals("{") || s.equals("}") || s.equals(";")) {
 					if (s.equals("{"))
-						indent += "   ";
+						out.increaseIndentation();
 					else if (s.equals("}"))
-						indent = "" + indent.substring(0, indent.length() - 3);
-					out.println(s);
-					out.print(indent);
-				} else if (s.equals("=>")) {
-					out.println();
-					out.print(indent + "   " + s + " ");
+						out.decreaseIndentation();
+					out.printLine(s);
+					out.printIndentation();
 				} else {
 					out.print(s);
-					out.print(' ');
+					out.print(" ");
 				}
 			}
 		}
@@ -242,7 +241,7 @@ public abstract class AbstractASTElement<E extends ASTElement> extends AbstractI
 			if (t != null) {
 				if (consume) {
 					t.setParent(this);
-					in.skipWhitespace();
+					in.skipWhitespace(this);
 				} else {
 					in.backward();
 				}
@@ -257,7 +256,7 @@ public abstract class AbstractASTElement<E extends ASTElement> extends AbstractI
 			next.setParent(this);
 			if (consume) {
 				in.forward();
-				in.skipWhitespace();
+				in.skipWhitespace(this);
 			}
 		}
 		// same as in oneFromTry, but without throwing an exception
@@ -268,10 +267,10 @@ public abstract class AbstractASTElement<E extends ASTElement> extends AbstractI
 		final Token t = in.current();
 		if (lastGuard != -1 && t instanceof SymbolToken && ((SymbolToken) t).symbol == lastGuard)
 			return null;
-		in.forward();
 		if (t != null)
 			t.setParent(this);
-		in.skipWhitespace();
+		in.forward();
+		in.skipWhitespace(this);
 		return t;
 	}
 	

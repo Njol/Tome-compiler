@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.brokkr.ast.ASTElement;
 import ch.njol.brokkr.compiler.Token.CommentToken;
 import ch.njol.brokkr.compiler.Token.WhitespaceToken;
 
@@ -17,22 +18,38 @@ public class TokenStream {
 		this.tokens = tokens;
 	}
 	
+	/**
+	 * @return The token at the current position
+	 */
 	public @Nullable Token current() {
 		if (index < 0 || index >= tokens.size())
 			return null;
 		return tokens.get(index);
 	}
 	
+	/**
+	 * @return The token at the current position
+	 */
 	public @Nullable Token forward() {
 		if (index < 0 || index >= tokens.size())
 			return null;
 		return tokens.get(index++);
 	}
 	
+	/**
+	 * @return The token at the current position
+	 */
 	public @Nullable Token backward() {
 		if (index < 0 || index >= tokens.size())
 			return null;
 		return tokens.get(index--);
+	}
+	
+	/**
+	 * Resets this stream to the beginning
+	 */
+	public void reset() {
+		index = 0;
 	}
 	
 	public @Nullable Token peekNext(int delta, final boolean skipWhitespace) {
@@ -76,11 +93,12 @@ public class TokenStream {
 		return index < 0;
 	}
 	
-	// TODO store comments somewhere?
-	public void skipWhitespace() {
+	public void skipWhitespace(final ASTElement parent) {
 		Token t;
-		while (index < tokens.size() && ((t = tokens.get(index)) instanceof WhitespaceToken || t instanceof CommentToken))
+		while (index < tokens.size() && ((t = tokens.get(index)) instanceof WhitespaceToken || t instanceof CommentToken)) {
+//			t.setParent(parent);
 			index++;
+		}
 	}
 	
 	public int getTokenOffset() {
@@ -104,6 +122,11 @@ public class TokenStream {
 		assert false : t;
 	}
 	
+	/**
+	 * Advances to the token at the given text position. If the given index is between two tokens, the later token (whose start is equal to the given index) is chosen.
+	 * 
+	 * @param index
+	 */
 	public void setTextOffset(final int index) {
 		assert 0 <= index && index <= getTextLength() : index + " / " + getTextLength();
 		for (int i = 0; i < tokens.size(); i++) {
@@ -120,35 +143,6 @@ public class TokenStream {
 		if (index >= tokens.size())
 			return tokens.size() == 0 ? 0 : tokens.get(tokens.size() - 1).regionEnd();
 		return tokens.get(index).regionStart();
-	}
-	
-	public @Nullable Token getTokenAt(final int characterOffset, final boolean tieToRight) {
-		if (characterOffset < 0 || tokens.isEmpty())
-			return null;
-		if (characterOffset == 0)
-			return tokens.get(0);
-		for (final Token t : tokens) { // TODO more efficient (e.g. binary search)
-			if (tieToRight) {
-				if (t.regionStart() <= characterOffset && characterOffset < t.regionEnd())
-					return t;
-			} else {
-				if (t.regionStart() < characterOffset && characterOffset <= t.regionEnd())
-					return t;
-			}
-		}
-		if (characterOffset == tokens.get(tokens.size() - 1).regionEnd())
-			return tokens.get(tokens.size() - 1);
-		return null;
-	}
-	
-	public @Nullable Token getTokenBefore(Token otherToken) {
-		for (int i = 0; i < tokens.size(); i++) {
-			if (tokens.get(i) == otherToken) {
-				if (i == 0)return null;
-				return tokens.get(i-1);
-			}
-		}
-		return null;
 	}
 	
 	public int getTextLength() {

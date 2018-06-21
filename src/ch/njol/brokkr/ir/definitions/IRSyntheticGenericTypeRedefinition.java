@@ -62,4 +62,9 @@ public class IRSyntheticGenericTypeRedefinition extends AbstractIRElement implem
 		return name() + " [" + knownExactType + "]";
 	}
 	
+	@Override
+	public String documentation() {
+		return "Synthetic generic type redefinition " + forType + "." + parent.name() + " for:\n" + parent.documentation();
+	}
+	
 }

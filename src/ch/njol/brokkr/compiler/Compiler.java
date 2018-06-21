@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -16,11 +15,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNull;
-import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTElement;
 import ch.njol.brokkr.ast.ASTElementPart;
 import ch.njol.brokkr.ast.ASTTopLevelElements.ASTBrokkrFile;
+import ch.njol.brokkr.util.PrettyPrinter;
 
 public class Compiler {
 	
@@ -39,20 +38,17 @@ public class Compiler {
 		final long startTime = System.nanoTime();
 		final BrokkrReader in = new StringReader(file);
 		final Lexer lexer = new Lexer(in);
-		final TokenStream tokens = lexer.newStream();
 		final Modules modules = new Modules();
-		final ASTBrokkrFile result = ASTBrokkrFile.parseFile(modules, "<only one file>", tokens);
+		final ASTBrokkrFile result = ASTBrokkrFile.parseFile(modules, "<only one file>", lexer.list());
 		in.reset();
-		final List<ParseError> errors = result.fatalParseErrors();
-		if (!tokens.isAfterEnd())
-			errors.add(new ParseError("Unexpected data at end of document (or unable to parse due to previous errors)", tokens.getTextOffset(), 1));
 		
 //		for (Token t : tokens.tokens)
 //			System.out.print(t + " ");
 		assert System.out != null;
-		result.print(System.out, "| ");
+		result.print(new PrettyPrinter(System.out, "| "));
 		System.out.println();
 		
+		List<ParseError> errors = result.fatalParseErrors();
 		if (errors.isEmpty()) {
 			System.out.println("Parsing successful (" + (System.nanoTime() - startTime) / 1_000_000.0 + " ms)");
 		} else {
@@ -82,17 +78,12 @@ public class Compiler {
 //			}
 //			final ParseError combined = new ParseError(m, es.get(0).start, end);
 			
-			final Map<Integer, @Nullable Set<String>> expected = new LinkedHashMap<>();
+			final Map<Integer, Set<String>> expected = new LinkedHashMap<>();
 			for (final ParseError e : errors) {
-				Set<String> s = expected.get(e.start);
-				if (s != null)
-					s.add(e.message);
-				else
-					s = new HashSet<>(Arrays.asList(e.message));
-				expected.put(e.start, s);
+				expected.computeIfAbsent(e.start, i -> new HashSet<>()).add(e.message);
 			}
 			
-			for (final Entry<Integer, @Nullable Set<String>> e : expected.entrySet()) {
+			for (final Entry<Integer, Set<String>> e : expected.entrySet()) {
 				final int start = e.getKey();
 				final int column = in.getColumn(start);
 				final List<String> l = new ArrayList<>(e.getValue());
@@ -104,7 +95,6 @@ public class Compiler {
 				for (int i = 0; i < column; i++)
 					System.err.print(' ');
 				System.err.println("^");
-//				e.printStackTrace();
 				printASTLine(result, "" + in.getLineTextAtOffset(start).replace('\t', ' ').replace("\r", ""), in.getLineStart(start), in.getLineEnd(start));
 			}
 		}

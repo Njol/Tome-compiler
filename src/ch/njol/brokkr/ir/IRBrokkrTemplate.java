@@ -14,6 +14,7 @@ import ch.njol.brokkr.ir.definitions.IRParameterRedefinition;
 import ch.njol.brokkr.ir.definitions.IRResultRedefinition;
 import ch.njol.brokkr.ir.definitions.IRTypeDefinition;
 import ch.njol.brokkr.ir.definitions.IRUnknownTypeDefinition;
+import ch.njol.brokkr.util.ASTCommentUtil;
 
 public class IRBrokkrTemplate extends AbstractIRElement implements IRAttributeDefinition {
 	
@@ -47,8 +48,8 @@ public class IRBrokkrTemplate extends AbstractIRElement implements IRAttributeDe
 	}
 	
 	@Override
-	public String hoverInfo() {
-		return "template " + name();
+	public String documentation() {
+		return "template " + name() + "\n" + ASTCommentUtil.getCommentBefore(ast);
 	}
 	
 	@Override

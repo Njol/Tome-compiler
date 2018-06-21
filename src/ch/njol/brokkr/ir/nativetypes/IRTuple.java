@@ -261,7 +261,7 @@ public abstract class IRTuple extends AbstractIRElement implements IRExpression 
 		}
 		
 		@Override
-		public String hoverInfo() {
+		public String documentation() {
 			return "Tuple entry #" + index + ": " + type() + " " + name;
 		}
 		

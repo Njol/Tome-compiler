@@ -22,6 +22,13 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	 */
 	public List<ASTElementPart> parts();
 	
+	public default @Nullable ASTDocument document() {
+		final ASTElement parent = parent();
+		if (parent != null)
+			return parent.document();
+		return null;
+	}
+	
 	public void addLink(ASTLink<?> link);
 	
 	public List<ASTLink<?>> links();
@@ -38,7 +45,6 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	}
 	
 	/**
-	 * 
 	 * @param token The token where the content assist was executed on, or the left one if it was done between two tokens.
 	 * @param matcher A mather to filter resulting proposals
 	 * @return A {@link Stream} of proposals

@@ -8,6 +8,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.SourceCodeLinkable;
 import ch.njol.brokkr.ir.IRContext;
+import ch.njol.brokkr.util.PrettyPrinter;
 
 public interface ASTElementPart extends SourceCodeLinkable {
 	
@@ -19,7 +20,7 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	 * If this element already has a parent, it is removed from that element's {@link #parts()} and added to the parts of the new parent. <b>Any other links must be changed
 	 * manually!</b>
 	 * 
-	 * @param parent The new parent or null to remove the parent (make this element a top level element of remove it from an existing tree)
+	 * @param parent The new parent or null to remove the parent (make this element a top level element or remove it from an existing tree)
 	 */
 	public void setParent(@Nullable ASTElement parent);
 	
@@ -39,27 +40,49 @@ public interface ASTElementPart extends SourceCodeLinkable {
 		return (T) e;
 	}
 	
+	/**
+	 * @return The start of this element (in characters from the start of the document)
+	 */
 	public int regionStart();
-	
+
+	/**
+	 * @return The end of this element (in characters from the start of the document), exclusive
+	 */
 	public int regionEnd();
 	
+	/**
+	 * @return Total length of this element in characters
+	 */
 	public default int regionLength() {
 		return regionEnd() - regionStart();
 	}
 	
+	/**
+	 * @return Start of the region to select when linked to this element
+	 */
 	public default int linkStart() {
 		return regionStart();
 	}
-	
+
+	/**
+	 * @return End of the region to select when linked to this element
+	 */
 	public default int linkEnd() {
 		return regionEnd();
 	}
-	
+
+	/**
+	 * @return Length of the region to select when linked to this element
+	 */
 	public default int linkLength() {
 		return linkEnd() - linkStart();
 	}
 	
-	public void print(PrintStream out, String indent);
+	/**
+	 * Pretty print this element
+	 * @param out 
+	 */
+	public void print(PrettyPrinter out);
 	
 	/**
 	 * Traverses this AST in a depth-first manner, i.e. in the order in the source code usually.

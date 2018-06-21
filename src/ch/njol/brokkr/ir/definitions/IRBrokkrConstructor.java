@@ -24,6 +24,7 @@ import ch.njol.brokkr.ir.expressions.IRExpression;
 import ch.njol.brokkr.ir.uses.IRSimpleClassUse;
 import ch.njol.brokkr.ir.uses.IRSimpleTypeUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
+import ch.njol.brokkr.util.ASTCommentUtil;
 
 public class IRBrokkrConstructor extends AbstractIRElement implements IRAttributeDefinition, IRAttributeImplementation {
 	
@@ -127,7 +128,12 @@ public class IRBrokkrConstructor extends AbstractIRElement implements IRAttribut
 	
 	@Override
 	public String hoverInfo() {
-		return "Constructor " + declaringType() + "." + name();
+		return documentation();
+	}
+	
+	@Override
+	public String documentation() {
+		return "Constructor " + declaringType() + "." + name() + "\n" + ASTCommentUtil.getCommentBefore(ast);
 	}
 	
 	@SuppressWarnings("null")

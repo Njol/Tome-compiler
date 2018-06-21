@@ -5,11 +5,12 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.compiler.SourceCodeLinkable;
+import ch.njol.brokkr.ir.IRDocumentedElement;
 import ch.njol.brokkr.ir.IRElement;
 import ch.njol.brokkr.ir.uses.IRMemberUse;
 import ch.njol.brokkr.ir.uses.IRTypeUse;
 
-public interface IRMemberRedefinition extends SourceCodeLinkable, IRElement {
+public interface IRMemberRedefinition extends SourceCodeLinkable, IRDocumentedElement {
 	
 	/**
 	 * @return The name of this member, as of this (re)definition.

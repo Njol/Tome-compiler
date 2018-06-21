@@ -6,6 +6,7 @@ import java.util.List;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.brokkr.ast.ASTMembers.ASTMemberModifiers;
+import ch.njol.brokkr.compiler.Token;
 import ch.njol.brokkr.compiler.Token.WordToken;
 import ch.njol.brokkr.ir.IRElement;
 import ch.njol.brokkr.ir.IRError;
@@ -54,7 +55,7 @@ public class ASTInterfaces {
 		public IRTypeUse getIRType();
 	}
 	
-	public static interface ASTElementWithIR {
+	public static interface ASTElementWithIR extends ASTElement {
 		public IRElement getIR();
 	}
 	
