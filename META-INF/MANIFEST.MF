@@ -1,13 +1,16 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Brokkr Compiler
-Bundle-SymbolicName: ch.njol.brokkr.compiler
+Bundle-SymbolicName: ch.njol.tome.compiler
+Automatic-Module-Name: ch.njol.tome.compiler
 Bundle-Version: 0.1
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Require-Bundle: org.eclipse.jdt.annotation
-Export-Package: ch.njol.brokkr.ast,
- ch.njol.brokkr.common,
- ch.njol.brokkr.compiler,
- ch.njol.brokkr.ir,
- ch.njol.brokkr.ir.definitions,
+Export-Package: ch.njol.tome.ast,
+ ch.njol.tome.common,
+ ch.njol.tome.compiler,
+ ch.njol.tome.ir,
+ ch.njol.tome.ir.definitions,
+ ch.njol.tome.util,
+ ch.njol.tome,
  ch.njol.util

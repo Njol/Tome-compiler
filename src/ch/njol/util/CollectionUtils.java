@@ -80,7 +80,7 @@ public abstract class CollectionUtils {
 		}
 		return -1;
 	}
-	
+
 	public static <T> boolean contains(final @Nullable T @Nullable [] array, final @Nullable T o) {
 		return indexOf(array, o) != -1;
 	}
@@ -128,9 +128,35 @@ public abstract class CollectionUtils {
 		}
 		return -1;
 	}
-	
+
 	public final static boolean contains(final int @Nullable [] array, final int num) {
 		return indexOf(array, num) != -1;
+	}
+
+	public static int indexOf(final char @Nullable [] array, final char c) {
+		if (array == null)
+			return -1;
+		return indexOf(array, c, 0, array.length);
+	}
+	
+	public static int indexOf(final char @Nullable [] array, final char c, final int start) {
+		if (array == null)
+			return -1;
+		return indexOf(array, c, start, array.length);
+	}
+	
+	public static int indexOf(final char @Nullable [] array, final char c, final int start, final int end) {
+		if (array == null)
+			return -1;
+		for (int i = start; i < end; i++) {
+			if (array[i] == c)
+				return i;
+		}
+		return -1;
+	}
+
+	public final static boolean contains(final char @Nullable [] array, final char c) {
+		return indexOf(array, c) != -1;
 	}
 	
 	/**
