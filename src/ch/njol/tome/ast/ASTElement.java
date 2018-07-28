@@ -39,6 +39,11 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 		child.removeFromParent();
 		insertChild(child, parts().size());
 	}
+	public default void addChildren(final List<? extends ASTElementPart> children) {
+		for (ASTElementPart child : children) {
+			addChild(child);
+		}
+	}
 
 	/**
 	 * Removes a child node from this tree.

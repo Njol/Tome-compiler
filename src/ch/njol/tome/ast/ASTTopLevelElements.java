@@ -36,8 +36,6 @@ import ch.njol.tome.ir.definitions.IRUnknownTypeDefinition;
 import ch.njol.tome.ir.uses.IRAndTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.moduleast.ASTModule;
-import ch.njol.tome.parser.DocumentParser;
-import ch.njol.tome.parser.AttachedElementParser;
 import ch.njol.tome.parser.Parser;
 import ch.njol.tome.util.ASTTokenStream;
 import ch.njol.tome.util.TokenListStream;
@@ -62,51 +60,47 @@ public class ASTTopLevelElements {
 			return "file";
 		}
 		
-//		@Override
-//		public @NonNull ASTDocument<ASTSourceFile> document() {
-//			return this;
-//		}
-//
-//		@Override
-//		public ASTSourceFile root() {
-//			return this;
-//		}
-		
 		public final static ASTDocument<ASTSourceFile> parseFile(final Modules modules, final String identifier, final TokenList tokens) {
 			final TokenListStream in = tokens.stream();
-			final DocumentParser<ASTSourceFile> dp = new DocumentParser<>(in, new ASTSourceFile(modules, identifier));
-			final AttachedElementParser<ASTSourceFile> p = dp.parser();
-			p.ast.moduleDeclaration = ASTModuleDeclaration.parse(p);
-			p.ast.updateModule();
+			final Parser documentParser = new Parser(in);
+			final Parser p = documentParser.start();
+			final ASTSourceFile ast = new ASTSourceFile(modules, identifier);
+			ast.moduleDeclaration = ASTModuleDeclaration.parse(p);
+			ast.updateModule();
 			p.repeatUntilEnd(() -> {
 				if (p.peekNext('$')) {
-					p.ast.declarations.add(ASTCodeGenerationCallMember.parse(p));
+					ast.declarations.add(ASTCodeGenerationCallMember.parse(p));
 					return;
 				}
-				final ASTTopLevelElementModifiers modifiers = ASTTopLevelElementModifiers.parse(p);
+				final Parser declarationParser = p.start();
+				final Parser modifierParser = declarationParser.start();
+				final ASTTopLevelElementModifiers modifiers = ASTTopLevelElementModifiers.startParsing(modifierParser);
 				ASTElement declaration;
 				if (p.peekNext("interface"))
-					declaration = ASTInterfaceDeclaration.parse(p, modifiers.toMemberModifiers());
+					declaration = ASTInterfaceDeclaration.finishParsing(declarationParser, modifiers.finishToMemberModifiers(modifierParser));
 				else if (p.peekNext("class"))
-					declaration = ASTClassDeclaration.parse(p, modifiers.toMemberModifiers());
+					declaration = ASTClassDeclaration.finishParsing(declarationParser, modifiers.finishToMemberModifiers(modifierParser));
 				//					else if (peekNext("enum"))
 				//						declaration = one(new EnumDeclaration(modifiers));
 				else if (p.peekNext("extension"))
-					declaration = ASTExtensionDeclaration.parse(p, modifiers);
+					declaration = ASTExtensionDeclaration.finishParsing(declarationParser, modifiers.finish(modifierParser));
 				else if (p.peekNext("alias"))
-					declaration = ASTTypeAliasDeclaration.parse(p, modifiers);
+					declaration = ASTTypeAliasDeclaration.finishParsing(declarationParser, modifiers.finish(modifierParser));
 				else if (p.peekNext("code") || p.peekNext("member") || p.peekNext("type"))
-					declaration = ASTTemplate.parse(p, modifiers.toMemberModifiers());
+					declaration = ASTTemplate.finishParsing(declarationParser, modifiers.finishToMemberModifiers(modifierParser));
 				else
 					declaration = null;
-				if (declaration != null)
-					p.ast.declarations.add(declaration);
-				assert declaration == null || modifiers.parent() != p.ast : declaration;
+				if (declaration != null) {
+					ast.declarations.add(declaration);
+				} else {
+					modifiers.finish(modifierParser);
+					declarationParser.doneAsChildren();
+				}
+				assert declaration == null || modifiers.parent() != ast : declaration;
 			});
-			if (!in.isAfterEnd())
-				p.errorFatal("Unexpected data at end of document (or unable to parse due to previous errors)", in.getTextOffset(), 1);
-			verifyTokenOrderInAST(p.ast, tokens);
-			return dp.done();
+			p.done(ast);
+			verifyTokenOrderInAST(ast, tokens);
+			return documentParser.documentDone(ast);
 		}
 		
 		private static void verifyTokenOrderInAST(final ASTElement ast, final TokenList tokens) {
@@ -193,13 +187,15 @@ public class ASTTopLevelElements {
 		}
 		
 		public static @Nullable ASTModuleIdentifier tryParse(final Parser parent) {
-			final AttachedElementParser<ASTModuleIdentifier> p = parent.startChild(new ASTModuleIdentifier());
+			final Parser p = parent.start();
+			final ASTModuleIdentifier ast = new ASTModuleIdentifier();
 			final String firstPart = p.oneVariableIdentifier();
 			if (firstPart == null) {
 				p.expectedFatal("a module identifier");
+				p.cancel();
 				return null;
 			}
-			p.ast.identifier.parts.add(firstPart);
+			ast.identifier.parts.add(firstPart);
 			while (true) {
 				if (!p.peekNext('.'))
 					break;
@@ -207,12 +203,12 @@ public class ASTTopLevelElements {
 				if (t instanceof LowercaseWordToken) {
 					p.next(); // skip '.'
 					p.next(); // skip package name
-					p.ast.identifier.parts.add(((LowercaseWordToken) t).word);
+					ast.identifier.parts.add(((LowercaseWordToken) t).word);
 				} else {
 					break;
 				}
 			}
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -225,12 +221,13 @@ public class ASTTopLevelElements {
 		}
 		
 		public static ASTModuleDeclaration parse(final Parser parent) {
-			final AttachedElementParser<ASTModuleDeclaration> p = parent.startChild(new ASTModuleDeclaration());
+			final Parser p = parent.start();
+			final ASTModuleDeclaration ast = new ASTModuleDeclaration();
 			p.one("module");
 			p.until(() -> {
-				p.ast.module = ASTModuleIdentifier.tryParse(p);
+				ast.module = ASTModuleIdentifier.tryParse(p);
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -245,8 +242,8 @@ public class ASTTopLevelElements {
 					+*/ (isNative ? "native " : "") + (visibility == null ? "" : visibility + " ");
 		}
 		
-		public static ASTTopLevelElementModifiers parse(final Parser parent) {
-			final AttachedElementParser<ASTTopLevelElementModifiers> p = parent.startChild(new ASTTopLevelElementModifiers());
+		public static ASTTopLevelElementModifiers startParsing(final Parser p) {
+			final ASTTopLevelElementModifiers ast = new ASTTopLevelElementModifiers();
 			p.unordered(/*() -> {
 						tryGroup('<', () -> {
 						do {
@@ -254,22 +251,24 @@ public class ASTTopLevelElements {
 						} while (try_(','));
 						}, '>');
 						}, */() -> {
-				p.ast.isNative = p.try_("native");
+				ast.isNative = p.try_("native");
 			}, () -> {
-				p.ast.visibility = Visibility.parse(p);
+				ast.visibility = Visibility.parse(p);
 			});
-			return p.ast;
+			return ast;
 		}
 		
-		// TODO fix parsing
-		public ASTMemberModifiers toMemberModifiers() {
-			final ASTMemberModifiers r = new ASTMemberModifiers();
-//			r.genericParameters.addAll(genericParameters);
-			r.visibility = visibility;
-			r.isNative = isNative;
-//			r.parts().addAll(parts());
-			r.addChild(this);
-			return r;
+		public ASTTopLevelElementModifiers finish(final Parser p) {
+			p.done(this);
+			return this;
+		}
+		
+		public ASTMemberModifiers finishToMemberModifiers(final Parser p) {
+			final ASTMemberModifiers ast = new ASTMemberModifiers();
+//			ast.genericParameters.addAll(genericParameters);
+			ast.visibility = visibility;
+			ast.isNative = isNative;
+			return p.done(ast);
 		}
 	}
 	
@@ -285,7 +284,6 @@ public class ASTTopLevelElements {
 		
 		public ASTInterfaceDeclaration(final ASTMemberModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -331,27 +329,27 @@ public class ASTTopLevelElements {
 			return "" + name;
 		}
 		
-		public static ASTInterfaceDeclaration parse(final Parser parent, final ASTMemberModifiers modifiers) {
-			final AttachedElementParser<ASTInterfaceDeclaration> p = parent.startChild(new ASTInterfaceDeclaration(modifiers));
+		public static ASTInterfaceDeclaration finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
+			final ASTInterfaceDeclaration ast = new ASTInterfaceDeclaration(modifiers);
 			p.one("interface");
 			p.until(() -> {
-				p.ast.name = p.oneTypeIdentifierToken();
+				ast.name = p.oneTypeIdentifierToken();
 				p.tryGroup('<', () -> {
 					do {
-						p.ast.genericParameters.add(ASTGenericParameterDeclaration.parse(p));
+						ast.genericParameters.add(ASTGenericParameterDeclaration.parse(p));
 					} while (p.try_(','));
 				}, '>');
 				if (p.try_("extends")) {
 					do {
-						p.ast.parents.add(ASTTypeExpressions.parse(p, false, false, true));
+						ast.parents.add(ASTTypeExpressions.parse(p, false, false, true));
 						// TODO if base != null infer type from that one (e.g. in 'dynamic Collection extends addable')?
 					} while (p.try_(','));
 				}
 			}, '{', false);
 			p.repeatUntil(() -> {
-				p.ast.members.add(ASTMembers.parse(p));
+				ast.members.add(ASTMembers.parse(p));
 			}, '}', true);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		private @Nullable IRBrokkrInterfaceDefinition ir = null;
@@ -384,7 +382,6 @@ public class ASTTopLevelElements {
 		
 		public ASTClassDeclaration(final ASTMemberModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -412,26 +409,26 @@ public class ASTTopLevelElements {
 			return "" + name;
 		}
 		
-		public static ASTClassDeclaration parse(final Parser parent, final ASTMemberModifiers modifiers) {
-			final AttachedElementParser<ASTClassDeclaration> p = parent.startChild(new ASTClassDeclaration(modifiers));
+		public static ASTClassDeclaration finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
+			final ASTClassDeclaration ast = new ASTClassDeclaration(modifiers);
 			p.one("class");
 			p.until(() -> {
-				p.ast.name = p.oneTypeIdentifierToken();
+				ast.name = p.oneTypeIdentifierToken();
 				p.tryGroup('<', () -> {
 					do {
-						p.ast.genericParameters.add(ASTGenericParameterDeclaration.parse(p));
+						ast.genericParameters.add(ASTGenericParameterDeclaration.parse(p));
 					} while (p.try_(','));
 				}, '>');
 				if (p.try_("implements")) {
 					do {
-						p.ast.parents.add(ASTTypeExpressions.parse(p, false, false, true));
+						ast.parents.add(ASTTypeExpressions.parse(p, false, false, true));
 					} while (p.try_(','));
 				}
 			}, '{', false);
 			p.repeatUntil(() -> {
-				p.ast.members.add(ASTMembers.parse(p));
+				ast.members.add(ASTMembers.parse(p));
 			}, '}', true);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		private @Nullable IRBrokkrClassDefinition ir = null;
@@ -531,7 +528,6 @@ public class ASTTopLevelElements {
 		
 		public ASTExtensionDeclaration(final ASTTopLevelElementModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -559,23 +555,23 @@ public class ASTTopLevelElements {
 			return "" + name;
 		}
 		
-		public static ASTExtensionDeclaration parse(final Parser parent, final ASTTopLevelElementModifiers modifiers) {
-			final AttachedElementParser<ASTExtensionDeclaration> p = parent.startChild(new ASTExtensionDeclaration(modifiers));
+		public static ASTExtensionDeclaration finishParsing(final Parser p, final ASTTopLevelElementModifiers modifiers) {
+			final ASTExtensionDeclaration ast = new ASTExtensionDeclaration(modifiers);
 			p.one("extension");
-			p.ast.name = p.oneTypeIdentifierToken();
+			ast.name = p.oneTypeIdentifierToken();
 			//generics=GenericParameters? // deriving the generics of an extension is non-trivial (e.g. 'extension WeirdList<X> extends List<T extends Comparable<X> & Collection<X>>')
 			// could just make an error if it cannot be inferred, and allow it for the normal, simple cases
 			p.one("extends");
-			p.ast.extended = ASTTypeExpressions.parse(p, true, false);
+			ast.extended = ASTTypeExpressions.parse(p, true, false);
 			if (p.try_("implements")) {
 				do {
-					p.ast.parents.add(ASTTypeExpressions.parse(p, false, false, true));
+					ast.parents.add(ASTTypeExpressions.parse(p, false, false, true));
 				} while (p.try_(','));
 			}
 			p.oneRepeatingGroup('{', () -> {
-				p.ast.members.add(ASTMembers.parse(p));
+				ast.members.add(ASTMembers.parse(p));
 			}, '}');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -593,7 +589,6 @@ public class ASTTopLevelElements {
 		
 		public ASTTypeAliasDeclaration(final ASTTopLevelElementModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -621,18 +616,18 @@ public class ASTTopLevelElements {
 			return "alias " + name;
 		}
 		
-		public static ASTTypeAliasDeclaration parse(final Parser parent, final ASTTopLevelElementModifiers modifiers) {
-			final AttachedElementParser<ASTTypeAliasDeclaration> p = parent.startChild(new ASTTypeAliasDeclaration(modifiers));
+		public static ASTTypeAliasDeclaration finishParsing(final Parser p, final ASTTopLevelElementModifiers modifiers) {
+			final ASTTypeAliasDeclaration ast = new ASTTypeAliasDeclaration(modifiers);
 			p.one("alias");
 			p.until(() -> {
-				p.ast.name = p.oneTypeIdentifierToken();
+				ast.name = p.oneTypeIdentifierToken();
 //				tryGroup('<', () -> {
 //					// TODO generic params
 //				}, '>');
 				p.one('=');
-				p.ast.aliasOf = ASTTypeExpressions.parse(p, false, false);
+				ast.aliasOf = ASTTypeExpressions.parse(p, false, false);
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -662,9 +657,10 @@ public class ASTTopLevelElements {
 		}
 		
 		public static ASTGenericParameterDeclaration parse(final Parser parent) {
-			final AttachedElementParser<ASTGenericParameterDeclaration> p = parent.startChild(new ASTGenericParameterDeclaration());
-			p.ast.definition.setName(p.oneTypeIdentifierToken());
-			return p.ast;
+			final Parser p = parent.start();
+			final ASTGenericParameterDeclaration ast = new ASTGenericParameterDeclaration();
+			ast.definition.setName(p.oneTypeIdentifierToken());
+			return p.done(ast);
 		}
 		
 		@Override

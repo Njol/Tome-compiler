@@ -10,10 +10,10 @@ public enum Optionality {
 	
 	OPTIONAL, REQUIRED;
 	
-	public static @Nullable Optionality parse(final Parser parent) {
-		if (parent.try_("optional"))
+	public static @Nullable Optionality parse(final Parser p) {
+		if (p.try_("optional"))
 			return OPTIONAL;
-		if (parent.try_("required"))
+		if (p.try_("required"))
 			return REQUIRED;
 		return null;
 	}

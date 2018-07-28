@@ -37,8 +37,8 @@ public enum Borrowing {
 	//			// list still exclusive at end of method
 	//		}
 	
-	public static @Nullable Borrowing parse(final Parser parent) {
-		final String val = parent.try_("borrowed", "captured");
+	public static @Nullable Borrowing parse(final Parser p) {
+		final String val = p.try_("borrowed", "captured");
 		if (val == null)
 			return null;
 		if (val.startsWith("b"))

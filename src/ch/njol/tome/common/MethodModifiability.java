@@ -4,16 +4,16 @@ import java.util.Locale;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.parser.AttachedElementParser;
+import ch.njol.tome.parser.Parser;
 
 public enum MethodModifiability {
 	MODIFYING, NONMODIFYING;
 	
-	public static @Nullable MethodModifiability parse(final AttachedElementParser<?> parent) {
+	public static @Nullable MethodModifiability parse(final Parser p) {
 		// TODO remove mod and nonmod? they meaning something else than the usual 'mod', which is 'modifiable', and apply to types instead of variables.
 		// or alternatively remove all shorthands, and make the IDE intelligently complete them (i.e. if mod is written, it gets expanded to the correct version without even pressing ctrl+space)
 		// or another alternative, allow them and by default they will be changed to their long version on save/format
-		final String val = parent.try_("modifying", "nonmodifying", "mod", "nonmod");
+		final String val = p.try_("modifying", "nonmodifying", "mod", "nonmod");
 		if (val == null)
 			return null;
 		else if (val.startsWith("mod"))

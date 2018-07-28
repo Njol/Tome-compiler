@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.tome.Constants;
 import ch.njol.tome.compiler.Token.CodeGenerationToken;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.MultiLineCommentToken;
@@ -55,10 +56,10 @@ public class Lexer {
 	public int update(final int offset, final int length) {
 		final TokenListStream oldTokens = newStream();
 		tokens = new ArrayList<>(tokens.size() + 2); // usually only a single token or two are added, so the "+2" prevents an unnecessary resize operation
-		Token ot, nt;
+		Token ot = null, nt;
 		
 		// add unaffected tokens before the change to the new list
-		while ((ot = oldTokens.getAndMoveForward()) != null && oldTokens.getTextOffsetAfterCurrentToken() < offset)
+		while (oldTokens.getTextOffsetAfterCurrentToken() < offset && (ot = oldTokens.getAndMoveForward()) != null)
 			tokens.add(ot);
 		
 		// set text position to start of first intersecting token
@@ -95,11 +96,11 @@ public class Lexer {
 	}
 	
 	private boolean isInBlockCodeGen = false;
-
+	
 	private static boolean isLineEnd(final int x) {
 		return x == '\n' || x == '\r';
 	}
-
+	
 	private static boolean isLineOrFileEnd(final int x) {
 		return x == '\n' || x == '\r' || x == -1;
 	}
@@ -115,33 +116,41 @@ public class Lexer {
 			final StringBuilder b = new StringBuilder();
 			b.append(first);
 			int x;
-			while ((x = in.next()) != -1 && (Character.isLetterOrDigit((char) x) || x == '_'))
-				b.append((char) x);
-			if (!in.isAfterEnd())
-				in.back();
+			while ((x = in.peekNext()) != -1 && (Character.isLetterOrDigit((char) x) || x == '_'))
+				b.append((char) in.next());
 //			if (keywords.contains(b))
 //				return new KeywordToken("" + b, start, in.getOffset());
 			return Character.isUpperCase(b.charAt(0)) ? new UppercaseWordToken("" + b) : new LowercaseWordToken("" + b);
 		} else if ('0' <= first && first <= '9') { // number (int or float)
 			return parseNumber(first);
-		} else if (first == '\'' || first == '"') { // string
+		} else if (first == '\'' || first == '"') { // string // TOOD LANG multi-line strings? (TBD: syntax, semantics) (e.g. 1 quote, 3 quotes, what about indentation, ...)
 			return parseString(first);
-		} else if (first == '/' && in.peekNext() == '/') { // single-line comment
-			in.next(); // skip '/'
-			final StringBuilder b = new StringBuilder("//");
+		} else if (first == '#' && in.peekNext() != '|') { // single-line comment
+			final StringBuilder b = new StringBuilder(Constants.SINGLE_LINE_COMMENT_START);
 			while (!isLineOrFileEnd(in.peekNext()))
 				b.append((char) in.next());
 			return new SingleLineCommentToken("" + b);
-		} else if (first == '/' && in.peekNext() == '*') { // multi-line comment
-			in.next(); // skip '*'
-			final StringBuilder b = new StringBuilder("/*");
-			int y = 0;
-			int x;
-			while ((x = in.next()) != -1 && (y != '*' || x != '/')) { // loop until '*/'
-				b.append((char) x);
-				y = x;
+		} else if (first == '#' && in.peekNext() == '|') { // multi-line comment
+			in.next(); // skip '|'
+			final StringBuilder b = new StringBuilder(Constants.MULTI_LINE_COMMENT_START);
+			int prev = -1;
+			int cur;
+			int nesting = 0;
+			while ((cur = in.peekNext()) != -1 && nesting >= 0) { // loop until EOF or end of comment
+				if (prev == '#' && cur == '|') {
+					nesting++;
+					prev = -1; // prevent '#|#' behaving like '#||#'
+				} else if (prev == '|' && cur == '#') {
+					nesting--;
+					prev = -1; // prevent '|#|' behaving like '|##|'
+				} else {
+					prev = cur;
+				}
+				b.append((char) in.next());
 			}
-			return new MultiLineCommentToken("" + b);
+			return new MultiLineCommentToken("" + b, nesting >= 0 ? Collections.singletonList(
+					new ParseError("Missing " + (nesting == 0 ? "" : (nesting + 1) + " times ") + Constants.MULTI_LINE_COMMENT_END + " to end comment", start, b.length()))
+					: Collections.emptyList());
 		} else if (first == '$' && in.peekNext() != '=') { // code generation line or block (not call)
 			// syntax for inserted expressions: $expr$
 //			if (!isInBlockCodeGen && in.peekNext() == '{') {
@@ -170,10 +179,8 @@ public class Lexer {
 			final StringBuilder b = new StringBuilder();
 			b.append(first);
 			int x;
-			while ((x = in.next()) != -1 && Character.isWhitespace((char) x))
-				b.append((char) x);
-			if (!in.isAfterEnd())
-				in.back();
+			while ((x = in.peekNext()) != -1 && Character.isWhitespace((char) x))
+				b.append((char) in.next());
 			return new WhitespaceToken("" + b);
 		} else { // symbol or unknown
 			return new SymbolToken(first);
@@ -184,50 +191,63 @@ public class Lexer {
 		final int start = in.getOffset() - 1;
 		final List<ParseError> errors = new ArrayList<>();
 		final StringBuilder res = new StringBuilder();
-		int c;
-		outer: while ((c = in.next()) != quote) {
+		outer: while (true) {
+			int c = in.next();
 			if (c == -1 || isLineEnd(c)) {
-				errors.add(new ParseError("Missing <" + quote + "> to end string", in.getOffset() - 1, 1));
+				errors.add(new ParseError("Missing [" + quote + "] to end string", in.getOffset() - 1, 1));
 				break;
 			}
-			if (c == '\\') {
-				c = in.next();
-				final String escaped = "0btnfr\\'\"",
-						replaces = "\0\b\t\n\f\r\\'\"";
-				final int e = escaped.indexOf(c);
-				if (e >= 0) {
-					res.append(replaces.charAt(e));
-				} else if (c == 'u' || c == 'U') {
-					final int unicodeStart = in.getOffset() - 2;
-					int value = 0;
-					for (int i = 0; i < (c == 'u' ? 4 : 6); i++) {
-						final int d = in.next();
-						if (d == -1 || isLineEnd(d)) {
-							errors.add(new ParseError("Missing <" + quote + "> to end string", in.getOffset(), 0));
+			if (quote == '\'') {
+				if (c == '\'') {
+					if (in.peekNext() != '\'') // end of single quoted string
+						break;
+					// else: escaped quote - skip one, so that only one ends up in the parsed string
+					in.next();
+				}
+				res.append((char) c);
+			} else {
+				assert quote == '"';
+				if (c == '"') // end of double quoted string
+					break;
+				if (c == '\\') {
+					c = in.next();
+					final String escaped = "0btnfr\\\"",
+							replaces = "\0\b\t\n\f\r\\\"";
+					final int e = escaped.indexOf(c);
+					if (e >= 0) {
+						res.append(replaces.charAt(e));
+					} else if (c == 'u' || c == 'U') {
+						final int unicodeStart = in.getOffset() - 2;
+						int value = 0;
+						for (int i = 0; i < (c == 'u' ? 4 : 6); i++) {
+							final int d = in.next();
+							if (d == -1 || isLineEnd(d)) {
+								errors.add(new ParseError("Missing [" + quote + "] to end string", in.getOffset(), 0));
+								break;
+							}
+							final int dv = charToInt((char) d, 16);
+							if (dv >= 0) {
+								value = 16 * value + dv;
+							} else {
+								errors.add(new ParseError("Unicode character escapes must be of the form '\\uXXXX' or '\\UXXXXXX', where each X is a hexadecimal digit.", unicodeStart, in.getOffset() - unicodeStart));
+								continue outer;
+							}
+						}
+						try {
+							res.appendCodePoint(value);
+						} catch (final IllegalArgumentException ex) {
+							errors.add(new ParseError("Invalid unicode code point " + Integer.toHexString(value), unicodeStart, in.getOffset() - unicodeStart));
+						}
+					} else {
+						if (c == -1 || isLineEnd(c)) {
+							errors.add(new ParseError("Missing [" + quote + "] to end string", in.getOffset(), 0));
 							break;
 						}
-						final int dv = charToInt((char) d, 16);
-						if (dv >= 0) {
-							value = 16 * value + dv;
-						} else {
-							errors.add(new ParseError("Unicode character escapes must be of the form '\\uXXXX' or '\\UXXXXXX', where each X is a hexadecimal digit.", unicodeStart, in.getOffset() - unicodeStart));
-							continue outer;
-						}
-					}
-					try {
-						res.appendCodePoint(value);
-					} catch (final IllegalArgumentException ex) {
-						errors.add(new ParseError("Invalid unicode code point " + Integer.toHexString(value), unicodeStart, in.getOffset() - unicodeStart));
+						errors.add(new ParseError("Invalid escape sequence [\\" + (char) c + "]", in.getOffset() - 2, 2));
 					}
 				} else {
-					if (c == -1 || isLineEnd(c)) {
-						errors.add(new ParseError("Missing <" + quote + "> to end string", in.getOffset(), 0));
-						break;
-					}
-					errors.add(new ParseError("Invalid escape sequence <\\" + (char) c + ">", in.getOffset() - 2, 2));
+					res.append((char) c);
 				}
-			} else {
-				res.append((char) c);
 			}
 		}
 		return new StringToken(in.getText(start, in.getOffset()), "" + res, errors);

@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.tome.Constants;
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTLink;
@@ -21,6 +22,11 @@ public interface Token extends ASTElementPart {
 	public default List<ParseError> errors() {
 		return Collections.EMPTY_LIST;
 	}
+	
+	/**
+	 * Compares tokens according to their type and content.
+	 */
+	public boolean dataEquals(final Token other);
 	
 	public abstract class AbstractToken implements Token {
 		
@@ -56,9 +62,7 @@ public interface Token extends ASTElementPart {
 			return super.hashCode();
 		}
 		
-		/**
-		 * Compares tokens according to their type and content.
-		 */
+		@Override
 		public final boolean dataEquals(final Token other) {
 			if (getClass() != other.getClass())
 				return false;
@@ -315,7 +319,7 @@ public interface Token extends ASTElementPart {
 		
 		@Override
 		public String toString() {
-			return '\'' + value.replaceAll("'", "\\'") + '\'';
+			return "'" + value.replaceAll("'", "''") + "'";
 		}
 		
 		@Override
@@ -490,29 +494,43 @@ public interface Token extends ASTElementPart {
 	public final static class SingleLineCommentToken extends CommentToken {
 		public SingleLineCommentToken(final String comment) {
 			super(comment);
+			assert comment.startsWith(Constants.SINGLE_LINE_COMMENT_START);
 		}
 		
 		@Override
 		public String toPrettyString() {
-			return comment.substring("//".length()).trim();
+			return comment.substring(Constants.SINGLE_LINE_COMMENT_START.length()).trim();
 		}
 	}
 	
 	public final static class MultiLineCommentToken extends CommentToken {
-		public MultiLineCommentToken(final String comment) {
+		private final List<ParseError> errors;
+		
+		public MultiLineCommentToken(final String comment, final List<ParseError> errors) {
 			super(comment);
+			this.errors = errors;
+			assert comment.startsWith(Constants.MULTI_LINE_COMMENT_START);
+			assert errors.size() > 0 || comment.endsWith(Constants.MULTI_LINE_COMMENT_END);
 		}
 		
-		private final static Pattern prettyStringRemovalPattern = Pattern.compile("\\s*\n\\s*\\*?\\s*");
+		private final static Pattern prettyStringRemovalPattern = Pattern.compile("\\s*\n\\s*\\|?\\s*");
 		
 		/**
-		 * Returns a pretty version of this comment. Removes the leading "/*" and trailing "*﻿/", then trims whitespace from each line,
-		 * then removes an optional * from the start of each line (as well as following whitespace), then joins the lines with a space inbetween (ignoring empty lines).
+		 * Returns a pretty version of this comment. Removes the leading "#|" and trailing "|#", then trims whitespace from each line,
+		 * then removes an optional | from the start of each line (as well as following whitespace), then joins the lines with a space inbetween (ignoring empty lines).
 		 */
 		@Override
 		public String toPrettyString() {
-			return prettyStringRemovalPattern.matcher(comment.substring(2, comment.length() - 2)).replaceAll(" ").trim();
+			return prettyStringRemovalPattern.matcher(
+					comment.substring(Constants.MULTI_LINE_COMMENT_START.length(), comment.length() - Constants.MULTI_LINE_COMMENT_END.length()))
+					.replaceAll(" ").trim();
 		}
+		
+		@Override
+		public List<ParseError> errors() {
+			return errors;
+		}
+		
 	}
 	
 }

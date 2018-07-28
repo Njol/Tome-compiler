@@ -18,13 +18,12 @@ import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTLink;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
 import ch.njol.tome.common.ModuleIdentifier;
-import ch.njol.tome.compiler.Token;
+import ch.njol.tome.compiler.Modules;
 import ch.njol.tome.compiler.Token.UppercaseWordToken;
 import ch.njol.tome.compiler.Token.WordToken;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
-import ch.njol.tome.parser.DocumentParser;
-import ch.njol.tome.parser.AttachedElementParser;
+import ch.njol.tome.parser.Parser;
 import ch.njol.tome.util.TokenListStream;
 
 /**
@@ -99,20 +98,20 @@ public class ASTModule extends ASTModuleFileElement {
 		}
 		
 		@Override
-		public ASTModuleFileElement parse_(AttachedElementParser<? extends ASTModuleFileElement> p2) {
-			@SuppressWarnings("unchecked")
-			AttachedElementParser<ASTImport> p = (AttachedElementParser<ASTImport>) p2;
+		public ASTModuleFileElement parse(final Parser parent) {
+			Parser p = parent.start();
+			ASTImport ast = new ASTImport();
 			final UppercaseWordToken typeName = p.oneTypeIdentifierToken();
 			if (typeName == null)
-				return p.ast;
-			p.ast.type.setName(typeName);
-			p.ast.alias = typeName.word; // make sure 'alias' not null even if the next lines fail
+				return p.done(ast);
+			ast.type.setName(typeName);
+			ast.alias = typeName.word; // make sure 'alias' not null even if the next lines fail
 			if (p.try_("as")) {
 				final String alias = p.oneTypeIdentifier();
 				if (alias != null)
-					p.ast.alias = alias;
+					ast.alias = alias;
 			}
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -212,9 +211,9 @@ public class ASTModule extends ASTModuleFileElement {
 	
 	public final static ASTDocument<ASTModule> load(final Modules modules, final TokenListStream tokens) {
 		final ASTModule module = new ASTModule(modules);
-		final DocumentParser<ASTModule> dp = new DocumentParser<>(tokens, module);
-		module.parse_(dp.parser());
-		return dp.done();
+		final Parser p = new Parser(tokens);
+		module.parse(p);
+		return p.documentDone(module);
 	}
 	
 	public void save(final Writer out) throws IOException {

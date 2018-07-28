@@ -25,16 +25,13 @@ import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.NumberToken;
 import ch.njol.tome.compiler.Token.StringToken;
-import ch.njol.tome.parser.AttachedElementParser;
-import ch.njol.tome.parser.AttachedElementParser.VoidProcessor;
+import ch.njol.tome.parser.Parser;
+import ch.njol.tome.parser.Parser.VoidProcessor;
 
 public abstract class ASTModuleFileElement extends AbstractASTElement {
 	
-	public final ASTModuleFileElement parse(final AttachedElementParser<?> parent) {
-		return parse_(parent.startChild(this));
-	}
-	
-	public ASTModuleFileElement parse_(final AttachedElementParser<? extends ASTModuleFileElement> p) {
+	public ASTModuleFileElement parse(final Parser parent) {
+		Parser p = parent.start();
 		final VoidProcessor x = () -> {
 			do {
 				final LowercaseWordToken key = p.oneVariableIdentifierToken();
@@ -72,21 +69,21 @@ public abstract class ASTModuleFileElement extends AbstractASTElement {
 			p.untilEnd(x);
 		else
 			p.oneGroup('{', x, '}');
-		return this;
+		return p.done(this);
 	}
 	
-	protected static Object parse(final AttachedElementParser<?> parent, final String name, final Type genericType) {
+	protected static Object parse(final Parser parent, final String name, final Type genericType) {
 		final Class<?> rawType = getRawType(genericType);
 		if (ASTModuleFileElement.class.isAssignableFrom(rawType)) {
 			try {
-				Constructor<?> constructor = rawType.getDeclaredConstructor();
+				final Constructor<?> constructor = rawType.getDeclaredConstructor();
 				constructor.setAccessible(true);
 				return ((ASTModuleFileElement) constructor.newInstance()).parse(parent);
 			} catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException e) {
 				throw new RuntimeException("" + rawType, e);
 			}
 		} else if (ModuleIdentifier.class.isAssignableFrom(rawType)) {
-			ASTModuleIdentifier moduleIdentifier = ASTModuleIdentifier.tryParse(parent);
+			final ASTModuleIdentifier moduleIdentifier = ASTModuleIdentifier.tryParse(parent);
 			return moduleIdentifier == null ? new ModuleIdentifier() : moduleIdentifier.identifier;
 		} else if (Map.class.isAssignableFrom(rawType)) {
 			return MapElement.parseMap(parent, name, (ParameterizedType) genericType).value;
@@ -133,8 +130,9 @@ public abstract class ASTModuleFileElement extends AbstractASTElement {
 			this.name = name;
 		}
 		
-		public static MapElement parseMap(final AttachedElementParser<?> parent, final String name, final ParameterizedType genericType) {
-			final AttachedElementParser<MapElement> p = parent.startChild(new MapElement(name));
+		public static MapElement parseMap(final Parser parent, final String name, final ParameterizedType genericType) {
+			Parser p = parent.start();
+			final MapElement ast = new MapElement(name);
 			final Type keyType = genericType.getActualTypeArguments()[0],
 					valueType = genericType.getActualTypeArguments()[1];
 			assert keyType != null && valueType != null;
@@ -143,10 +141,10 @@ public abstract class ASTModuleFileElement extends AbstractASTElement {
 					final Object key = parse(p, "", keyType);
 					p.one(':');
 					final Object value = parse(p, "" + key, valueType);
-					p.ast.value.put(key, value);
+					ast.value.put(key, value);
 				} while (p.try_(','));
 			}, '}');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -163,17 +161,18 @@ public abstract class ASTModuleFileElement extends AbstractASTElement {
 			this.name = name;
 		}
 		
-		public static ListElement parseList(final AttachedElementParser<?> parent, final String name, final ParameterizedType genericType) {
-			final AttachedElementParser<ListElement> p = parent.startChild(new ListElement(name));
+		public static ListElement parseList(final Parser parent, final String name, final ParameterizedType genericType) {
+			Parser p = parent.start();
+			final ListElement ast = new ListElement(name);
 			final Type valueType = genericType.getActualTypeArguments()[0];
 			assert valueType != null;
 			final int[] i = {0};
 			p.oneGroup('[', () -> {
 				do {
-					p.ast.value.add(parse(p, "[" + (i[0]++) + "]", valueType));
+					ast.value.add(parse(p, "[" + (i[0]++) + "]", valueType));
 				} while (p.try_(','));
 			}, ']');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override

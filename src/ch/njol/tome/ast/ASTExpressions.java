@@ -99,13 +99,7 @@ import ch.njol.tome.ir.uses.IRSimpleTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.moduleast.ASTModule;
-import ch.njol.tome.parser.AttachedElementParser;
-import ch.njol.tome.parser.DetachedElementParser;
-import ch.njol.tome.parser.ElementParser;
-import ch.njol.tome.parser.ElementPlaceholder;
 import ch.njol.tome.parser.Parser;
-import ch.njol.tome.parser.SingleElementParser;
-import ch.njol.tome.parser.UnknownParser;
 import ch.njol.util.CollectionUtils;
 import ch.njol.util.PartialComparator;
 import ch.njol.util.PartialRelation;
@@ -126,9 +120,9 @@ public class ASTExpressions {
 		
 		// TODO fix / change "[params] ->" syntax (or make content assist smart enough to work with both this syntax and tuples)
 		if (parent.peekNext("var") && parent.peekNext(1, true) instanceof LowercaseWordToken && parent.peekNext("->", 2, true))
-			return ASTLambda.parse(parent, null);
+			return ASTLambda.parse(parent);
 		if (parent.peekNext() instanceof LowercaseWordToken && parent.peekNext("->", 1, true))
-			return ASTLambda.parse(parent, ASTLambdaParameter.parse(parent, true));
+			return ASTLambda.parse(parent);
 		if (parent.peekNext('[')) {
 			Token t;
 			int i = 0;
@@ -141,7 +135,7 @@ public class ASTExpressions {
 					foundClosing = true;
 				} else if (foundClosing && !(t instanceof WhitespaceToken || t instanceof CommentToken)) {
 					if (parent.peekNext("->", i, false)) {
-						return ASTLambda.parse(parent, null);
+						return ASTLambda.parse(parent);
 					} else {
 						break;
 					}
@@ -150,42 +144,48 @@ public class ASTExpressions {
 			}
 		}
 		
-		UnknownParser up = parent.startUnknownChild();
-		final ASTExpression expr = ASTOperatorExpression.parse(up, allowComparisons);
+		final Parser p = parent.start();
+		final ASTExpression expr = ASTOperatorExpression.parse(p, allowComparisons);
 		SymbolToken sym;
-		WordOrSymbols assignmentOp = parent.try2("=", "+=", "-=", "*=", "/=", "&=", "|=");
+		final WordOrSymbols assignmentOp = p.try2("=", "+=", "-=", "*=", "/=", "&=", "|=");
 		if (assignmentOp != null) {
 			// TODO directly determine if a variable is local or an unqualified attribute?
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse) {
 				final ASTVariableOrUnqualifiedAttributeUse varOrAttribute = (ASTVariableOrUnqualifiedAttributeUse) expr;
 				if (!varOrAttribute.arguments.isEmpty()) {
-					parent.errorFatal("Left-hand side of an assignment must be a variable or a field", expr.absoluteRegionStart(), expr.regionLength());
+					p.errorFatal("Left-hand side of an assignment must be a variable or a field", expr.absoluteRegionStart(), expr.regionLength());
+					p.doneAsChildren();
 					return expr;
 				}
-				return ASTLocalVariableOrUnqualifiedAttributeAssignment.parse(up, varOrAttribute, assignmentOp);
+				return ASTLocalVariableOrUnqualifiedAttributeAssignment.finishParsing(p, varOrAttribute, assignmentOp);
 			} else if (expr instanceof ASTAccessExpression && !((ASTAccessExpression) expr).meta) {// && ((ASTAccessExpression) expr).access instanceof ASTDirectAttributeAccess) {
 				final ASTAccessExpression e = (ASTAccessExpression) expr;
 				final ASTDirectAttributeAccess da = e.access;
 				assert da != null;
 				if (e.meta || e.nullSafe /*|| da.negated*/ || da.allResults || !da.arguments.isEmpty()) {
-					parent.errorFatal("Left-hand side of an assignment must be a variable or a field", expr.absoluteRegionStart(), expr.regionLength());
+					p.errorFatal("Left-hand side of an assignment must be a variable or a field", expr.absoluteRegionStart(), expr.regionLength());
+					p.doneAsChildren();
 					return expr;
 				}
 				e.removeFromParent();
 				da.removeFromParent();
-				return ASTAttributeAssignment.parse(parent, e.target, da.attribute, assignmentOp);
+				return ASTAttributeAssignment.finishParsing(p, e.target, da.attribute, assignmentOp);
 			} else {
 				if (expr.regionLength() > 0)
-					parent.errorFatal("Left-hand side of an assignment must be a variable or a field", expr.absoluteRegionStart(), expr.regionLength());
+					p.errorFatal("Left-hand side of an assignment must be a variable or a field", expr.absoluteRegionStart(), expr.regionLength());
+				p.doneAsChildren();
 				return expr;
 			}
-		} else if ((sym = parent.try2('?')) != null) { // no need to check for '?.' and '?~' as those are parsed before in OperatorExpression
-			return ASTTernaryIf.parse(parent, expr, sym);
-		} else if ((sym = parent.try2('#')) != null) {
-			return ASTErrorHandlingExpression.parse(parent, expr, sym);
-		} else if (expr instanceof ASTTypeUse && parent.peekNext() instanceof LowercaseWordToken && parent.peekNext("->", 1, true)) {
-			return ASTLambda.parse(parent, ASTLambdaParameter.parse(parent, (ASTTypeUse) expr));
+		} else if ((sym = p.try2('?')) != null) { // no need to check for '?.' and '?~' as those are parsed before in OperatorExpression
+			return ASTTernaryIf.finishParsing(p, expr, sym);
+		} else if ((sym = p.try2('#')) != null) {
+			return ASTErrorHandlingExpression.finishParsing(p, expr, sym);
+		} else if (expr instanceof ASTTypeUse && p.peekNext() instanceof LowercaseWordToken && p.peekNext("->", 1, true)) {
+			final Parser paramParser = p.start();
+			final ASTLambdaParameter param = ASTLambdaParameter.finishParsing(paramParser, (ASTTypeUse) expr);
+			return ASTLambda.finishParsing(p, param);
 		} else {
+			p.doneAsChildren();
 			return expr;
 		}
 	}
@@ -217,20 +217,21 @@ public class ASTExpressions {
 		}
 		
 		public static ASTBlock parse(final Parser parent) {
-			final AttachedElementParser<ASTBlock> p = parent.startChild(new ASTBlock());
+			final Parser p = parent.start();
+			final ASTBlock ast = new ASTBlock();
 			p.oneRepeatingGroup('{', () -> {
-				if (p.ast.statements.isEmpty()) {
+				if (ast.statements.isEmpty()) {
 					final ASTElement e = ASTStatement.parseWithExpression(p);
 					if (e instanceof ASTExpression)
-						p.ast.expression = (ASTExpression) e;
+						ast.expression = (ASTExpression) e;
 					else
-						p.ast.statements.add((ASTStatement) e);
+						ast.statements.add((ASTStatement) e);
 				} else {
-					p.ast.statements.add(ASTStatement.parse(p));
-					assert p.ast.expression == null;
+					ast.statements.add(ASTStatement.parse(p));
+					assert ast.expression == null;
 				}
 			}, '}');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -260,10 +261,11 @@ public class ASTExpressions {
 		}
 		
 		public static ASTAnonymousObject parse(final Parser parent) {
-			final AttachedElementParser<ASTAnonymousObject> p = parent.startChild(new ASTAnonymousObject());
+			final Parser p = parent.start();
+			final ASTAnonymousObject ast = new ASTAnonymousObject();
 			p.one("create");
-			p.ast.type = ASTAnonymousType.parse(p);
-			return p.ast;
+			ast.type = ASTAnonymousType.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -329,12 +331,13 @@ public class ASTExpressions {
 		}
 		
 		public static ASTAnonymousType parse(final Parser parent) {
-			final AttachedElementParser<ASTAnonymousType> p = parent.startChild(new ASTAnonymousType());
-			p.ast.type = ASTTypeExpressions.parse(p, true, false);
+			final Parser p = parent.start();
+			final ASTAnonymousType ast = new ASTAnonymousType();
+			ast.type = ASTTypeExpressions.parse(p, true, false);
 			p.oneRepeatingGroup('{', () -> {
-				p.ast.members.add(ASTMembers.parse(p));
+				ast.members.add(ASTMembers.parse(p));
 			}, '}');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		private final Cache<IRBrokkrClassDefinition> ir = new Cache<>(() -> new IRBrokkrClassDefinition(this));
@@ -350,10 +353,8 @@ public class ASTExpressions {
 		public @Nullable ASTExpression code;
 		
 		public ASTLambda(final @Nullable ASTLambdaParameter param) {
-			if (param != null) {
+			if (param != null)
 				parameters.add(param);
-				addChild(param);
-			}
 		}
 		
 		@Override
@@ -366,20 +367,25 @@ public class ASTExpressions {
 			return null; // TODO return description of this function
 		}
 		
-		public static ASTLambda parse(final Parser parent, @Nullable final ASTLambdaParameter param) {
-			final AttachedElementParser<ASTLambda> p = parent.startChild(new ASTLambda(param));
-			if (param == null) {
-				if (!p.tryGroup('[', () -> {
-					do {
-						p.ast.parameters.add(ASTLambdaParameter.parse(p, true));
-					} while (p.try_(','));
-				}, ']')) {
-					p.ast.parameters.add(ASTLambdaParameter.parse(p, true));
-				}
+		public static ASTLambda parse(final Parser parent) {
+			final Parser p = parent.start();
+			@SuppressWarnings("null")
+			final ASTLambdaParameter[] param = new ASTLambdaParameter[1];
+			if (!p.tryGroup('[', () -> {
+				do {
+					param[0] = ASTLambdaParameter.parse(p, true);
+				} while (p.try_(','));
+			}, ']')) {
+				param[0] = ASTLambdaParameter.parse(p, true);
 			}
+			return finishParsing(p, param[0]);
+		}
+		
+		public static ASTLambda finishParsing(final Parser p, final ASTLambdaParameter param) {
+			final ASTLambda ast = new ASTLambda(param);
 			p.one("->");
-			p.ast.code = ASTExpressions.parse(p);
-			return p.ast;
+			ast.code = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -404,31 +410,26 @@ public class ASTExpressions {
 		}
 		
 		public ASTLambdaParameter(final @Nullable ASTTypeUse type) {
-			if (type != null) {
-				this.type = type;
-				addChild(type);
-			}
+			this.type = type;
 		}
 		
 		@Override
 		public String toString() {
 			return (type != null ? type + " " : "") + name;
 		}
-
-		public static ASTLambdaParameter parse(final Parser parent, final ASTTypeUse type) {
-			return parse(parent, type, false);
-		}
-
+		
 		public static ASTLambdaParameter parse(final Parser parent, final boolean withType) {
-			return parse(parent, null, withType);
+			final Parser p = parent.start();
+			ASTTypeUse type = null;
+			if (withType && !p.try_("var"))
+				type = ASTTypeExpressions.parse(p, false, false);
+			return finishParsing(p, type);
 		}
-
-		public static ASTLambdaParameter parse(final Parser parent, @Nullable final ASTTypeUse type, final boolean withType) {
-			final AttachedElementParser<ASTLambdaParameter> p = parent.startChild(new ASTLambdaParameter(type));
-			if (type == null && withType && !p.try_("var"))
-				p.ast.type = ASTTypeExpressions.parse(p, false, false);
-			p.ast.name = p.oneVariableIdentifierToken();
-			return p.ast;
+		
+		public static ASTLambdaParameter finishParsing(final Parser p, final @Nullable ASTTypeUse type) {
+			final ASTLambdaParameter ast = new ASTLambdaParameter(type);
+			ast.name = p.oneVariableIdentifierToken();
+			return p.done(ast);
 		}
 		
 		@Override
@@ -533,19 +534,17 @@ public class ASTExpressions {
 		public ASTLocalVariableOrUnqualifiedAttributeAssignment(final ASTVariableOrUnqualifiedAttributeUse varOrAttribute, final WordOrSymbols assignmentOp) {
 			super(assignmentOp);
 			this.varOrAttribute = varOrAttribute;
-			addChild(varOrAttribute);
-			addChild(assignmentOp);
 		}
 		
 		@Override
 		public String toString() {
 			return varOrAttribute + " " + assignmentOp + " " + value;
 		}
-
-		public static ASTLocalVariableOrUnqualifiedAttributeAssignment parse(final UnknownParser up, final ASTVariableOrUnqualifiedAttributeUse varOrAttribute, final WordOrSymbols assignmentOp) {
-			final AttachedElementParser<ASTLocalVariableOrUnqualifiedAttributeAssignment> p = up.toElement(new ASTLocalVariableOrUnqualifiedAttributeAssignment(varOrAttribute, assignmentOp));
-			p.ast.value = ASTExpressions.parse(p);
-			return p.ast;
+		
+		public static ASTLocalVariableOrUnqualifiedAttributeAssignment finishParsing(final Parser p, final ASTVariableOrUnqualifiedAttributeUse varOrAttribute, final WordOrSymbols assignmentOp) {
+			final ASTLocalVariableOrUnqualifiedAttributeAssignment ast = new ASTLocalVariableOrUnqualifiedAttributeAssignment(varOrAttribute, assignmentOp);
+			ast.value = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -581,8 +580,6 @@ public class ASTExpressions {
 			super(assignmentOp);
 			this.target = target;
 			this.attribute = attribute;
-			addChild(target);
-			addChild(assignmentOp);
 			addLink(attribute);
 		}
 		
@@ -591,10 +588,10 @@ public class ASTExpressions {
 			return target + "." + attribute + " = " + value;
 		}
 		
-		public static ASTAttributeAssignment parse(final UnknownParser up, final ASTExpression target, final ASTLink<? extends IRAttributeRedefinition> attribute, final WordOrSymbols assignmentOp) {
-			final AttachedElementParser<ASTAttributeAssignment> p = up.toElement(new ASTAttributeAssignment(target, attribute, assignmentOp));
-			p.ast.value = ASTExpressions.parse(p);
-			return p.ast;
+		public static ASTAttributeAssignment finishParsing(final Parser p, final ASTExpression target, final ASTLink<? extends IRAttributeRedefinition> attribute, final WordOrSymbols assignmentOp) {
+			final ASTAttributeAssignment ast = new ASTAttributeAssignment(target, attribute, assignmentOp);
+			ast.value = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -624,8 +621,6 @@ public class ASTExpressions {
 		
 		public ASTTernaryIf(final ASTExpression condition, final SymbolToken questionMark) {
 			this.condition = condition;
-			addChild(condition);
-			addChild(questionMark);
 		}
 		
 		@Override
@@ -633,12 +628,12 @@ public class ASTExpressions {
 			return condition + " ? " + then + " : " + otherwise;
 		}
 		
-		public static ASTTernaryIf parse(final UnknownParser up, final ASTExpression condition, final SymbolToken questionMark) {
-			final AttachedElementParser<ASTTernaryIf> p = up.toElement(new ASTTernaryIf(condition, questionMark));
-			p.ast.then = ASTExpressions.parse(p);
+		public static ASTTernaryIf finishParsing(final Parser p, final ASTExpression condition, final SymbolToken questionMark) {
+			final ASTTernaryIf ast = new ASTTernaryIf(condition, questionMark);
+			ast.then = ASTExpressions.parse(p);
 			p.one(':');
-			p.ast.otherwise = ASTExpressions.parse(p);
-			return p.ast;
+			ast.otherwise = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -669,8 +664,6 @@ public class ASTExpressions {
 		
 		public ASTErrorHandlingExpression(final ASTExpression expression, final SymbolToken errorSymbol) {
 			this.expression = expression;
-			addChild(errorSymbol);
-			addChild(expression);
 		}
 		
 		@Override
@@ -678,19 +671,19 @@ public class ASTExpressions {
 			return "";
 		}
 		
-		public static ASTErrorHandlingExpression parse(final UnknownParser up, final ASTExpression expression, final SymbolToken errorSymbol) {
-			final AttachedElementParser<ASTErrorHandlingExpression> p = up.toElement(new ASTErrorHandlingExpression(expression, errorSymbol));
-			p.ast.negated = p.try_('!');
-			p.ast.error.setName(p.oneVariableIdentifierToken());
+		public static ASTErrorHandlingExpression finishParsing(final Parser p, final ASTExpression expression, final SymbolToken errorSymbol) {
+			final ASTErrorHandlingExpression ast = new ASTErrorHandlingExpression(expression, errorSymbol);
+			ast.negated = p.try_('!');
+			ast.error.setName(p.oneVariableIdentifierToken());
 			if (p.try_('(')) {
 				do {
-					p.ast.parameters.add(ASTErrorHandlingExpressionParameter.parse(p));
+					ast.parameters.add(ASTErrorHandlingExpressionParameter.parse(p));
 				} while (p.try_(','));
 				p.one(')');
 			}
 			p.one(':');
-			p.ast.value = ASTExpressions.parse(p);
-			return p.ast;
+			ast.value = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -725,11 +718,12 @@ public class ASTExpressions {
 		}
 		
 		public static ASTErrorHandlingExpressionParameter parse(final Parser parent) {
-			final AttachedElementParser<ASTErrorHandlingExpressionParameter> p = parent.startChild(new ASTErrorHandlingExpressionParameter());
+			final Parser p = parent.start();
+			final ASTErrorHandlingExpressionParameter ast = new ASTErrorHandlingExpressionParameter();
 			if (!p.try_("var"))
-				p.ast.type = ASTTypeExpressions.parse(p, true, true);
-			p.ast.parameter.setName(p.oneVariableIdentifierToken());
-			return p.ast;
+				ast.type = ASTTypeExpressions.parse(p, true, true);
+			ast.parameter.setName(p.oneVariableIdentifierToken());
+			return p.done(ast);
 		}
 		
 		@Override
@@ -791,29 +785,31 @@ public class ASTExpressions {
 		private final static Set<String> assingmentOps = new HashSet<>(Arrays.asList("&", "|", "+", "-", "*", "/"));
 		
 		public static ASTExpression parse(final Parser parent, final boolean allowComparisons) {
-			final AttachedElementParser<ASTOperatorExpression> p = parent.startChild(new ASTOperatorExpression());
+			final Parser p = parent.start();
+			final ASTOperatorExpression ast = new ASTOperatorExpression();
 			final ASTExpression first = ASTOperatorExpressionPart.parse(p);
 			if (first == null) {
 				p.expectedFatal("an expression");
-				return p.ast;
+				return p.done(ast);
 			}
-			p.ast.expressions.add(first);
+			ast.expressions.add(first);
 			WordOrSymbols op;
 			Token next;
 			while (!((next = p.peekNext()) instanceof SymbolToken && assingmentOps.contains("" + ((SymbolToken) next).symbol) && p.peekNext('=', 1, true)) // +=/*=/etc.
 					&& (op = p.try2(allowComparisons ? opsWithComp : opsWithoutComp)) != null) {
-				p.ast.operators.add(new ASTOperatorLink(p.ast, op, true));
+				ast.operators.add(new ASTOperatorLink(ast, op, true));
 				final ASTExpression expression = ASTOperatorExpressionPart.parse(p);
 				if (expression == null) {
 					p.expectedFatal("an expression");
-					return p.ast;
+					return p.done(ast);
 				}
-				p.ast.expressions.add(expression);
+				ast.expressions.add(expression);
 			}
-			if (p.ast.expressions.size() == 1)
+			if (ast.expressions.size() == 1) {
+				p.doneAsChildren();
 				return first;
-			else
-				return p.ast;
+			}
+			return p.done(ast);
 		}
 		
 		/**
@@ -911,31 +907,28 @@ public class ASTExpressions {
 		}
 		
 		public static @Nullable ASTExpression parse(final Parser parent) {
-			UnknownParser up = parent.startUnknownChild();
-			final ASTModifierTypeUseModifier mod = ASTModifierTypeUseModifier.tryParse(up);
+			final Parser p = parent.start();
+			final ASTModifierTypeUseModifier mod = ASTModifierTypeUseModifier.tryParse(p);
 			if (mod != null) {
-				DetachedElementParser<ASTModifierTypeUseModifier> modParser = up.toOnlyChildElementDetached(mod);
-				final ASTTypeExpression e = ASTModifierTypeUse.parse(up, modParser);
-				if (parent.peekNext('<'))
-					return ASTTypeWithGenericArguments.parseWithModifiers(up, e);
-				up.toOnlyChildElement();
-				return e;
+				Parser p2 = p.startNewParent();
+				final ASTTypeExpression e = ASTModifierTypeUse.finishParsing(p, mod);
+				if (p2.peekNext('<'))
+					return ASTTypeWithGenericArguments.finishParsingWithModifiers(p2, e);
+				p2.doneAsChildren();				return e;
 			}
 			
-			if (!parent.peekNextOneOf('!', '-'))
+			if (!p.peekNextOneOf('!', '-')) {
+				p.cancel();
 				return ASTAccessExpression.parse(parent);
+			}
 			
-			return parse(parent);
-		}
-		
-		public static ASTOperatorExpressionPart parse(final UnknownParser up) {
-			final AttachedElementParser<ASTOperatorExpressionPart> p = up.toElement(new ASTOperatorExpressionPart());
-			p.ast.prefixOperator.setName(p.try2('!', '-'));
+			final ASTOperatorExpressionPart ast = new ASTOperatorExpressionPart();
+			ast.prefixOperator.setName(p.try2('!', '-'));
 			ASTExpression expr;
-			p.ast.expression = expr = ASTAccessExpression.parse(p);
+			ast.expression = expr = ASTAccessExpression.parse(p);
 			if (expr == null)
 				p.expectedFatal("an expression");
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -966,7 +959,6 @@ public class ASTExpressions {
 		
 		public ASTAccessExpression(final ASTExpression target) {
 			this.target = target;
-			addChild(target);
 		}
 		
 		@Override
@@ -978,28 +970,31 @@ public class ASTExpressions {
 		public IRTypeUse getIRType() {
 			return access != null ? access.getIRType() : new IRUnknownTypeUse(getIRContext());
 		}
-
-		public static @Nullable ASTExpression parse(final ElementPlaceholder<ASTExpression> parser) {
-			parser.startUnknown
-			UnknownParser up = parent.startUnknownChild();
-			final ASTExpression first = ASTAtomicExpression.parse(up);
-			if (first == null)
+		
+		public static @Nullable ASTExpression parse(final Parser parent) {
+			final Parser p = parent.start();
+			final ASTExpression first = ASTAtomicExpression.parse(p);
+			if (first == null) {
+				p.cancel();
 				return null;
-			DetachedElementParser<ASTExpression> firstParser = up.toOnlyChildElementDetached(first);
-			DetachedElementParser<? extends ASTExpression> resultParser = parse(firstParser);
-			return resultParser.toChildOf(parent).ast;
+			}
+			return finishParsing(p, first);
 		}
 		
-		private static DetachedElementParser<? extends ASTExpression> parse(final DetachedElementParser<? extends ASTExpression> target) {
-			if (!target.peekNextOneOf(".", "?.", "::", "?::")) // note: must try '?' together with '.' or '::', as it is also used by the ternary operator '? :'
+		private static ASTExpression finishParsing(final Parser p, final ASTExpression target) {
+			if (!p.peekNextOneOf(".", "?.", "::", "?::")) { // note: must try '?' together with '.' or '::', as it is also used by the ternary operator '? :'
+				p.doneAsChildren();
 				return target;
-			DetachedElementParser<ASTAccessExpression> p = target.attachToNewDetachedParent(new ASTAccessExpression(target.ast));
-			String op = p.oneOf(".", "?.", "::", "?::");
+			}
+			final ASTAccessExpression ast = new ASTAccessExpression(target);
+			final String op = p.oneOf(".", "?.", "::", "?::");
 			assert op != null; // TODO make a peekNext call that returns the value?
-			p.ast.nullSafe = op.startsWith("?");
-			p.ast.meta = op.endsWith("::");
-			p.ast.access = ASTDirectAttributeAccess.parse(p);
-			return parse(p);
+			ast.nullSafe = op.startsWith("?");
+			ast.meta = op.endsWith("::");
+			ast.access = ASTDirectAttributeAccess.parse(p);
+			final Parser parent = p.startNewParent();
+			p.done(ast);
+			return finishParsing(parent, ast);
 		}
 		
 		@Override
@@ -1051,17 +1046,18 @@ public class ASTExpressions {
 		}
 		
 		public static ASTDirectAttributeAccess parse(final Parser parent) {
-			final AttachedElementParser<ASTDirectAttributeAccess> p = parent.startChild(new ASTDirectAttributeAccess());
+			final Parser p = parent.start();
+			final ASTDirectAttributeAccess ast = new ASTDirectAttributeAccess();
 //			negated = try_('!');
 			final WordToken name = p.oneVariableIdentifierToken();
-			p.ast.attribute.setName(name);
-			p.ast.allResults = name != null && name.word.endsWith("_"); //try_('!'); // FIXME other symbol - possible: !´`'¬@¦§°%_$£\     // maybe a combination of symbols? e.g. []
+			ast.attribute.setName(name);
+			ast.allResults = name != null && name.word.endsWith("_"); //try_('!'); // FIXME other symbol - possible: !´`'¬@¦§°%_$£\     // maybe a combination of symbols? e.g. []
 			p.tryGroup('(', () -> {
 				do {
-					p.ast.arguments.add(ASTArgument.parse(p));
+					ast.arguments.add(ASTArgument.parse(p));
 				} while (p.try_(','));
 			}, ')');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1092,10 +1088,8 @@ public class ASTExpressions {
 				parent.next();
 				return new ASTString((StringToken) next);
 			}
-			if (next instanceof NumberToken) {
-				parent.next();
-				return new ASTNumberConstant((NumberToken) next);
-			}
+			if (next instanceof NumberToken)
+				return ASTNumberConstant.parse(parent);
 			if (next instanceof UppercaseWordToken)
 				return ASTTypeExpressions.parse(parent, false, false);
 			if (parent.peekNext('('))
@@ -1143,12 +1137,13 @@ public class ASTExpressions {
 		}
 		
 		public static ASTParanthesesExpression parse(final Parser parent) {
-			final AttachedElementParser<ASTParanthesesExpression> p = parent.startChild(new ASTParanthesesExpression());
+			final Parser p = parent.start();
+			final ASTParanthesesExpression ast = new ASTParanthesesExpression();
 			p.one('(');
 			p.until(() -> {
-				p.ast.expression = ASTExpressions.parse(p);
+				ast.expression = ASTExpressions.parse(p);
 			}, ')', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 	}
@@ -1170,9 +1165,15 @@ public class ASTExpressions {
 	public static class ASTNumberConstant extends AbstractASTElement implements ASTExpression {
 		public final BigDecimal value;
 		
-		public ASTNumberConstant(final NumberToken token) {
-			addChild(token);
+		private ASTNumberConstant(final NumberToken token) {
 			value = token.value;
+		}
+		
+		public static ASTNumberConstant parse(final Parser parent) {
+			final Parser p = parent.start();
+			@SuppressWarnings("null")
+			final ASTNumberConstant ast = new ASTNumberConstant((NumberToken) p.next());
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1209,10 +1210,13 @@ public class ASTExpressions {
 		}
 		
 		public static @Nullable ASTKleeneanConstant tryParse(final Parser parent) {
-			final WordOrSymbols token = parent.try2("true", "false", "unknown");
-			if (token == null)
+			final Parser p = parent.start();
+			final WordOrSymbols token = p.try2("true", "false", "unknown");
+			if (token == null) {
+				p.cancel();
 				return null;
-			return new ASTKleeneanConstant(Kleenean.valueOf(token.wordOrSymbols().toUpperCase(Locale.ENGLISH)));
+			}
+			return p.done(new ASTKleeneanConstant(Kleenean.valueOf(token.wordOrSymbols().toUpperCase(Locale.ENGLISH))));
 		}
 		
 		@Override
@@ -1243,9 +1247,10 @@ public class ASTExpressions {
 		}
 		
 		public static ASTThis parse(final Parser parent) {
-			final AttachedElementParser<ASTThis> p = parent.startChild(new ASTThis());
+			final Parser p = parent.start();
+			final ASTThis ast = new ASTThis();
 			p.one("this");
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1269,9 +1274,10 @@ public class ASTExpressions {
 		}
 		
 		public static ASTNull parse(final Parser parent) {
-			final AttachedElementParser<ASTNull> p = parent.startChild(new ASTNull());
+			final Parser p = parent.start();
+			final ASTNull ast = new ASTNull();
 			p.one("null");
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1290,9 +1296,10 @@ public class ASTExpressions {
 		}
 		
 		public static ASTArgumentsKeyword parse(final Parser parent) {
-			final AttachedElementParser<ASTArgumentsKeyword> p = parent.startChild(new ASTArgumentsKeyword());
+			final Parser p = parent.start();
+			final ASTArgumentsKeyword ast = new ASTArgumentsKeyword();
 			p.one("arguments");
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1317,7 +1324,6 @@ public class ASTExpressions {
 		public final String value;
 		
 		public ASTString(final StringToken value) {
-			addChild(value);
 			this.value = value.value;
 		}
 		
@@ -1348,19 +1354,20 @@ public class ASTExpressions {
 		}
 		
 		public static ASTQuantifier parse(final Parser parent) {
-			final AttachedElementParser<ASTQuantifier> p = parent.startChild(new ASTQuantifier());
-			p.ast.forall = Objects.equals(p.oneOf("forall", "exists"), "forall");
+			final Parser p = parent.start();
+			final ASTQuantifier ast = new ASTQuantifier();
+			ast.forall = Objects.equals(p.oneOf("forall", "exists"), "forall");
 			p.oneGroup('(', () -> {
 				p.until(() -> {
 					do {
-						p.ast.vars.add(ASTQuantifierVars.parse(p));
+						ast.vars.add(ASTQuantifierVars.parse(p));
 					} while (p.try_(';'));
 					if (p.try_('|'))
-						p.ast.condition = ASTExpressions.parse(p);
+						ast.condition = ASTExpressions.parse(p);
 				}, ':', false);
-				p.ast.expression = ASTExpressions.parse(p);
+				ast.expression = ASTExpressions.parse(p);
 			}, ')');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1389,12 +1396,13 @@ public class ASTExpressions {
 		}
 		
 		public static ASTQuantifierVars parse(final Parser parent) {
-			final AttachedElementParser<ASTQuantifierVars> p = parent.startChild(new ASTQuantifierVars());
-			p.ast.type = ASTTypeExpressions.parse(p, true, true);
+			final Parser p = parent.start();
+			final ASTQuantifierVars ast = new ASTQuantifierVars();
+			ast.type = ASTTypeExpressions.parse(p, true, true);
 			do {
-				p.ast.vars.add(ASTQuantifierVar.parse(p));
+				ast.vars.add(ASTQuantifierVar.parse(p));
 			} while (p.try_(','));
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -1412,9 +1420,10 @@ public class ASTExpressions {
 		}
 		
 		public static ASTQuantifierVar parse(final Parser parent) {
-			final AttachedElementParser<ASTQuantifierVar> p = parent.startChild(new ASTQuantifierVar());
-			p.ast.name = p.oneVariableIdentifierToken();
-			return p.ast;
+			final Parser p = parent.start();
+			final ASTQuantifierVar ast = new ASTQuantifierVar();
+			ast.name = p.oneVariableIdentifierToken();
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1453,14 +1462,14 @@ public class ASTExpressions {
 			return parse(parent, new ASTTuple());
 		}
 		
-		protected static <T extends ASTTuple> T parse(final Parser parent, final T instance) {
-			final AttachedElementParser<T> p = parent.startChild(instance);
+		protected static <T extends ASTTuple> T parse(final Parser parent, final T ast) {
+			final Parser p = parent.start();
 			p.oneGroup('[', () -> {
 				do {
-					p.ast.entries.add(ASTTupleEntry.parse(parent, p.ast instanceof ASTTypeTuple));
+					ast.entries.add(ASTTupleEntry.parse(p, ast instanceof ASTTypeTuple));
 				} while (p.try_(','));
 			}, ']');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1504,13 +1513,14 @@ public class ASTExpressions {
 		}
 		
 		public static ASTTupleEntry parse(final Parser parent, final boolean onlyTypes) {
-			final AttachedElementParser<ASTTupleEntry> p = parent.startChild(new ASTTupleEntry());
+			final Parser p = parent.start();
+			final ASTTupleEntry ast = new ASTTupleEntry();
 			if (p.peekNext() instanceof WordToken && p.peekNext(':', 1, true)) {
-				p.ast.name = p.oneIdentifierToken();
+				ast.name = p.oneIdentifierToken();
 				p.next(); // skip ':'
 			}
-			p.ast.value = onlyTypes ? ASTTypeExpressions.parse(p, true, true) : ASTExpressions.parse(p);
-			return p.ast;
+			ast.value = onlyTypes ? ASTTypeExpressions.parse(p, true, true) : ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		public @Nullable String name() {
@@ -1595,14 +1605,15 @@ public class ASTExpressions {
 		public List<ASTArgument> arguments = new ArrayList<>();
 		
 		public static ASTVariableOrUnqualifiedAttributeUse parse(final Parser parent) {
-			final AttachedElementParser<ASTVariableOrUnqualifiedAttributeUse> p = parent.startChild(new ASTVariableOrUnqualifiedAttributeUse());
-			p.ast.link.setName(p.oneVariableIdentifierToken());
+			final Parser p = parent.start();
+			final ASTVariableOrUnqualifiedAttributeUse ast = new ASTVariableOrUnqualifiedAttributeUse();
+			ast.link.setName(p.oneVariableIdentifierToken());
 			p.tryGroup('(', () -> {
 				do {
-					p.ast.arguments.add(ASTArgument.parse(p));
+					ast.arguments.add(ASTArgument.parse(p));
 				} while (p.try_(','));
 			}, ')');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1714,16 +1725,17 @@ public class ASTExpressions {
 		}
 		
 		public static ASTArgument parse(final Parser parent) {
-			final AttachedElementParser<ASTArgument> p = parent.startChild(new ASTArgument());
-			p.ast.isDots = p.try_("...");
-			if (!p.ast.isDots) {
+			final Parser p = parent.start();
+			final ASTArgument ast = new ASTArgument();
+			ast.isDots = p.try_("...");
+			if (!ast.isDots) {
 				if (p.peekNext() instanceof LowercaseWordToken && p.peekNext(':', 1, true)) {
-					p.ast.parameter.setName(p.oneVariableIdentifierToken());
+					ast.parameter.setName(p.oneVariableIdentifierToken());
 					p.next(); // skip ':'
 				}
-				p.ast.value = ASTExpressions.parse(p);
+				ast.value = ASTExpressions.parse(p);
 			}
-			return p.ast;
+			return p.done(ast);
 		}
 		
 //		public static Map<IRParameterDefinition, InterpretedObject> makeInterpretedArgumentMap(final IRAttributeDefinition method, final List<ASTArgument> args, final InterpreterContext context) {
@@ -1795,10 +1807,11 @@ public class ASTExpressions {
 		}
 		
 		public static ASTUnqualifiedMetaAccess parse(final Parser parent) {
-			final AttachedElementParser<ASTUnqualifiedMetaAccess> p = parent.startChild(new ASTUnqualifiedMetaAccess());
+			final Parser p = parent.start();
+			final ASTUnqualifiedMetaAccess ast = new ASTUnqualifiedMetaAccess();
 			p.one('~');
-			p.ast.attribute.setName(p.oneVariableIdentifierToken());
-			return p.ast;
+			ast.attribute.setName(p.oneVariableIdentifierToken());
+			return p.done(ast);
 		}
 		
 		@SuppressWarnings("null")
@@ -1842,15 +1855,16 @@ public class ASTExpressions {
 			return attribute == null ? null : attribute.hoverInfo(token);
 		}
 		
-		public static ASTRecurse parse(final ElementPlaceholder<ASTRecurse> parser) {
-			final AttachedElementParser<ASTRecurse> p = parser.startAttached(new ASTRecurse());
+		public static ASTRecurse parse(final Parser parent) {
+			final Parser p = parent.start();
+			final ASTRecurse ast = new ASTRecurse();
 			p.one("recurse");
 			p.oneGroup('(', () -> {
 				do {
-					p.ast.arguments.add(ASTArgument.parse(p));
+					ast.arguments.add(ASTArgument.parse(p));
 				} while (p.try_(','));
 			}, ')');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1870,12 +1884,13 @@ public class ASTExpressions {
 		public @Nullable ASTExpression expression;
 		
 		public static ASTOld parse(final Parser parent) {
-			final AttachedElementParser<ASTOld> p = parent.startChild(new ASTOld());
+			final Parser p = parent.start();
+			final ASTOld ast = new ASTOld();
 			p.one("old");
 			p.oneGroup('(', () -> {
-				p.ast.expression = ASTExpressions.parse(p);
+				ast.expression = ASTExpressions.parse(p);
 			}, ')');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1909,36 +1924,41 @@ public class ASTExpressions {
 			return parse(parent, allowOps, allowTuple, allowOps);
 		}
 		
-		static ASTTypeExpression parse(final Parser parser, final boolean allowOps, final boolean allowTuple, final boolean allowDotGeneric) {
+		static ASTTypeExpression parse(final Parser parent, final boolean allowOps, final boolean allowTuple, final boolean allowDotGeneric) {
 			assert !(!allowDotGeneric && allowOps) : "generics are automatically allowed when operators are";
 			if (allowDotGeneric && !allowOps) { // if allowing ops, ops are done first
-				DetachedElementParser<ASTTypeExpression> dp = parser.startDetached();
-				final ASTTypeExpression target = ASTTypeExpressions.parse(dp, false, false, false); // TODO do tuples have generics? or should this just be allowed to then produce a better error message?
-				if (parser.peekNext('.'))
-					return ASTGenericTypeAccess.parse(dp);
-				else
-					return dp.toChildOf(parser).ast();
+				final Parser p = parent.start();
+				final ASTTypeExpression target = ASTTypeExpressions.parse(p, false, false, false); // TODO do tuples have generics? or should this just be allowed to then produce a better error message?
+				if (p.peekNext('.'))
+					return ASTGenericTypeAccess.finishParsing(p, target);
+				p.doneAsChildren();
+				return target;
 			}
-			if (allowTuple && parser.peekNext('[')) {
+			if (allowTuple && parent.peekNext('[')) {
 //				if (!allowTuple)
 //					throw new ParseException("Expected a type that is not a tuple", parent.in.getOffset(), parent.in.getOffset() + 1);
 				// not null, since it starts with '['
-				return (ASTTypeTuple) ASTTuple.parse(parser);
+				return (ASTTypeTuple) ASTTuple.parse(parent);
 			}
 			if (!allowOps) { // i.e. only a single type (possibly with modifiers and generics)
-				if (parser.peekNext("Self"))
-					return ASTSelf.parse(parser);
-				final ASTModifierTypeUseModifier modifier = ASTModifierTypeUseModifier.tryParse(parser);
+				if (parent.peekNext("Self"))
+					return ASTSelf.parse(parent);
+				final Parser genericArgsParser = parent.start(); // TODO move to methods in the respective types?
+				final Parser modifierTypeParser = genericArgsParser.start();
+				final ASTModifierTypeUseModifier modifier = ASTModifierTypeUseModifier.tryParse(modifierTypeParser);
 				final ASTTypeExpression e;
-				if (modifier != null)
-					e = ASTModifierTypeUse.parse(parser, modifier);
-				else
-					e = ASTSimpleTypeUse.parse(parser);
-				if (parser.peekNext('<'))
-					return ASTTypeWithGenericArguments.parseWithModifiers(parser, e);
+				if (modifier != null) {
+					e = ASTModifierTypeUse.finishParsing(modifierTypeParser, modifier);
+				} else {
+					modifierTypeParser.cancel();
+					e = ASTSimpleTypeUse.parse(genericArgsParser);
+				}
+				if (genericArgsParser.peekNext('<'))
+					return ASTTypeWithGenericArguments.finishParsingWithModifiers(genericArgsParser, e);
+				genericArgsParser.doneAsChildren();
 				return e;
 			}
-			return ASTTypeUseWithOperators.parse(parser);
+			return ASTTypeUseWithOperators.parse(parent);
 		}
 	}
 	
@@ -1960,9 +1980,10 @@ public class ASTExpressions {
 		}
 		
 		public static ASTSelf parse(final Parser parent) {
-			final AttachedElementParser<ASTSelf> p = parent.startChild(new ASTSelf());
+			final Parser p = parent.start();
+			final ASTSelf ast = new ASTSelf();
 			p.one("Self");
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -2046,18 +2067,20 @@ public class ASTExpressions {
 		}
 		
 		public static ASTTypeExpression parse(final Parser parent) {
-			final AttachedElementParser<ASTTypeUseWithOperators> p = parent.startChild(new ASTTypeUseWithOperators());
+			final Parser p = parent.start();
+			final ASTTypeUseWithOperators ast = new ASTTypeUseWithOperators();
 			final ASTTypeExpression first = ASTTypeExpressions.parse(p, false, true, true);
-			p.ast.types.add(first);
+			ast.types.add(first);
 			SymbolToken op;
 			while ((op = p.try2('&', '|')) != null) {
-				p.ast.operators.add(new ASTOperatorLink(p.ast, op, true));
-				p.ast.types.add(ASTTypeExpressions.parse(p, false, true, true));
+				ast.operators.add(new ASTOperatorLink(ast, op, true));
+				ast.types.add(ASTTypeExpressions.parse(p, false, true, true));
 			}
-			if (p.ast.types.size() == 1)
+			if (ast.types.size() == 1) {
+				p.doneAsChildren();
 				return first;
-			else
-				return p.ast;
+			}
+			return p.done(ast);
 		}
 		
 		// TODO use proper operator order
@@ -2135,9 +2158,10 @@ public class ASTExpressions {
 		}
 		
 		public static ASTSimpleTypeUse parse(final Parser parent) {
-			final AttachedElementParser<ASTSimpleTypeUse> p = parent.startChild(new ASTSimpleTypeUse());
-			p.ast.link.setName(p.oneTypeIdentifierToken());
-			return p.ast;
+			final Parser p = parent.start();
+			final ASTSimpleTypeUse ast = new ASTSimpleTypeUse();
+			ast.link.setName(p.oneTypeIdentifierToken());
+			return p.done(ast);
 		}
 		
 		@Override
@@ -2161,7 +2185,6 @@ public class ASTExpressions {
 		
 		public ASTModifierTypeUse(final ASTModifierTypeUseModifier firstModifier) {
 			modifiers.add(firstModifier);
-			addChild(firstModifier);
 		}
 		
 		@Override
@@ -2169,21 +2192,20 @@ public class ASTExpressions {
 			return (modifiers.size() == 0 ? "" : StringUtils.join(modifiers, " ") + " ") + type;
 		}
 		
-		public static ASTTypeExpression parse(SingleElementParser<ASTTypeExpression> parent, final DetachedElementParser<ASTModifierTypeUseModifier> firstModifier) {
-			final ElementParser<ASTModifierTypeUse> p = parent.startParsing(new ASTModifierTypeUse(firstModifier.ast));
-			firstModifier.toChildOf(p);
+		public static ASTTypeExpression finishParsing(final Parser p, final ASTModifierTypeUseModifier firstModifier) {
+			final ASTModifierTypeUse ast = new ASTModifierTypeUse(firstModifier);
 			do {
-				final ASTModifierTypeUseModifier e = ASTModifierTypeUseModifier.tryParse(p.parseChild());
+				final ASTModifierTypeUseModifier e = ASTModifierTypeUseModifier.tryParse(p);
 				if (e != null) {
-					p.ast.modifiers.add(e);
+					ast.modifiers.add(e);
 					continue;
 				}
 			} while (false);
 			
 			// TODO is 'modifier Self' possible?
-			p.ast.type = ASTSimpleTypeUse.parse(p);
+			ast.type = ASTSimpleTypeUse.parse(p);
 			
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -2219,43 +2241,45 @@ public class ASTExpressions {
 					+ (from == null ? "" : "@" + (from instanceof ASTVariableOrUnqualifiedAttributeUse || from instanceof ASTThis ? from : "(" + from + ")"));
 		}
 		
-		public static @Nullable ASTModifierTypeUseModifier tryParse(final SingleElementParser<ASTModifierTypeUseModifier> parent) {
-			final ElementParser<ASTModifierTypeUseModifier> p = parent.startParsing(new ASTModifierTypeUseModifier());
+		public static @Nullable ASTModifierTypeUseModifier tryParse(final Parser parent) {
+			final Parser p = parent.start();
+			final ASTModifierTypeUseModifier ast = new ASTModifierTypeUseModifier();
 			final Modifiability modifiability = Modifiability.parse(p);
 			if (modifiability != null) {
-				p.ast.modifiability = modifiability;
-				return parseFrom(p);
+				ast.modifiability = modifiability;
+				return finishParsingFrom(p, ast);
 			}
 			final Exclusiveness exclusivity = Exclusiveness.parse(p);
 			if (exclusivity != null) {
-				p.ast.exclusivity = exclusivity;
-				return parseFrom(p);
+				ast.exclusivity = exclusivity;
+				return finishParsingFrom(p, ast);
 			}
 			final Optionality optional = Optionality.parse(p);
 			if (optional != null) {
-				p.ast.optional = optional;
-				return parseFrom(p);
+				ast.optional = optional;
+				return finishParsingFrom(p, ast);
 			}
 			final Borrowing borrowing = Borrowing.parse(p);
 			if (borrowing != null) {
-				p.ast.borrowing = borrowing;
-				return parseFrom(p);
+				ast.borrowing = borrowing;
+				return finishParsingFrom(p, ast);
 			}
+			p.cancel();
 			return null;
 		}
 		
-		private static ASTModifierTypeUseModifier parseFrom(final ElementParser<ASTModifierTypeUseModifier> p) {
+		private static ASTModifierTypeUseModifier finishParsingFrom(final Parser p, final ASTModifierTypeUseModifier ast) {
 			if (p.try_('@')) {
 				if (!p.tryGroup('(', () -> {
-					p.ast.from = ASTExpressions.parse(p);
+					ast.from = ASTExpressions.parse(p);
 				}, ')')) {
 					if (p.peekNext("this"))
-						p.ast.from = ASTThis.parse(p);
+						ast.from = ASTThis.parse(p);
 					else
-						p.ast.from = ASTVariableOrUnqualifiedAttributeUse.parse(p);
+						ast.from = ASTVariableOrUnqualifiedAttributeUse.parse(p);
 				}
 			}
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -2268,7 +2292,6 @@ public class ASTExpressions {
 		
 		public ASTTypeWithGenericArguments(final ASTSimpleTypeUse baseType) {
 			this.baseType = baseType;
-			addChild(baseType);
 		}
 		
 		public final List<ASTGenericArgument> genericArguments = new ArrayList<>();
@@ -2278,26 +2301,27 @@ public class ASTExpressions {
 			return baseType + "<" + StringUtils.join(genericArguments, ",") + ">";
 		}
 		
-		public static ASTTypeExpression parseWithModifiers(final UnknownParser parent, final ASTTypeExpression withModifiers) {
+		public static ASTTypeExpression finishParsingWithModifiers(final Parser p, final ASTTypeExpression withModifiers) {
 			if (withModifiers instanceof ASTSimpleTypeUse)
-				return parse(parent, (ASTSimpleTypeUse) withModifiers);
+				return finishParsing(p, (ASTSimpleTypeUse) withModifiers);
+			assert false : "not implemented correctly"; // tries to rearrange AST during parsing -- not good
 			final ASTModifierTypeUse modifierTypeUse = (ASTModifierTypeUse) withModifiers;
 			final ASTSimpleTypeUse typeUseElement = (ASTSimpleTypeUse) modifierTypeUse.type; // cast is valid, as the other case is constructed here
 			assert typeUseElement != null; // shouldn't get here if this is null
-			final ASTTypeWithGenericArguments generic = parse(parent, typeUseElement);
+			final ASTTypeWithGenericArguments generic = finishParsing(p, typeUseElement);
 			modifierTypeUse.type = generic;
-			modifierTypeUse.addChild(generic);
-			return modifierTypeUse;
+			modifierTypeUse.addChild(generic); // FIXME
+			return p.done(modifierTypeUse);
 		}
 		
-		public static ASTTypeWithGenericArguments parse(final Parser parent, final ASTSimpleTypeUse baseType) {
-			final AttachedElementParser<ASTTypeWithGenericArguments> p = parent.startChild(new ASTTypeWithGenericArguments(baseType));
+		public static ASTTypeWithGenericArguments finishParsing(final Parser p, final ASTSimpleTypeUse baseType) {
+			final ASTTypeWithGenericArguments ast = new ASTTypeWithGenericArguments(baseType);
 			p.oneGroup('<', () -> {
 				do {
-					p.ast.genericArguments.add(ASTGenericArgument.parse(p));
+					ast.genericArguments.add(ASTGenericArgument.parse(p));
 				} while (p.try_(','));
 			}, '>');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -2352,15 +2376,16 @@ public class ASTExpressions {
 		}
 		
 		public static ASTGenericArgument parse(final Parser parent) {
-			final AttachedElementParser<ASTGenericArgument> p = parent.startChild(new ASTGenericArgument());
+			final Parser p = parent.start();
+			final ASTGenericArgument ast = new ASTGenericArgument();
 			if (p.peekNext() instanceof WordToken && p.peekNext(':', 1, true)) {
-				p.ast.attribute.setName(p.oneIdentifierToken());
+				ast.attribute.setName(p.oneIdentifierToken());
 				p.next(); // skip ':'
 			} else {
-				p.ast.attribute.setName(null); // TODO what to link? nothing? (there are no characters that could be linked, as everything is the value)
+				ast.attribute.setName(null); // TODO what to link? nothing? (there are no characters that could be linked, as everything is the value)
 			}
-			p.ast.value = ASTGenericArgumentValue.parse(p);
-			return p.ast;
+			ast.value = ASTGenericArgumentValue.parse(p);
+			return p.done(ast);
 		}
 	}
 	
@@ -2374,7 +2399,8 @@ public class ASTExpressions {
 		}
 		
 		public static ASTGenericArgumentValue parse(final Parser parent) {
-			final AttachedElementParser<ASTGenericArgumentValue> p = parent.startChild(new ASTGenericArgumentValue());
+			final Parser p = parent.start();
+			final ASTGenericArgumentValue ast = new ASTGenericArgumentValue();
 //		if (try_('?')) {
 //			wildcard = true;
 //			unordered(() -> {
@@ -2387,8 +2413,8 @@ public class ASTExpressions {
 //		} else {
 //			value = ActualType.parse(this, true, true);
 //		}
-			p.ast.expression = ASTExpressions.parse(p, false);
-			return p.ast;
+			ast.expression = ASTExpressions.parse(p, false);
+			return p.done(ast);
 		}
 		
 		public IRGenericArgument getIR() {
@@ -2412,7 +2438,6 @@ public class ASTExpressions {
 		
 		public ASTGenericTypeAccess(final ASTTypeUse target) {
 			this.target = target;
-			addChild(target);
 		}
 		
 		@Override
@@ -2420,13 +2445,15 @@ public class ASTExpressions {
 			return target + "." + genericType.getName();
 		}
 		
-		public static ASTGenericTypeAccess parse(final DetachedElementParser<? extends ASTTypeUse> target) {
-			DetachedElementParser<ASTGenericTypeAccess> p = target.attachToNewDetachedParent(new ASTGenericTypeAccess(target.ast));
-			p.one('.'); // TODO create a "one" that asserts that it succeeds?
-			p.ast.genericType.setName(p.oneTypeIdentifierToken());
-			if (p.peekNext('.'))
-				return parse(p);
-			return p.ast;
+		private static ASTGenericTypeAccess finishParsing(final Parser p, final ASTTypeUse target) {
+			final ASTGenericTypeAccess ast = new ASTGenericTypeAccess(target);
+			p.one('.'); // TODO create a "one" that asserts that it succeeds? (only to be used if it should have been peek()ed before)
+			ast.genericType.setName(p.oneTypeIdentifierToken());
+			if (p.peekNext('.')) {
+				p.startNewParent();
+				return p.done(finishParsing(p, ast));
+			}
+			return p.done(ast);
 		}
 		
 		@Override

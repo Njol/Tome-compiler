@@ -27,7 +27,7 @@ public abstract class TokenStream {
 	public String toString() {
 		final TokenStream backwards = clone(), forwards = clone();
 		final StringBuilder b = new StringBuilder("║" + current() + "║");
-		final int maxTokensPerDirection = 5;
+		final int maxTokensPerDirection = 20;
 		for (int i = 0; i < maxTokensPerDirection; i++) {
 			final Token previous = backwards.moveBackwardAndGet();
 			if (previous != null)

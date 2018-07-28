@@ -54,7 +54,6 @@ import ch.njol.tome.ir.statements.IRUnknownStatement;
 import ch.njol.tome.ir.statements.IRVariableDeclaration;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
-import ch.njol.tome.parser.AttachedElementParser;
 import ch.njol.tome.parser.Parser;
 import ch.njol.util.StringUtils;
 
@@ -80,29 +79,31 @@ public class ASTStatements {
 			if (parent.peekNext("ensures"))
 				return ASTPostcondition.parse(parent);
 			if (parent.peekNext("var")) // <Type> var [= ...]; is handled below
-				return ASTVariableDeclarations.parse(parent, null);
+				return ASTVariableDeclarations.parse(parent);
 			
 			// TODO ErrorHandlingStatement
 			
 			// TODO tuple variable assignment, e.g. [[ [a,b] = method(); ]] or [[ [a,b] = [b,a]; ]]
 			
-			final ASTExpression expr = ASTExpressions.parse(parent);
-			if (parent.peekNext(';'))
-				return ASTExpressionStatement.parse(parent, expr);
-			if (allowExpressionAtEnd && parent.peekNext() == null)
+			Parser p = parent.start();
+			final ASTExpression expr = ASTExpressions.parse(p);
+			if (p.peekNext(';'))
+				return ASTExpressionStatement.finishParsing(p, expr);
+			if (allowExpressionAtEnd && p.peekNext() == null)
 				return expr;
 			if (expr instanceof ASTTypeUse) {
 				// variable declaration
-				return ASTVariableDeclarations.parse(parent, (ASTTypeUse) expr);
+				return ASTVariableDeclarations.finishParsing(p, (ASTTypeUse) expr);
 			}
 			
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse)
-				return ASTLambdaMethodCall.parse(parent, (ASTVariableOrUnqualifiedAttributeUse) expr, true);
+				return ASTLambdaMethodCall.finishParsing(p, (ASTVariableOrUnqualifiedAttributeUse) expr, true);
 			final ASTAccess a;
 			if (expr instanceof ASTAccessExpression && !((ASTAccessExpression) expr).meta && (a = ((ASTAccessExpression) expr).access) instanceof ASTDirectAttributeAccess)
-				return ASTLambdaMethodCall.parse(parent, (ASTAccessExpression) expr, (ASTDirectAttributeAccess) a, true);
+				return ASTLambdaMethodCall.finishParsing(p, (ASTAccessExpression) expr, (ASTDirectAttributeAccess) a, true);
 			
-			return ASTExpressionStatement.parse(parent, expr);
+			// this also complains about a missing semicolon
+			return ASTExpressionStatement.finishParsing(p, expr);
 		}
 		
 		public static ASTElement parseWithExpression(final Parser parent) {
@@ -127,7 +128,6 @@ public class ASTStatements {
 		
 		public ASTExpressionStatement(final ASTExpression expression) {
 			this.expression = expression;
-			addChild(expression);
 		}
 		
 		@Override
@@ -135,11 +135,11 @@ public class ASTStatements {
 			return expression + ";";
 		}
 		
-		public static ASTExpressionStatement parse(final Parser parent, final ASTExpression expression) {
-			final AttachedElementParser<ASTExpressionStatement> p = parent.startChild(new ASTExpressionStatement(expression));
+		public static ASTExpressionStatement finishParsing(final Parser p, final ASTExpression expression) {
+			final ASTExpressionStatement ast = new ASTExpressionStatement(expression);
 			p.one(';');
 //			expectedFatal("';' to complete statement"); // TODO better error message
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -157,12 +157,13 @@ public class ASTStatements {
 		}
 		
 		public static ASTCodeGenerationCallStatement parse(final Parser parent) {
-			final AttachedElementParser<ASTCodeGenerationCallStatement> p = parent.startChild(new ASTCodeGenerationCallStatement());
+			Parser p = parent.start();
+			final ASTCodeGenerationCallStatement ast = new ASTCodeGenerationCallStatement();
 			p.one("$=");
 			p.until(() -> {
-				p.ast.code = ASTExpressions.parse(p);
+				ast.code = ASTExpressions.parse(p);
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -197,24 +198,25 @@ public class ASTStatements {
 		}
 		
 		public static ASTReturn parse(final Parser parent, final boolean withReturn) {
-			final AttachedElementParser<ASTReturn> p = parent.startChild(new ASTReturn());
+			Parser p = parent.start();
+			final ASTReturn ast = new ASTReturn();
 			if (withReturn)
 				p.one("return");
 			p.until(() -> {
 				if (p.try_('#')) {
-					p.ast.error.setName(p.oneVariableIdentifierToken());
+					ast.error.setName(p.oneVariableIdentifierToken());
 					p.tryGroup('(', () -> {
 						do {
-							p.ast.results.add(ASTReturnResult.parse(p)); // TODO are these also ReturnResults?
+							ast.results.add(ASTReturnResult.parse(p)); // TODO are these also ReturnResults?
 						} while (p.try_(','));
 					}, ')');
 				} else {
 					do {
-						p.ast.results.add(ASTReturnResult.parse(p));
+						ast.results.add(ASTReturnResult.parse(p));
 					} while (p.try_(','));
 				}
 			}, ';', true);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -254,14 +256,15 @@ public class ASTStatements {
 		}
 		
 		public static ASTReturnResult parse(final Parser parent) {
-			final AttachedElementParser<ASTReturnResult> p = parent.startChild(new ASTReturnResult());
+			Parser p = parent.start();
+			final ASTReturnResult ast = new ASTReturnResult();
 			if (p.peekNext() instanceof LowercaseWordToken && p.peekNext(':', 1, true)) {
-				p.ast.result.setName(p.oneVariableIdentifierToken());
+				ast.result.setName(p.oneVariableIdentifierToken());
 				p.next(); // skip ':'
 			}
 			// TODO what to link without a name?
-			p.ast.value = ASTExpressions.parse(p);
-			return p.ast;
+			ast.value = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 	}
 	
@@ -299,28 +302,28 @@ public class ASTStatements {
 		
 		public ASTVariableDeclarations(final ASTTypeUse type) {
 			this.type = type;
-			addChild(type);
 		}
 		
 		@Override
 		public String toString() {
 			return (type == null ? "var" : type) + " " + StringUtils.join(variables, ", ") + ";";
 		}
-		
-		public static ASTVariableDeclarations parse(final Parser parent, @Nullable final ASTTypeUse type) {
-			final AttachedElementParser<ASTVariableDeclarations> p = parent.startChild(new ASTVariableDeclarations());
-			if (type != null) {
-				p.ast.type = type;
-				p.ast.addChild(type);
-			}
+
+		public static ASTVariableDeclarations parse(final Parser parent) {
+			return finishParsing(parent.start(), null);
+		}
+		public static ASTVariableDeclarations finishParsing(final Parser p, @Nullable final ASTTypeUse type) {
+			final ASTVariableDeclarations ast = new ASTVariableDeclarations();
+			if (type != null)
+				ast.type = type;
 			p.until(() -> {
 				if (type == null)
 					p.one("var");
 				do {
-					p.ast.variables.add(ASTVariableDeclarationsVariable.parse(p));
+					ast.variables.add(ASTVariableDeclarationsVariable.parse(p));
 				} while (p.try_(','));
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -343,12 +346,13 @@ public class ASTStatements {
 			return nameToken + (initialValue == null ? "" : " = " + initialValue);
 		}
 		
-		public static ASTVariableDeclarationsVariable parse(final AttachedElementParser<ASTVariableDeclarations> parent) {
-			final AttachedElementParser<ASTVariableDeclarationsVariable> p = parent.startChild(new ASTVariableDeclarationsVariable());
-			p.ast.nameToken = p.oneVariableIdentifierToken();
+		public static ASTVariableDeclarationsVariable parse(final Parser parent) {
+			Parser p = parent.start();
+			final ASTVariableDeclarationsVariable ast = new ASTVariableDeclarationsVariable();
+			ast.nameToken = p.oneVariableIdentifierToken();
 			if (p.try_('='))
-				p.ast.initialValue = ASTExpressions.parse(p);
-			return p.ast;
+				ast.initialValue = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -435,14 +439,12 @@ public class ASTStatements {
 		
 		public ASTLambdaMethodCall(final ASTVariableOrUnqualifiedAttributeUse method) {
 			target = null;
-			addChild(method);
 			this.method = method.link;
 		}
 		
 		public ASTLambdaMethodCall(final ASTAccessExpression target, final ASTDirectAttributeAccess methodAccess) {
 			assert methodAccess.parent() == target;
 			this.target = target;
-			addChild(target);
 			method = methodAccess.attribute;
 		}
 		
@@ -451,21 +453,21 @@ public class ASTStatements {
 			return "<lambda method call>"; // TODO
 		}
 		
-		public static ASTStatement parse(final Parser parent, final ASTVariableOrUnqualifiedAttributeUse method, final boolean withSemicolon) {
-			return parse(parent.startChild(new ASTLambdaMethodCall(method)), withSemicolon);
+		public static ASTLambdaMethodCall finishParsing(final Parser p, final ASTVariableOrUnqualifiedAttributeUse method, final boolean withSemicolon) {
+			return finishParsing(p, new ASTLambdaMethodCall(method), withSemicolon);
 		}
 		
-		public static ASTStatement parse(final Parser parent, final ASTAccessExpression target, final ASTDirectAttributeAccess methodAccess, final boolean withSemicolon) {
-			return parse(parent.startChild(new ASTLambdaMethodCall(target, methodAccess)), withSemicolon);
+		public static ASTLambdaMethodCall finishParsing(final Parser p, final ASTAccessExpression target, final ASTDirectAttributeAccess methodAccess, final boolean withSemicolon) {
+			return finishParsing(p, new ASTLambdaMethodCall(target, methodAccess), withSemicolon);
 		}
 		
-		private static ASTStatement parse(final AttachedElementParser<ASTLambdaMethodCall> p, final boolean withSemicolon) {
+		private static ASTLambdaMethodCall finishParsing(final Parser p, final ASTLambdaMethodCall ast, final boolean withSemicolon) {
 			final boolean[] first = {true};
 			p.repeatUntil(() -> {
-				p.ast.parts.add(ASTLambdaMethodCallPart.parse(p, !first[0]));
+				ast.parts.add(ASTLambdaMethodCallPart.parse(p, !first[0]));
 				first[0] = false;
 			}, ';', false, withSemicolon);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -513,22 +515,26 @@ public class ASTStatements {
 		}
 		
 		public static ASTLambdaMethodCallPart parse(final Parser parent, final boolean withName) {
-			final AttachedElementParser<ASTLambdaMethodCallPart> p = parent.startChild(new ASTLambdaMethodCallPart());
+			Parser p = parent.start();
+			final ASTLambdaMethodCallPart ast = new ASTLambdaMethodCallPart();
 			if (withName)
-				p.ast.parameter.setName(p.oneVariableIdentifierToken());
+				ast.parameter.setName(p.oneVariableIdentifierToken());
 			p.tryGroup('[', () -> {
 				do {
-					p.ast.parameters.add(ASTLambdaMethodCallPartParameter.parse(p));
+					ast.parameters.add(ASTLambdaMethodCallPartParameter.parse(p));
 				} while (p.try_(','));
 			}, ']');
 			if (p.peekNext('{')) {
-				p.ast.expression = ASTBlock.parse(p);
+				ast.expression = ASTBlock.parse(p);
 			} else if (withName) {
 				// TODO limit this some more? this only exists for [else if]
-				p.ast.expression = new ASTBlock(ASTLambdaMethodCall.parse(parent, ASTVariableOrUnqualifiedAttributeUse.parse(p), false));
-				p.ast.addChild(p.ast.expression);
+				Parser blockParser = parent.start();
+				Parser callParser = blockParser.start();
+				ASTVariableOrUnqualifiedAttributeUse variableOrUnqualifiedAttributeUse = ASTVariableOrUnqualifiedAttributeUse.parse(callParser);
+				ASTLambdaMethodCall call = ASTLambdaMethodCall.finishParsing(callParser, variableOrUnqualifiedAttributeUse, false);
+				ast.expression = blockParser.done(new ASTBlock(call));
 			}
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -556,12 +562,13 @@ public class ASTStatements {
 			return "<lambda method call part parameter>"; // TODO
 		}
 		
-		public static ASTLambdaMethodCallPartParameter parse(final AttachedElementParser<ASTLambdaMethodCallPart> parent) {
-			final AttachedElementParser<ASTLambdaMethodCallPartParameter> p = parent.startChild(new ASTLambdaMethodCallPartParameter());
+		public static ASTLambdaMethodCallPartParameter parse(final Parser parent) {
+			Parser p = parent.start();
+			final ASTLambdaMethodCallPartParameter ast = new ASTLambdaMethodCallPartParameter();
 			if (!p.try_("var") && !(p.peekNext() instanceof LowercaseWordToken && (p.peekNext(',', 1, true) || p.peekNext(']', 1, true))))
-				p.ast.type = ASTTypeExpressions.parse(p, true, true);
-			p.ast.parameter.setName(p.oneVariableIdentifierToken());
-			return p.ast;
+				ast.type = ASTTypeExpressions.parse(p, true, true);
+			ast.parameter.setName(p.oneVariableIdentifierToken());
+			return p.done(ast);
 		}
 		
 		@Override
@@ -598,23 +605,24 @@ public class ASTStatements {
 		}
 		
 		public static ASTCodeGenerationStatement parse(final Parser parent) {
-			final AttachedElementParser<ASTCodeGenerationStatement> p = parent.startChild(new ASTCodeGenerationStatement());
+			Parser p = parent.start();
+			final ASTCodeGenerationStatement ast = new ASTCodeGenerationStatement();
 			CodeGenerationToken t = (CodeGenerationToken) p.next();
 			assert t != null;
-			p.ast.code.add(t);
+			ast.code.add(t);
 			while (true) {
 				if (t.ended)
 					break;
-				p.ast.expressions.add(ASTExpressions.parse(p));
+				ast.expressions.add(ASTExpressions.parse(p));
 				final Token x = p.next();
 				if (x == null || !(x instanceof CodeGenerationToken)) {
 					p.expectedFatal("'$'");
-					return p.ast;
+					return p.done(ast);
 				}
 				t = (CodeGenerationToken) x;
-				p.ast.code.add(t);
+				ast.code.add(t);
 			}
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override

@@ -74,7 +74,6 @@ import ch.njol.tome.ir.uses.IRSimpleTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.moduleast.ASTModule;
-import ch.njol.tome.parser.AttachedElementParser;
 import ch.njol.tome.parser.Parser;
 import ch.njol.util.StringUtils;
 
@@ -91,28 +90,25 @@ public class ASTMembers {
 			return ASTDelegation.parse(parent);
 //			if (parent.peekNext("element"))
 //				return parent.one(EnumElement.class);
-		
-		final ASTMemberModifiers modifiers = ASTMemberModifiers.parse(parent);
-		try {
+			
+		final Parser p = parent.start();
+		final ASTMemberModifiers modifiers = ASTMemberModifiers.parse(p);
 //				if (!modifiers.genericParameters.isEmpty() && parent.peekNext(';'))
 //					return parent.one(new GenericTypeParameter(modifiers));
-			if (parent.peekNext("interface"))
-				return ASTInterfaceDeclaration.parse(parent, modifiers);
-			if (parent.peekNext("class"))
-				return ASTClassDeclaration.parse(parent, modifiers);
-			if (parent.peekNext("constructor"))
-				return ASTConstructor.parse(parent, modifiers);
-			if (parent.peekNext("invariant"))
-				return ASTInvariant.parse(parent, modifiers);
+		if (p.peekNext("interface"))
+			return ASTInterfaceDeclaration.finishParsing(p, modifiers);
+		if (p.peekNext("class"))
+			return ASTClassDeclaration.finishParsing(p, modifiers);
+		if (p.peekNext("constructor"))
+			return ASTConstructor.finishParsing(p, modifiers);
+		if (p.peekNext("invariant"))
+			return ASTInvariant.finishParsing(p, modifiers);
 //			if (parent.peekNext("type"))
 //				return parent.one(new ASTGenericTypeDeclaration(modifiers));
-			if (parent.peekNext("code") || parent.peekNext("member") || parent.peekNext("type"))
-				return ASTTemplate.parse(parent, modifiers);
-			return ASTAttributeDeclaration.parse(parent, modifiers);
-			// TODO constants? e.g. like 'constant Type name = value, name2 = value2;'
-		} finally {
-			assert modifiers.parent() != parent;
-		}
+		if (p.peekNext("code") || p.peekNext("member") || p.peekNext("type"))
+			return ASTTemplate.finishParsing(p, modifiers);
+		return ASTAttributeDeclaration.finishParsing(p, modifiers);
+		// TODO constants? e.g. like 'constant Type name = value, name2 = value2;'
 	}
 	
 //	// TODO
@@ -211,52 +207,53 @@ public class ASTMembers {
 		}
 		
 		public static ASTMemberModifiers parse(final Parser parent) {
-			final AttachedElementParser<ASTMemberModifiers> p = parent.startChild(new ASTMemberModifiers());
+			final Parser p = parent.start();
+			final ASTMemberModifiers ast = new ASTMemberModifiers();
 			// modifiers
 			p.unordered(() -> {
 				p.tryGroup('<', () -> {
 					do {
-						p.ast.genericParameters.add(ASTGenericArgumentDeclaration.parse(p));
+						ast.genericParameters.add(ASTGenericArgumentDeclaration.parse(p));
 					} while (p.try_(','));
 				}, '>');
 			}, () -> {
-				p.ast.isStatic = p.try_("static");
+				ast.isStatic = p.try_("static");
 			}, () -> {
 				WordOrSymbols overrideToken;
 				if ((overrideToken = p.try2("override")) != null) {
-					p.ast.override = true;
-					p.ast.hide = p.try_("hide");
+					ast.override = true;
+					ast.hide = p.try_("hide");
 					if (p.peekNext() instanceof UppercaseWordToken && p.peekNext('.', 1, true)) {
-						p.ast.overriddenFromType.setName(p.oneTypeIdentifierToken());
+						ast.overriddenFromType.setName(p.oneTypeIdentifierToken());
 						p.one('.');
-						p.ast.overridden.setName(p.oneIdentifierToken());
+						ast.overridden.setName(p.oneIdentifierToken());
 						p.one("as");
 					} else if (p.peekNext() instanceof WordToken && p.peekNext("as", 1, true)) {
-						p.ast.overridden.setName(p.oneIdentifierToken());
+						ast.overridden.setName(p.oneIdentifierToken());
 						p.one("as");
 					} else {
-						p.ast.overridden.setName(overrideToken);
+						ast.overridden.setName(overrideToken);
 					}
 				} else if (p.try_("partialOverride")) { // TODO partial overrides should always be together (i.e. near each other in code), should I enforce this? (probably not)
-					p.ast.partialOverride = true;
+					ast.partialOverride = true;
 				}
-				if (!p.ast.partialOverride)
-					p.ast.undefine = p.try_("undefine");
+				if (!ast.partialOverride)
+					ast.undefine = p.try_("undefine");
 			}, () -> {
-				p.ast.isNative = p.try_("native");
+				ast.isNative = p.try_("native");
 			}, () -> {
-				p.ast.visibility = Visibility.parse(p);
+				ast.visibility = Visibility.parse(p);
 			}, () -> {
 				// TODO modifiability for fields
-				p.ast.modifiability = MethodModifiability.parse(p);
+				ast.modifiability = MethodModifiability.parse(p);
 			}, () -> {
-				p.ast.context = p.try_("context");
+				ast.context = p.try_("context");
 			}, () -> {
-				p.ast.recursive = p.try_("recursive");
+				ast.recursive = p.try_("recursive");
 			}, () -> {
-				p.ast.var = p.try_("var");
+				ast.var = p.try_("var");
 			});
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
@@ -271,9 +268,10 @@ public class ASTMembers {
 		}
 		
 		public static ASTGenericArgumentDeclaration parse(final Parser parent) {
-			final AttachedElementParser<ASTGenericArgumentDeclaration> p = parent.startChild(new ASTGenericArgumentDeclaration());
-			p.ast.name = p.oneIdentifierToken();
-			return p.ast;
+			final Parser p = parent.start();
+			final ASTGenericArgumentDeclaration ast = new ASTGenericArgumentDeclaration();
+			ast.name = p.oneIdentifierToken();
+			return p.done(ast);
 		}
 		
 	}
@@ -339,7 +337,6 @@ public class ASTMembers {
 		
 		public ASTAttributeDeclaration(final ASTMemberModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -422,65 +419,65 @@ public class ASTMembers {
 			}
 		}
 		
-		public static ASTAttributeDeclaration parse(final Parser parent, final ASTMemberModifiers modifiers) {
-			final AttachedElementParser<ASTAttributeDeclaration> p = parent.startChild(new ASTAttributeDeclaration(modifiers));
+		public static ASTAttributeDeclaration finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
+			final ASTAttributeDeclaration ast = new ASTAttributeDeclaration(modifiers);
 			
 			// name
-			p.ast.name = p.oneIdentifierToken();
+			ast.name = p.oneIdentifierToken();
 			
 			// parameters
 			p.tryGroup('(', () -> {
-				p.ast.hasParameterDefinitions = true;
+				ast.hasParameterDefinitions = true;
 				if (p.try_("..."))
-					p.ast.hasParameterDots = true;
-				if (!p.ast.hasParameterDots || p.try_(',')) {
+					ast.hasParameterDots = true;
+				if (!ast.hasParameterDots || p.try_(',')) {
 					do {
-						p.ast.parameters.add(ASTSimpleParameter.parse(p));
+						ast.parameters.add(ASTSimpleParameter.parse(p));
 					} while (p.try_(','));
 				}
 			}, ')');
 			
 			// results
 			if (p.try_(':')) {
-				p.ast.hasResultDefinitions = true;
+				ast.hasResultDefinitions = true;
 				if (p.try_("..."))
-					p.ast.hasResultDots = true;
-				if (!p.ast.hasResultDots || p.try_(',')) {
+					ast.hasResultDots = true;
+				if (!ast.hasResultDots || p.try_(',')) {
 					do {
-						p.ast.results.add(ASTNormalResult.parse(p));
+						ast.results.add(ASTNormalResult.parse(p));
 					} while (p.try_(','));
 				}
 			}
 			
 			// errors
 			while (p.peekNext('#')) {
-				p.ast.errors.add(ASTErrorDeclaration.parse(p));
+				ast.errors.add(ASTErrorDeclaration.parse(p));
 			}
 			
 			// body
 			if (p.peekNext('{')) {
-				p.ast.body = ASTBlock.parse(p);
+				ast.body = ASTBlock.parse(p);
 			} else if (p.try_(';')) { // abstract / single expression syntax
 				while (p.peekNext("requires"))
-					p.ast.preconditions.add(ASTPrecondition.parse(p));
+					ast.preconditions.add(ASTPrecondition.parse(p));
 				while (p.peekNext("ensures"))
-					p.ast.postconditions.add(ASTPostcondition.parse(p));
-			} else if (!p.ast.hasResultDefinitions && p.ast.errors.isEmpty()) { // 'attribute = value' syntax (nonexistent or overridden result)
+					ast.postconditions.add(ASTPostcondition.parse(p));
+			} else if (!ast.hasResultDefinitions && ast.errors.isEmpty()) { // 'attribute = value' syntax (nonexistent or overridden result)
 				p.one("=");
-				p.ast.body = new ASTBlock(ASTReturn.parse(p, false));
-				p.ast.addChild(p.ast.body);
+				final Parser bodyParser = p.start();
+				final ASTReturn returnStatement = ASTReturn.parse(bodyParser, false);
+				ast.body = bodyParser.done(new ASTBlock(returnStatement));
 				while (p.peekNext("requires"))
-					p.ast.preconditions.add(ASTPrecondition.parse(p));
+					ast.preconditions.add(ASTPrecondition.parse(p));
 				while (p.peekNext("ensures"))
-					p.ast.postconditions.add(ASTPostcondition.parse(p));
+					ast.postconditions.add(ASTPostcondition.parse(p));
 			}
 			
-			return p.ast;
+			return p.done(ast);
 		}
 	}
 	
 	public static class ASTSimpleParameter extends AbstractASTElement implements ASTParameter {
-		public ASTAttribute attribute;
 		public @Nullable Visibility visibility;
 		public boolean override;
 		public final ASTLink<IRParameterRedefinition> overridden = new ASTLink<IRParameterRedefinition>(this) {
@@ -501,13 +498,16 @@ public class ASTMembers {
 		public @Nullable WordToken name;
 		public @Nullable ASTExpression defaultValue;
 		
-		public ASTSimpleParameter(final ASTAttribute attribute) {
-			this.attribute = attribute;
-		}
-		
 		@Override
 		public @Nullable WordToken nameToken() {
 			return name;
+		}
+		
+		public @Nullable ASTAttribute attribute() {
+			final ASTElement parent = this.parent;
+			if (parent instanceof ASTAttribute)
+				return (ASTAttribute) parent;
+			return null;
 		}
 		
 //		@Override
@@ -525,27 +525,28 @@ public class ASTMembers {
 			return getIR().hoverInfo();
 		}
 		
-		public static ASTSimpleParameter parse(final AttachedElementParser<? extends ASTAttribute> parent) {
-			final AttachedElementParser<ASTSimpleParameter> p = parent.startChild(new ASTSimpleParameter(parent.ast));
-			p.ast.visibility = Visibility.parse(p);
-			p.ast.override = p.try_("override");
-			if (p.ast.override) {
+		public static ASTSimpleParameter parse(final Parser parent) {
+			final Parser p = parent.start();
+			final ASTSimpleParameter ast = new ASTSimpleParameter();
+			ast.visibility = Visibility.parse(p);
+			ast.override = p.try_("override");
+			if (ast.override) {
 				if (p.peekNext() instanceof WordToken && p.peekNext("as", 1, true)) {
-					p.ast.overridden.setName(p.oneIdentifierToken());
+					ast.overridden.setName(p.oneIdentifierToken());
 					p.next(); // skip 'as'
 				}
-				if (p.ast.overridden.getNameToken() == null // if not renamed, the only thing left to change is the type, so require it
+				if (ast.overridden.getNameToken() == null // if not renamed, the only thing left to change is the type, so require it
 						|| !(p.peekNext() instanceof WordToken && (p.peekNext(',', 1, true) || p.peekNext(')', 1, true)))) // allows overriding the name without changing the type
-					p.ast.type = ASTTypeExpressions.parse(p, true, true);
+					ast.type = ASTTypeExpressions.parse(p, true, true);
 			} else {
-				p.ast.type = ASTTypeExpressions.parse(p, true, true);
+				ast.type = ASTTypeExpressions.parse(p, true, true);
 			}
-			p.ast.name = p.oneIdentifierToken();
-			if (p.ast.override && p.ast.overridden.getNameToken() == null) // overridden, but not renamed - use same name to look up parent parameter
-				p.ast.overridden.setName(p.ast.name);
+			ast.name = p.oneIdentifierToken();
+			if (ast.override && ast.overridden.getNameToken() == null) // overridden, but not renamed - use same name to look up parent parameter
+				ast.overridden.setName(ast.name);
 			if (p.try_('='))
-				p.ast.defaultValue = ASTExpressions.parse(p);
-			return p.ast;
+				ast.defaultValue = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -565,13 +566,14 @@ public class ASTMembers {
 			if (ir != null)
 				return ir;
 			final IRParameterRedefinition parent = override ? overridden.get() : null;
+			final ASTAttribute attribute = attribute();
+			assert attribute != null;
 			return ir = (parent != null ? new IRBrokkrNormalParameterRedefinition(this, parent, attribute.getIR())
 					: new IRBrokkrNormalParameterDefinition(this, attribute.getIR()));
 		}
 	}
 	
 	public static class ASTNormalResult extends AbstractASTElement implements ASTVariable, ASTResult {
-		public final ASTAttribute attribute;
 		public @Nullable ASTTypeUse type;
 		public @Nullable LowercaseWordToken name;
 		public @Nullable ASTExpression defaultValue;
@@ -586,10 +588,6 @@ public class ASTMembers {
 			}
 		};
 		
-		public ASTNormalResult(final ASTAttribute attribute) {
-			this.attribute = attribute;
-		}
-		
 		@Override
 		public @Nullable WordToken nameToken() {
 			return name;
@@ -599,6 +597,13 @@ public class ASTMembers {
 		public @NonNull String name() {
 			final WordToken wordToken = name;
 			return wordToken != null ? wordToken.word : "result";
+		}
+		
+		public @Nullable ASTAttribute attribute() {
+			final ASTElement parent = this.parent;
+			if (parent instanceof ASTAttribute)
+				return (ASTAttribute) parent;
+			return null;
 		}
 		
 		@Override
@@ -611,10 +616,11 @@ public class ASTMembers {
 			return getIR().hoverInfo();
 		}
 		
-		public static ASTNormalResult parse(final AttachedElementParser<? extends ASTAttribute> parent) {
-			final AttachedElementParser<ASTNormalResult> p = parent.startChild(new ASTNormalResult(parent.ast));
+		public static ASTNormalResult parse(final Parser parent) {
+			final Parser p = parent.start();
+			final ASTNormalResult ast = new ASTNormalResult();
 			if (p.try_("override")) {
-				p.ast.overridden.setName(p.oneVariableIdentifierToken());
+				ast.overridden.setName(p.oneVariableIdentifierToken());
 				p.one("as");
 			}
 			boolean parseType = true;
@@ -624,15 +630,15 @@ public class ASTMembers {
 					parseType = false;
 			}
 			if (parseType)
-				p.ast.type = ASTTypeExpressions.parse(p, true, true);
-			p.ast.name = p.tryVariableIdentifierToken();
+				ast.type = ASTTypeExpressions.parse(p, true, true);
+			ast.name = p.tryVariableIdentifierToken();
 //			if (name == null)
 //				name = "result";
 //			if (peekNext("=>")) // method '=> results' syntax
 //				return this;
 			if (p.try_('='))
-				p.ast.defaultValue = ASTExpressions.parse(p);
-			return p.ast;
+				ast.defaultValue = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -653,6 +659,8 @@ public class ASTMembers {
 			if (ir != null)
 				return ir;
 			final IRResultRedefinition parent = overridden.get();
+			final ASTAttribute attribute = attribute();
+			assert attribute != null;
 			return ir = parent == null ? new IRBrokkrResultDefinition(this, attribute.getIR()) : new IRBrokkrResultRedefinition(this, parent, attribute.getIR());
 		}
 	}
@@ -728,16 +736,17 @@ public class ASTMembers {
 //		}
 		
 		public static ASTErrorDeclaration parse(final Parser parent) {
-			final AttachedElementParser<ASTErrorDeclaration> p = parent.startChild(new ASTErrorDeclaration());
+			final Parser p = parent.start();
+			final ASTErrorDeclaration ast = new ASTErrorDeclaration();
 			p.one('#');
-			p.ast.name = p.oneVariableIdentifierToken();
+			ast.name = p.oneVariableIdentifierToken();
 			p.tryGroup('(', () -> {
 				do {
 					// FIXME
 //					parameters.add(one(new ASTSimpleParameter(this)));
 				} while (p.try_(','));
 			}, ')');
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		private @Nullable IRNormalError ir;
@@ -816,7 +825,6 @@ public class ASTMembers {
 		
 		public ASTConstructor(final ASTMemberModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -859,21 +867,21 @@ public class ASTMembers {
 			return getIR().hoverInfo();
 		}
 		
-		public static ASTConstructor parse(final Parser parent, final ASTMemberModifiers modifiers) {
-			final AttachedElementParser<ASTConstructor> p = parent.startChild(new ASTConstructor(modifiers));
+		public static ASTConstructor finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
+			final ASTConstructor ast = new ASTConstructor(modifiers);
 			p.one("constructor");
-			p.ast.name = p.oneVariableIdentifierToken();
+			ast.name = p.oneVariableIdentifierToken();
 			p.oneGroup('(', () -> {
 				do {
 					if (p.peekNext('=', 1, true) || p.peekNext(',', 1, true) || p.peekNext(')', 1, true))
-						p.ast.parameters.add(ASTConstructorFieldParameter.parse(p));
+						ast.parameters.add(ASTConstructorFieldParameter.parse(p));
 					else
-						p.ast.parameters.add(ASTSimpleParameter.parse(p));
+						ast.parameters.add(ASTSimpleParameter.parse(p));
 				} while (p.try_(','));
 			}, ')');
 			if (!p.try_(';')) // field params syntax
-				p.ast.body = ASTBlock.parse(p);
-			return p.ast;
+				ast.body = ASTBlock.parse(p);
+			return p.done(ast);
 		}
 		
 		@SuppressWarnings("null")
@@ -903,10 +911,11 @@ public class ASTMembers {
 		};
 		public @Nullable ASTExpression defaultValue;
 		
-		public final ASTConstructor constructor;
-		
-		public ASTConstructorFieldParameter(final ASTConstructor constructor) {
-			this.constructor = constructor;
+		public @Nullable ASTConstructor constructor() {
+			final ASTElement parent = this.parent;
+			if (parent instanceof ASTConstructor)
+				return (ASTConstructor) parent;
+			return null;
 		}
 		
 		@Override
@@ -914,12 +923,13 @@ public class ASTMembers {
 			return attribute.getNameToken();
 		}
 		
-		public static ASTConstructorFieldParameter parse(final AttachedElementParser<ASTConstructor> parent) {
-			final AttachedElementParser<ASTConstructorFieldParameter> p = parent.startChild(new ASTConstructorFieldParameter(parent.ast));
-			p.ast.attribute.setName(p.oneVariableIdentifierToken());
+		public static ASTConstructorFieldParameter parse(final Parser parent) {
+			final Parser p = parent.start();
+			final ASTConstructorFieldParameter ast = new ASTConstructorFieldParameter();
+			ast.attribute.setName(p.oneVariableIdentifierToken());
 			if (p.try_('='))
-				p.ast.defaultValue = ASTExpressions.parse(p);
-			return p.ast;
+				ast.defaultValue = ASTExpressions.parse(p);
+			return p.done(ast);
 		}
 		
 //		@Override
@@ -951,6 +961,8 @@ public class ASTMembers {
 			if (ir != null)
 				return ir;
 			final IRAttributeRedefinition attr = attribute.get();
+			final ASTConstructor constructor = constructor();
+			assert constructor != null;
 			if (attr == null || attr.results().size() != 1 || !attr.results().get(0).name().equals("result") || !attr.isVariable())
 				return new IRUnknownParameterDefinition(attr != null ? attr.name() : "<unknown name>", new IRUnknownTypeUse(getIRContext()), constructor.getIR(), "Constructor field parameter '" + (attr != null ? attr.name() : "<unknown name>") + "' does not reference a field", this);
 			return ir = new IRBrokkrConstructorFieldParameter(this, attr, constructor.getIR());
@@ -971,7 +983,6 @@ public class ASTMembers {
 		
 		public ASTTemplate(final ASTMemberModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -1009,19 +1020,19 @@ public class ASTMembers {
 			return "" + name;
 		}
 		
-		public static ASTTemplate parse(final Parser parent, final ASTMemberModifiers modifiers) {
-			final AttachedElementParser<ASTTemplate> p = parent.startChild(new ASTTemplate(modifiers));
-			String templateType = p.oneOf("code", "member", "type");
-			p.ast.templateType = templateType == null ? null : TemplateType.valueOf(templateType.toUpperCase(Locale.ENGLISH));
+		public static ASTTemplate finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
+			final ASTTemplate ast = new ASTTemplate(modifiers);
+			final String templateType = p.oneOf("code", "member", "type");
+			ast.templateType = templateType == null ? null : TemplateType.valueOf(templateType.toUpperCase(Locale.ENGLISH));
 			p.one("template");
-			p.ast.name = p.oneVariableIdentifierToken();
+			ast.name = p.oneVariableIdentifierToken();
 			p.tryGroup('(', () -> {
 				do {
-					p.ast.parameters.add(ASTSimpleParameter.parse(p));
+					ast.parameters.add(ASTSimpleParameter.parse(p));
 				} while (p.try_(','));
 			}, ')');
-			p.ast.body = ASTBlock.parse(p);
-			return p.ast;
+			ast.body = ASTBlock.parse(p);
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1043,7 +1054,7 @@ public class ASTMembers {
 		public @Nullable ASTExpression joinWith;
 		
 		private static class MethodLink extends ASTLink<IRAttributeRedefinition> {
-			public MethodLink(ASTDelegation parent, @Nullable final WordToken name) {
+			public MethodLink(final ASTDelegation parent, @Nullable final WordToken name) {
 				super(parent, name);
 			}
 			
@@ -1067,25 +1078,26 @@ public class ASTMembers {
 		}
 		
 		public static ASTDelegation parse(final Parser parent) {
-			final AttachedElementParser<ASTDelegation> p = parent.startChild(new ASTDelegation());
+			final Parser p = parent.start();
+			final ASTDelegation ast = new ASTDelegation();
 			p.one("delegate");
 			p.until(() -> {
 				do {
-					if (!p.ast.methods.isEmpty() || p.ast.types.isEmpty() && p.peekNext() instanceof LowercaseWordToken && (p.peekNext(',', 1, true) || p.peekNext("to", 1, true)))
-						p.ast.methods.add(new MethodLink(p.ast, p.oneVariableIdentifierToken()));
+					if (!ast.methods.isEmpty() || ast.types.isEmpty() && p.peekNext() instanceof LowercaseWordToken && (p.peekNext(',', 1, true) || p.peekNext("to", 1, true)))
+						ast.methods.add(new MethodLink(ast, p.oneVariableIdentifierToken()));
 					else
-						p.ast.types.add(ASTTypeExpressions.parse(p, true, true));
+						ast.types.add(ASTTypeExpressions.parse(p, true, true));
 				} while (p.try_(','));
 				p.one("to");
 				do {
-					p.ast.expressions.add(ASTExpressions.parse(p));
+					ast.expressions.add(ASTExpressions.parse(p));
 				} while (p.try_(','));
 				if (p.try_("join")) {
 					p.one("with");
-					p.ast.joinWith = ASTExpressions.parse(p);
+					ast.joinWith = ASTExpressions.parse(p);
 				}
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1103,7 +1115,6 @@ public class ASTMembers {
 		
 		public ASTInvariant(final ASTMemberModifiers modifiers) {
 			this.modifiers = modifiers;
-			addChild(modifiers);
 		}
 		
 		@Override
@@ -1121,16 +1132,16 @@ public class ASTMembers {
 			return "invariant " + name;
 		}
 		
-		public static ASTInvariant parse(final Parser parent, final ASTMemberModifiers modifiers) {
-			final AttachedElementParser<ASTInvariant> p = parent.startChild(new ASTInvariant(modifiers));
+		public static ASTInvariant finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
+			final ASTInvariant ast = new ASTInvariant(modifiers);
 			p.one("invariant");
 			p.until(() -> {
-				p.ast.negated = p.try_('!');
-				p.ast.name = p.oneVariableIdentifierToken();
+				ast.negated = p.try_('!');
+				ast.name = p.oneVariableIdentifierToken();
 				p.one(':');
-				p.ast.expression = ASTExpressions.parse(p); // TODO allow some statements?
+				ast.expression = ASTExpressions.parse(p); // TODO allow some statements?
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1166,23 +1177,24 @@ public class ASTMembers {
 //		}
 		
 		public static ASTPrecondition parse(final Parser parent) {
-			final AttachedElementParser<ASTPrecondition> p = parent.startChild(new ASTPrecondition());
+			final Parser p = parent.start();
+			final ASTPrecondition ast = new ASTPrecondition();
 			p.until(() -> {
 				p.one("requires");
 				//genericRestrictions=GenericParameters? // FIXME wrong
-				p.ast.negated = p.peekNext('!');
+				ast.negated = p.peekNext('!');
 				Token t;
-				if ((t = p.peekNext(p.ast.negated ? 1 : 0, true)) instanceof LowercaseWordToken && p.peekNext(';', p.ast.negated ? 2 : 1, true)) {
-					p.ast.name = (LowercaseWordToken) t;
-					p.ast.expression = ASTExpressions.parse(p);
+				if ((t = p.peekNext(ast.negated ? 1 : 0, true)) instanceof LowercaseWordToken && p.peekNext(';', ast.negated ? 2 : 1, true)) {
+					ast.name = (LowercaseWordToken) t;
+					ast.expression = ASTExpressions.parse(p);
 				} else {
-					p.ast.negated = p.try_('!');
-					p.ast.name = p.oneVariableIdentifierToken();
+					ast.negated = p.try_('!');
+					ast.name = p.oneVariableIdentifierToken();
 					if (p.try_(':'))
-						p.ast.expression = ASTExpressions.parse(p); // TODO allow some statements?
+						ast.expression = ASTExpressions.parse(p); // TODO allow some statements?
 				}
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1228,21 +1240,22 @@ public class ASTMembers {
 		}
 		
 		public static ASTPostcondition parse(final Parser parent) {
-			final AttachedElementParser<ASTPostcondition> p = parent.startChild(new ASTPostcondition());
+			final Parser p = parent.start();
+			final ASTPostcondition ast = new ASTPostcondition();
 			p.until(() -> {
 				p.one("ensures");
 				//genericRestrictions=GenericParameters? // FIXME wrong
 				final boolean negated = p.peekNext('!');
 				if (p.peekNext(negated ? 1 : 0, true) instanceof LowercaseWordToken && p.peekNext(':', negated ? 2 : 1, true)) {
-					p.ast.negated = negated;
+					ast.negated = negated;
 					if (negated)
 						p.next(); // skip '!';
-					p.ast.name = p.oneVariableIdentifierToken();
+					ast.name = p.oneVariableIdentifierToken();
 					p.next(); // skip ':'
 				}
-				p.ast.expression = ASTExpressions.parse(p); // TODO allow some statements?
+				ast.expression = ASTExpressions.parse(p); // TODO allow some statements?
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		@Override
@@ -1276,12 +1289,13 @@ public class ASTMembers {
 		}
 		
 		public static ASTCodeGenerationCallMember parse(final Parser parent) {
-			AttachedElementParser<ASTCodeGenerationCallMember> p = parent.startChild(new ASTCodeGenerationCallMember());
+			final Parser p = parent.start();
+			final ASTCodeGenerationCallMember ast = new ASTCodeGenerationCallMember();
 			p.one("$=");
 			p.until(() -> {
-				p.ast.code = ASTExpressions.parse(p);
+				ast.code = ASTExpressions.parse(p);
 			}, ';', false);
-			return p.ast;
+			return p.done(ast);
 		}
 		
 		// TODO make sure to prevent infinite recursion with other types!

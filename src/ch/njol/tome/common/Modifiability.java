@@ -11,8 +11,8 @@ public enum Modifiability {
 	
 	// note: unmodifiable is only used to override e.g. a parameter declared modifiable in a superinterface - alone it makes no sense (as it is the default).
 	
-	public static @Nullable Modifiability parse(final Parser parent) {
-		final String val = parent.try_("mod", "modifiable", "immut", "immutable", "unmod", "unmodifiable");
+	public static @Nullable Modifiability parse(final Parser p) {
+		final String val = p.try_("mod", "modifiable", "immut", "immutable", "unmod", "unmodifiable");
 		if (val == null)
 			return null;
 		if (val.startsWith("mod"))

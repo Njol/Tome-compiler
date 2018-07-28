@@ -23,8 +23,8 @@ public enum Exclusiveness {
 	 */
 	SHARED;
 	
-	public static @Nullable Exclusiveness parse(final Parser parent) {
-		final String val = parent.try_("exclusive", "shared");
+	public static @Nullable Exclusiveness parse(final Parser p) {
+		final String val = p.try_("exclusive", "shared");
 		if (val == null)
 			return null;
 		if (val.startsWith("e"))

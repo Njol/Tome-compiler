@@ -9,7 +9,10 @@ import java.util.List;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.tome.ast.ASTDocument;
 import ch.njol.tome.ast.ASTElement;
+import ch.njol.tome.ast.ASTElementPart;
+import ch.njol.tome.ast.SimpleASTDocument;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.SymbolToken;
@@ -21,38 +24,134 @@ import ch.njol.tome.compiler.Token.WordToken;
 import ch.njol.tome.util.TokenListStream;
 import ch.njol.util.CollectionUtils;
 
-public abstract class Parser implements ASTParser {
+public class Parser {
 	
-	protected final TokenListStream in;
+	private final TokenListStream in;
+	
+	private final List<ASTElementPart> parts = new ArrayList<>();
+	
+	private @Nullable Parser parent;
+	
+	private @Nullable Parser currentChild;
+	
+	private boolean valid = true;
 	
 	public Parser(final TokenListStream in) {
 		this.in = in;
+		parent = null;
 	}
 	
-	protected @Nullable AttachedElementParser<?> currentChild = null;
-	
-	protected abstract void addWhitespace(final WhitespaceOrCommentToken t);
-	
-	protected abstract void addWhitespace(final List<WhitespaceOrCommentToken> tokens);
-	
-	public final <C extends ASTElement> ElementPlaceholder<C> startChild() {
-		return new ElementPlaceholder<>(this);
+	private Parser(final Parser parent) {
+		in = parent.in;
+		this.parent = parent;
 	}
-
+	
+	public Parser start() {
+		assert valid;
+		assert currentChild == null;
+		return currentChild = new Parser(this);
+	}
+	
 	/**
-	 * @return A new {@link UnknownParser}. Can later be replaced with an element using its {@link UnknownParser#toElement(ASTElement) toElement}
-	 * 		method, or be completely ignored.
+	 * Creates a new, empty parent of the current element.
 	 */
-	public final UnknownParser startUnknownChild() {
-		return new UnknownParser(this);
+	public Parser startNewParent() {
+		assert valid;
+		if (parent != null)
+			parent.currentChild = null;
+		final Parser newParent = parent != null ? parent.start() : new Parser(in);
+		newParent.currentChild = this;
+		parent = newParent;
+		return newParent;
 	}
 	
-//	public ProtoElementParser
+	private void addPart(final ASTElementPart part) {
+		assert valid;
+		assert currentChild == null;
+		parts.add(part);
+		if (part instanceof Token)
+			fatalParseErrors.addAll(((Token) part).errors());
+	}
+	
+	private void childDone(Parser child) {
+		assert valid;
+		assert currentChild == child;
+		fatalParseErrors.addAll(child.fatalParseErrors);
+		possibleParseErrors.clear();
+		currentChild = null;
+	}
+	
+	public <T extends ASTElement> T done(final T ast) {
+		assert valid;
+		assert currentChild == null;
+		final Parser parent = this.parent;
+		assert parent != null;
+		final List<ASTElementPart> parentParts = parent.parts;
+		final List<WhitespaceOrCommentToken> endingWhitespace = removeEndingWhitespace(parts);
+		ast.addChildren(parts);
+		parentParts.add(ast);
+		parentParts.addAll(endingWhitespace);
+		parent.childDone(this);
+		valid = false;
+		return ast;
+	}
+	
+	public void doneAsChildren() {
+		assert valid;
+		assert currentChild == null;
+		final Parser parent = this.parent;
+		assert parent != null;
+		parent.parts.addAll(parts);
+		parent.childDone(this);
+		valid = false;
+	}
+	
+	private static List<WhitespaceOrCommentToken> removeEndingWhitespace(final List<ASTElementPart> parts) {
+		final ArrayList<WhitespaceOrCommentToken> result = new ArrayList<>();
+		for (int i = parts.size() - 1; i >= 0; i--) {
+			final ASTElementPart p = parts.get(i);
+			if (!(p instanceof WhitespaceOrCommentToken))
+				break;
+			result.add(0, (WhitespaceOrCommentToken) p);
+			parts.remove(i);
+		}
+		return result;
+	}
+	
+	public <T extends ASTElement> ASTDocument<T> documentDone(final T ast) {
+		assert parent == null;
+		assert valid;
+		assert currentChild == null;
+		assert ast == parts.get(0);
+		final List<WhitespaceOrCommentToken> endingWhitespace = removeEndingWhitespace(parts);
+		assert parts.size() == 1;
+		ast.addChildren(endingWhitespace);
+		
+		if (!in.isAfterEnd())
+			errorFatal("Unexpected data at end of document (or unable to parse due to previous errors)", in.getTextOffset(), in.getTextLength() - in.getTextOffset());
+		Token t;
+		while ((t = in.getAndMoveForward()) != null) {
+			ast.addChild(t);
+		}
+		
+		valid = false;
+		return new SimpleASTDocument<>(ast, fatalParseErrors);
+	}
+	
+	public void cancel() {
+		assert valid;
+		assert parts.isEmpty();
+		assert currentChild == null;
+		final Parser parent = this.parent;
+		assert parent != null;
+		assert parent.valid;
+		parent.currentChild = null;
+		valid = false;
+	}
 	
 	private final List<ParseError> fatalParseErrors = new ArrayList<>(),
 			possibleParseErrors = new ArrayList<>();
 	
-	@Override
 	public List<ParseError> fatalParseErrors() {
 		return fatalParseErrors;
 	}
@@ -118,12 +217,12 @@ public abstract class Parser implements ASTParser {
 					if (groups < 0)
 						break;
 				}
-				addChildToAST(t);
+				addPart(t);
 			}
 			if (t != null) {
 				if (consume) {
-					addChildToAST(t);
-					in.skipWhitespace(this::addWhitespace);
+					addPart(t);
+					in.skipWhitespace(this::addPart);
 				} else {
 					in.moveBackward();
 				}
@@ -136,9 +235,9 @@ public abstract class Parser implements ASTParser {
 		} else {
 			success = true;
 			if (consume) {
-				addChildToAST(next);
+				addPart(next);
 				in.moveForward();
-				in.skipWhitespace(this::addWhitespace);
+				in.skipWhitespace(this::addPart);
 			}
 		}
 		oneFromTry(success);
@@ -149,9 +248,9 @@ public abstract class Parser implements ASTParser {
 		if (lastGuard != -1 && t instanceof SymbolToken && ((SymbolToken) t).symbol == lastGuard)
 			return null;
 		if (t != null)
-			addChildToAST(t);
+			addPart(t);
 		in.moveForward();
-		in.skipWhitespace(this::addWhitespace);
+		in.skipWhitespace(this::addPart);
 		return t;
 	}
 	
@@ -375,7 +474,7 @@ public abstract class Parser implements ASTParser {
 //				oneFromTry(token != null);
 //				return token;
 //			}
-
+	
 	public final @Nullable SymbolToken one(final char symbol) {
 		return oneFromTry(try2(symbol));
 	}
@@ -464,6 +563,8 @@ public abstract class Parser implements ASTParser {
 				return (WordToken) t;
 			}
 		} else {
+			if (keywordOrSymbol.length() == 1)
+				return try2(keywordOrSymbol.charAt(0));
 			final List<SymbolToken> tokens = new ArrayList<>();
 			for (int i = 0; i < keywordOrSymbol.length(); i++) {
 				final Token t = in.peekNext(i, false);
@@ -473,13 +574,12 @@ public abstract class Parser implements ASTParser {
 				}
 				tokens.add((SymbolToken) t);
 			}
+			// do not add Tokens to current parts - SymbolsWord takes care of handling its own AST
 			for (int i = 0; i < keywordOrSymbol.length(); i++)
-				next();
+				in.moveForward();
 			trySuccessful();
-			if (tokens.size() == 1)
-				return tokens.get(0);
 			final SymbolsWord sw = new SymbolsWord(tokens);
-			addChildToAST(sw);
+			addPart(sw);
 			return sw;
 		}
 		expectedPossible("'" + keywordOrSymbol + "'");

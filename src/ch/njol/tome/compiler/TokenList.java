@@ -86,4 +86,24 @@ public class TokenList implements Iterable<Token> {
 		return tokens.iterator();
 	}
 	
+	@Override
+	public int hashCode() {
+		return tokens.hashCode();
+	}
+	
+	@Override
+	public boolean equals(@Nullable final Object obj) {
+		if (obj instanceof TokenList) {
+			List<Token> tokens2 = ((TokenList) obj).tokens;
+			if (tokens.size() != tokens2.size())
+				return false;
+			for (int i = 0; i < tokens.size(); i++) {
+				if (!tokens.get(i).dataEquals(tokens2.get(i)))
+					return false;
+			}
+			return true;
+		}
+		return false;
+	}
+	
 }

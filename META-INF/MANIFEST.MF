@@ -6,11 +6,13 @@ Automatic-Module-Name: ch.njol.tome.compiler
 Bundle-Version: 0.1
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Require-Bundle: org.eclipse.jdt.annotation
-Export-Package: ch.njol.tome.ast,
+Export-Package: ch.njol.tome,
+ ch.njol.tome.ast,
  ch.njol.tome.common,
  ch.njol.tome.compiler,
  ch.njol.tome.ir,
  ch.njol.tome.ir.definitions,
+ ch.njol.tome.moduleast,
+ ch.njol.tome.parser,
  ch.njol.tome.util,
- ch.njol.tome,
  ch.njol.util
