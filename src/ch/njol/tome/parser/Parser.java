@@ -580,6 +580,7 @@ public class Parser {
 			trySuccessful();
 			final SymbolsWord sw = new SymbolsWord(tokens);
 			addPart(sw);
+			in.skipWhitespace(this::addPart);
 			return sw;
 		}
 		expectedPossible("'" + keywordOrSymbol + "'");

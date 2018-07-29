@@ -124,23 +124,26 @@ public class ASTExpressions {
 		if (parent.peekNext() instanceof LowercaseWordToken && parent.peekNext("->", 1, true))
 			return ASTLambda.parse(parent);
 		if (parent.peekNext('[')) {
-			Token t;
 			int i = 0;
 			boolean foundClosing = false;
-			while (true) {
-				t = parent.peekNext(i, false);
-				if (t == null)
-					break;
+			for (Token t; (t = parent.peekNext(i, false)) != null; i++) {
 				if (t instanceof SymbolToken && ((SymbolToken) t).symbol == ']') {
 					foundClosing = true;
-				} else if (foundClosing && !(t instanceof WhitespaceToken || t instanceof CommentToken)) {
-					if (parent.peekNext("->", i, false)) {
-						return ASTLambda.parse(parent);
-					} else {
-						break;
-					}
+					break;
 				}
+			}
+			if (foundClosing) {
 				i++;
+				for (Token t; (t = parent.peekNext(i, false)) != null; i++) {
+					if(!(t instanceof WhitespaceToken || t instanceof CommentToken)) {
+						if (parent.peekNext("->", i, false)) {
+							return ASTLambda.parse(parent);
+						} else {
+							break;
+						}
+					}
+					i++;
+				}
 			}
 		}
 		
@@ -752,7 +755,9 @@ public class ASTExpressions {
 			b.append('(');
 			b.append(expressions.get(0));
 			for (int i = 1; i < expressions.size(); i++) {
+				b.append(' ');
 				b.append(operators.get(i - 1));
+				b.append(' ');
 				b.append(expressions.get(i));
 			}
 			b.append(')');
