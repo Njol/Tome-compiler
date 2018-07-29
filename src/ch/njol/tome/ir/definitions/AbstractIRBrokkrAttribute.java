@@ -41,7 +41,6 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 		this.overridden = registerDependency(overridden);
 		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
 		declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (attribute not in type: " + this + ")", ast));
-		
 	}
 	
 	@Override

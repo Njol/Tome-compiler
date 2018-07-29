@@ -5,14 +5,14 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.common.Invalidatable;
-import ch.njol.tome.common.InvalidateListener;
+import ch.njol.tome.common.Modifiable;
+import ch.njol.tome.common.ModificationListener;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.moduleast.ASTModule;
 
-public class Modules implements InvalidateListener {
+public class Modules implements ModificationListener {
 	
 	private final Map<ModuleIdentifier, ASTModule> modules = new HashMap<>();
 	
@@ -35,9 +35,9 @@ public class Modules implements InvalidateListener {
 		if (id == null)
 			return;
 		ASTModule oldMod = modules.put(id, mod);
-		mod.registerInvalidateListener(this);
+		mod.addModificationListener(this);
 		if (oldMod != null) {
-			oldMod.removeInvalidateListener(this);
+			oldMod.removeModificationListener(this);
 			oldMod.invalidateSubtree();
 		}
 	}
@@ -49,13 +49,13 @@ public class Modules implements InvalidateListener {
 	public void unregister(final ASTModule module) {
 		if (modules.get(module.id) == module) {
 			modules.remove(module.id);
-			module.removeInvalidateListener(this);
+			module.removeModificationListener(this);
 			module.invalidateSubtree();
 		}
 	}
 	
 	@Override
-	public void onInvalidate(final Invalidatable source) {
+	public void onModification(final Modifiable source) {
 		if (source instanceof ASTModule) {
 			unregister((ASTModule) source);
 		}

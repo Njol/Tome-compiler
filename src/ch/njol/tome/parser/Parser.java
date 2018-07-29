@@ -73,7 +73,7 @@ public class Parser {
 			fatalParseErrors.addAll(((Token) part).errors());
 	}
 	
-	private void childDone(Parser child) {
+	private void childDone(final Parser child) {
 		assert valid;
 		assert currentChild == child;
 		fatalParseErrors.addAll(child.fatalParseErrors);
@@ -364,11 +364,8 @@ public class Parser {
 			return;
 		}
 		startGuard(until);
-		try {
-			lambda.process();
-		} finally {
-			endGuard(until, true);
-		}
+		lambda.process();
+		endGuard(until, true);
 	}
 	
 	public void repeatUntil(final VoidProcessor lambda, final char until, final boolean allowEmpty) {
@@ -380,16 +377,13 @@ public class Parser {
 			return;
 		}
 		startGuard(until);
-		try {
-			do {
-				final int s = in.getTokenOffset();
-				lambda.process();
-				if (in.getTokenOffset() == s)
-					break;
-			} while (peekNext() != null);
-		} finally {
-			endGuard(until, consumeEndChar);
-		}
+		do {
+			final int s = in.getTokenOffset();
+			lambda.process();
+			if (in.getTokenOffset() == s)
+				break;
+		} while (peekNext() != null);
+		endGuard(until, consumeEndChar);
 	}
 	
 	public void repeatUntilEnd(final VoidProcessor lambda) {

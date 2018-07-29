@@ -28,6 +28,7 @@ import ch.njol.tome.ast.ASTStatements.ASTStatement;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTClassDeclaration;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTInterfaceDeclaration;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
+import ch.njol.tome.common.Cache;
 import ch.njol.tome.common.MethodModifiability;
 import ch.njol.tome.common.Visibility;
 import ch.njol.tome.compiler.Token;
@@ -397,26 +398,26 @@ public class ASTMembers {
 			return getIR().hoverInfo();
 		}
 		
-		private @Nullable IRAttributeRedefinition ir;
-		
-		@Override
-		public IRAttributeRedefinition getIR() {
-			if (ir != null)
-				return ir;
-			final IRMemberRedefinition overridden = modifiers.overridden.get();
+		private final Cache<IRAttributeRedefinition> ir = new Cache<>(() -> {
+			final IRMemberRedefinition overridden = modifiers().overridden.get();
 			if (overridden instanceof IRAttributeRedefinition) {
 				if (body != null)
-					return ir = new IRBrokkrAttributeImplementation(this, (IRAttributeRedefinition) overridden);
+					return new IRBrokkrAttributeImplementation(this, (IRAttributeRedefinition) overridden);
 				else
-					return ir = new IRBrokkrAttributeRedefinition(this, (IRAttributeRedefinition) overridden);
+					return new IRBrokkrAttributeRedefinition(this, (IRAttributeRedefinition) overridden);
 			} else {
 //				if (overridden != null)
 				// TODO semantic error
 				if (body != null)
-					return ir = new IRBrokkrAttributeDefinitionAndImplementation(this);
+					return new IRBrokkrAttributeDefinitionAndImplementation(this);
 				else
-					return ir = new IRBrokkrAttributeDefinition(this);
+					return new IRBrokkrAttributeDefinition(this);
 			}
+		});
+		
+		@Override
+		public IRAttributeRedefinition getIR() {
+			return ir.get();
 		}
 		
 		public static ASTAttributeDeclaration finishParsing(final Parser p, final ASTMemberModifiers modifiers) {

@@ -16,8 +16,8 @@ import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTMembers.ASTCodeGenerationCallMember;
 import ch.njol.tome.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.tome.ast.ASTMembers.ASTTemplate;
-import ch.njol.tome.common.Invalidatable;
-import ch.njol.tome.common.InvalidateListener;
+import ch.njol.tome.common.Modifiable;
+import ch.njol.tome.common.ModificationListener;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.common.Visibility;
 import ch.njol.tome.compiler.Modules;
@@ -42,7 +42,7 @@ import ch.njol.tome.util.TokenListStream;
 
 public class ASTTopLevelElements {
 	
-	public static class ASTSourceFile extends AbstractASTElement implements InvalidateListener {
+	public static class ASTSourceFile extends AbstractASTElement implements ModificationListener {
 		public final String identifier;
 		public final Modules modules;
 		public @Nullable ASTModule module;
@@ -122,7 +122,7 @@ public class ASTTopLevelElements {
 			if (moduleDeclaration == null) {
 				if (oldModule != null) {
 					oldModule.clearFile(identifier);
-					oldModule.removeInvalidateListener(this);
+					oldModule.removeModificationListener(this);
 				}
 				module = null;
 				return;
@@ -133,28 +133,28 @@ public class ASTTopLevelElements {
 				return;
 			if (oldModule != null) {
 				oldModule.clearFile(identifier);
-				oldModule.removeInvalidateListener(this);
+				oldModule.removeModificationListener(this);
 			}
 			if (newModule != null) {
 				newModule.registerFile(identifier, this);
-				newModule.registerInvalidateListener(this);
+				newModule.addModificationListener(this);
 			}
 		}
 		
 		@Override
-		public void onInvalidate(final Invalidatable source) {
+		public void onModification(final Modifiable source) {
 			assert source instanceof ASTModule;
 			updateModule(); // find new, valid module, and register this file again
 			// no need to invalidate this whole file - any types or such taken from the module are depended on separately
 		}
 		
 		@Override
-		protected synchronized void invalidate() {
-			super.invalidate();
+		protected synchronized void modified() {
+			super.modified();
 			final ASTModule module = this.module;
 			if (module != null) {
 				module.clearFile(identifier);
-				module.removeInvalidateListener(this);
+				module.removeModificationListener(this);
 			}
 		}
 		

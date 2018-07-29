@@ -12,7 +12,7 @@ import ch.njol.tome.Constants;
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.common.AbstractInvalidatable;
+import ch.njol.tome.common.AbstractModifiable;
 import ch.njol.tome.parser.ParseError;
 import ch.njol.tome.util.PrettyPrinter;
 import ch.njol.util.StringUtils;
@@ -148,7 +148,7 @@ public interface Token extends ASTElementPart {
 		
 	}
 	
-	public final static class SymbolsWord extends AbstractInvalidatable implements WordOrSymbols, ASTElement {
+	public final static class SymbolsWord extends AbstractModifiable implements WordOrSymbols, ASTElement {
 		
 		public final List<SymbolToken> symbols;
 		private final String joined;
@@ -212,7 +212,7 @@ public interface Token extends ASTElementPart {
 		
 		@Override
 		public void invalidateSelf() {
-			invalidate();
+			modified();
 		}
 		
 		@Override

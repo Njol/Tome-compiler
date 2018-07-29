@@ -317,12 +317,13 @@ public class Lexer {
 				if (c == '_')
 					continue;
 				final int d = charToInt((char) c, radix);
-				if (d == -1)
+				if (d == -1) {
+					in.back();
 					break;
+				}
 				fract = fract.multiply(radix == 2 ? oneHalf : radix == 16 ? oneSixteenth : oneThenth);
 				res = res.add(new BigDecimal(d).multiply(fract));
 			}
-			in.back();
 			if (in.peekNext(-1) == '.') // no digits after the period
 				in.back();
 		}

@@ -177,7 +177,7 @@ public class ASTModule extends ASTModuleFileElement {
 				if (i.alias.equals(name)) {
 					final IRTypeDefinition t = i.type.get();
 					if (t != null)
-						registerInvalidateListener(t); // if this module is modified, any types accessed this way must be re-checked
+						addModificationListener(t); // if this module is modified, any types accessed this way must be re-checked
 					return t;
 				}
 			}

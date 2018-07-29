@@ -2,12 +2,12 @@ package ch.njol.tome.ast;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.common.AbstractInvalidatable;
+import ch.njol.tome.common.AbstractModifiable;
 import ch.njol.tome.common.Cache;
 import ch.njol.tome.common.Derived;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
 
-public abstract class ASTLink<T extends Derived> extends AbstractInvalidatable {
+public abstract class ASTLink<T extends Derived> extends AbstractModifiable {
 	
 	// not 'parent' to not shadow 'parent' of ASTElement when used an anonymous subclass inside an element
 	public final ASTElement parentElement;
@@ -65,8 +65,8 @@ public abstract class ASTLink<T extends Derived> extends AbstractInvalidatable {
 	}
 	
 	@Override
-	public synchronized void invalidate() {
-		super.invalidate();
+	public synchronized void modified() {
+		super.modified();
 	}
 	
 }

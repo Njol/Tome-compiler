@@ -13,7 +13,7 @@ import org.eclipse.jdt.annotation.Nullable;
  * This class is thread-safe.
  */
 @NonNullByDefault({PARAMETER, RETURN_TYPE, FIELD, ARRAY_CONTENTS})
-public class Cache<T extends Derived> implements InvalidateListener {
+public class Cache<T extends Derived> implements ModificationListener {
 	
 	private final Supplier<T> calculation;
 	private volatile @Nullable T value = null;
@@ -23,7 +23,7 @@ public class Cache<T extends Derived> implements InvalidateListener {
 	}
 	
 	@Override
-	public void onInvalidate(final Invalidatable source) {
+	public void onModification(final Modifiable source) {
 		if (value != null) {
 			synchronized (this) {
 				value = null;
@@ -43,7 +43,7 @@ public class Cache<T extends Derived> implements InvalidateListener {
 				return value;
 			value = calculation.get();
 			if (value != null) {
-				value.registerInvalidateListener(this);
+				value.addModificationListener(this);
 				this.value = value;
 			}
 			return value;

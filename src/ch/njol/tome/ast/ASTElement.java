@@ -9,12 +9,17 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
 import ch.njol.tome.common.ContentAssistProposal;
-import ch.njol.tome.common.Invalidatable;
+import ch.njol.tome.common.Modifiable;
 import ch.njol.tome.common.StringMatcher;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.moduleast.ASTModule;
 
-public interface ASTElement extends ASTElementPart, Invalidatable {
+public interface ASTElement extends ASTElementPart, Modifiable {
+
+	public default ASTElement root() {
+		ASTElement parent = parent();
+		return parent == null ? this : parent.root();
+	}
 	
 	/**
 	 * The parts (i.e. children) of this element. Each element in this list will have its {@link #parent()} set to this element.
@@ -38,6 +43,8 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 		assert child.parent() != this; // this is almost definitely an error
 		child.removeFromParent();
 		insertChild(child, parts().size());
+		assert child.parent() == this;
+		invalidateSubtreeAndParents();
 	}
 	public default void addChildren(final List<? extends ASTElementPart> children) {
 		for (ASTElementPart child : children) {
@@ -122,8 +129,6 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 	
 	/**
 	 * Invalidates this element only.
-	 * <p>
-	 * Invalidating is currently used to unlink any links in this element to and from other elements.
 	 */
 	void invalidateSelf();
 	
@@ -137,7 +142,7 @@ public interface ASTElement extends ASTElementPart, Invalidatable {
 				((ASTElement) part).invalidateSubtree();
 		}
 		for (final ASTLink<?> link : links())
-			link.invalidate();
+			link.modified();
 	}
 	
 	/**
