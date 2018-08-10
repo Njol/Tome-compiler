@@ -76,7 +76,7 @@ public class Lexer {
 		int i = oldTokens.getTokenOffset();
 		while (i < tokens.size() && (ot = oldTokens.getAndMoveForward()) != null) {
 			Token t = tokens.get(i);
-			if (!t.dataEquals(ot)) {
+			if (!t.codeEquals(ot)) {
 				changeStart = i;
 				break;
 			}
@@ -89,7 +89,7 @@ public class Lexer {
 		i = tokens.size() - 1;
 		while (i >= 0 && (ot = oldTokens.getAndMoveBackward()) != null) {
 			Token t = tokens.get(i);
-			if (!t.dataEquals(ot) || t == ot) {
+			if (!t.codeEquals(ot) || t == ot) {
 				changeEnd = oldTokens.getTokenOffset() + 1;
 				break;
 			}

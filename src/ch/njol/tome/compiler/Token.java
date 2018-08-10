@@ -28,6 +28,15 @@ public interface Token extends ASTElementPart {
 	 */
 	public boolean dataEquals(final Token other);
 	
+	/**
+	 * Compares tokens according to their source code.
+	 */
+	public default boolean codeEquals(final Token other) {
+		return getClass() == other.getClass() && getCode().equals(other.getCode());
+	}
+	
+	public String getCode();
+	
 	public void setAbsoluteRegionStart(int absoluteRegionStart);
 	
 	@Override
@@ -116,6 +125,11 @@ public interface Token extends ASTElementPart {
 		
 		@Override
 		public String wordOrSymbols() {
+			return word;
+		}
+		
+		@Override
+		public String getCode() {
 			return word;
 		}
 		
@@ -301,6 +315,11 @@ public interface Token extends ASTElementPart {
 		}
 		
 		@Override
+		public String getCode() {
+			return code;
+		}
+		
+		@Override
 		public List<ParseError> errors() {
 			return errors;
 		}
@@ -343,6 +362,11 @@ public interface Token extends ASTElementPart {
 		}
 		
 		@Override
+		public String getCode() {
+			return code;
+		}
+		
+		@Override
 		public List<ParseError> errors() {
 			return errors;
 		}
@@ -382,6 +406,11 @@ public interface Token extends ASTElementPart {
 		}
 		
 		@Override
+		public String getCode() {
+			return code;
+		}
+		
+		@Override
 		public String toString() {
 			return "$" + parsed.replaceAll("$", "$$") + "$";
 		}
@@ -416,6 +445,11 @@ public interface Token extends ASTElementPart {
 		}
 		
 		@Override
+		public String getCode() {
+			return value;
+		}
+		
+		@Override
 		public String toString() {
 			return value;
 		}
@@ -443,6 +477,11 @@ public interface Token extends ASTElementPart {
 		
 		public SymbolToken(final char symbol) {
 			this.symbol = symbol;
+		}
+		
+		@Override
+		public String getCode() {
+			return "" + symbol;
 		}
 		
 		@Override
@@ -491,6 +530,11 @@ public interface Token extends ASTElementPart {
 		
 		public CommentToken(final String comment) {
 			this.comment = comment;
+		}
+		
+		@Override
+		public String getCode() {
+			return comment;
 		}
 		
 		@Override
