@@ -1,4 +1,4 @@
-package ch.njol.tome.common;
+package ch.njol.tome.util;
 
 /**
  * Object of this type may change, and can inform listeners of that fact.

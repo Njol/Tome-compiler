@@ -6,7 +6,6 @@ import java.util.Set;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.common.AbstractDerived;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
@@ -17,6 +16,7 @@ import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.uses.IRClassUse;
 import ch.njol.tome.ir.uses.IRSimpleClassUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
+import ch.njol.tome.util.AbstractDerived;
 
 // FIXME is this even an object? it's the ABSENCE of an object, and it has no proper type either...
 public class InterpretedNullConstant implements InterpretedObject {

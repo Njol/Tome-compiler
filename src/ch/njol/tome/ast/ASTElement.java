@@ -9,10 +9,10 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
 import ch.njol.tome.common.ContentAssistProposal;
-import ch.njol.tome.common.Modifiable;
-import ch.njol.tome.common.StringMatcher;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.moduleast.ASTModule;
+import ch.njol.tome.util.Modifiable;
+import ch.njol.tome.util.StringMatcher;
 
 public interface ASTElement extends ASTElementPart, Modifiable {
 
@@ -56,6 +56,8 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 	 * Removes a child node from this tree.
 	 */
 	void removeChild(ASTElementPart child);
+	
+	void clearChildren();
 	
 	default boolean containsChild(ASTElementPart ast) {
 		return parts().stream().anyMatch(p -> p == ast);
@@ -127,10 +129,13 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 		invalidateParents();
 	}
 	
-	/**
-	 * Invalidates this element only.
-	 */
-	void invalidateSelf();
+	@Override
+	default void invalidateSelf() {
+		ASTElementPart.super.invalidateSelf();
+		for (final ASTLink<?> link : links())
+			link.modified();
+		clearChildren();
+	}
 	
 	/**
 	 * Invalidates this element and any descendants.
@@ -140,19 +145,6 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 		for (final ASTElementPart part : parts()) {
 			if (part instanceof ASTElement)
 				((ASTElement) part).invalidateSubtree();
-		}
-		for (final ASTLink<?> link : links())
-			link.modified();
-	}
-	
-	/**
-	 * Invalidates any ancestors of this element.
-	 */
-	default void invalidateParents() {
-		final ASTElement parent = parent();
-		if (parent != null) {
-			parent.invalidateSelf();
-			parent.invalidateParents();
 		}
 	}
 	

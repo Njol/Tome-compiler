@@ -12,8 +12,8 @@ import ch.njol.tome.Constants;
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.common.AbstractModifiable;
 import ch.njol.tome.parser.ParseError;
+import ch.njol.tome.util.AbstractModifiable;
 import ch.njol.tome.util.PrettyPrinter;
 import ch.njol.util.StringUtils;
 
@@ -28,9 +28,29 @@ public interface Token extends ASTElementPart {
 	 */
 	public boolean dataEquals(final Token other);
 	
+	public void setAbsoluteRegionStart(int absoluteRegionStart);
+	
+	@Override
+	public default void invalidateSelf() {
+		ASTElementPart.super.invalidateSelf();
+		setAbsoluteRegionStart(-1);
+	}
+	
 	public abstract class AbstractToken implements Token {
 		
+		private int absoluteRegionStart = -1;
+		
 		private @Nullable ASTElement parent = null;
+		
+		@Override
+		public int absoluteRegionStart() {
+			return absoluteRegionStart;
+		}
+		
+		@Override
+		public void setAbsoluteRegionStart(final int absoluteRegionStart) {
+			this.absoluteRegionStart = absoluteRegionStart;
+		}
 		
 		@Override
 		public @Nullable ASTElement parent() {
@@ -221,6 +241,11 @@ public interface Token extends ASTElementPart {
 		}
 		
 		@Override
+		public int absoluteRegionStart() {
+			return symbols.get(0).absoluteRegionStart();
+		}
+		
+		@Override
 		public int regionLength() {
 			return joined.length();
 		}
@@ -232,6 +257,11 @@ public interface Token extends ASTElementPart {
 		
 		@Override
 		public void removeChild(final ASTElementPart child) {
+			assert false;
+		}
+		
+		@Override
+		public void clearChildren() {
 			assert false;
 		}
 		

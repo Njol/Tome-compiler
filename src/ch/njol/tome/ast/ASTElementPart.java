@@ -53,49 +53,50 @@ public interface ASTElementPart extends SourceCodeLinkable {
 		return (T) e;
 	}
 	
+	public default boolean isDescendantOf(ASTElement element) {
+		if (this == element)
+			return true;
+		ASTElement parent = parent();
+		if (parent == null)
+			return false;
+		return parent.isDescendantOf(element);
+	}
+	
 	/**
 	 * @return The start of this element (in characters from the start of the document)
 	 */
-	public default int absoluteRegionStart() {
-		final ASTElement parent = parent();
-		if (parent == null)
-			return 0;
-		return parent.absoluteRegionStart() + relativeRegionStart();
-	}
+	public int absoluteRegionStart();
 	
 	/**
 	 * @return The end of this element (in characters from the start of the document), exclusive
 	 */
 	public default int absoluteRegionEnd() {
-		final ASTElement parent = parent();
-		if (parent == null)
-			return relativeRegionEnd();
-		return parent.absoluteRegionStart() + relativeRegionEnd();
+		return absoluteRegionStart() + regionLength();
 	}
 	
-	/**
-	 * @return The start of this element (in characters from the start of the parent element). If this element has no parent, returns 0.
-	 */
-	public default int relativeRegionStart() {
-		final ASTElement parent = parent();
-		if (parent == null)
-			return 0;
-		int start = 0;
-		for (final ASTElementPart sibling : parent.parts()) {
-			if (sibling == this)
-				return start;
-			start += sibling.regionLength();
-		}
-		assert false : "AST element part [" + this + "] is not a part of its parent element [" + parent + "]. All reported sibling elements: " + parent.parts();
-		return -1;
-	}
-	
-	/**
-	 * @return The end of this element (in characters from the start of the parent element), exclusive. If this element has no parent, returns the length of this element.
-	 */
-	public default int relativeRegionEnd() {
-		return relativeRegionStart() + regionLength();
-	}
+//	/**
+//	 * @return The start of this element (in characters from the start of the parent element). If this element has no parent, returns 0.
+//	 */
+//	public default int relativeRegionStart() {
+//		final ASTElement parent = parent();
+//		if (parent == null)
+//			return 0;
+//		int start = 0;
+//		for (final ASTElementPart sibling : parent.parts()) {
+//			if (sibling == this)
+//				return start;
+//			start += sibling.regionLength();
+//		}
+//		assert false : "AST element part [" + this + "] is not a part of its parent element [" + parent + "]. All reported sibling elements: " + parent.parts();
+//		return -1;
+//	}
+//	
+//	/**
+//	 * @return The end of this element (in characters from the start of the parent element), exclusive. If this element has no parent, returns the length of this element.
+//	 */
+//	public default int relativeRegionEnd() {
+//		return relativeRegionStart() + regionLength();
+//	}
 	
 	/**
 	 * @return Total length of this element in characters.
@@ -129,6 +130,29 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	 * @param out
 	 */
 	public void print(PrettyPrinter out);
+
+	/**
+	 * Invalidates this element only.
+	 */
+	default void invalidateSelf() {
+		setParent(null);
+	}
+	
+	default void invalidateSelfAndParents() {
+		invalidateSelf();
+		invalidateParents();
+	}
+	
+	/**
+	 * Invalidates any ancestors of this element.
+	 */
+	default void invalidateParents() {
+		final ASTElement parent = parent();
+		if (parent != null) {
+			parent.invalidateSelf();
+			parent.invalidateParents();
+		}
+	}
 	
 	/**
 	 * Traverses this AST in a depth-first manner, i.e. in the order in the source code usually.

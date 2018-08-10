@@ -1,4 +1,4 @@
-package ch.njol.tome.common;
+package ch.njol.tome.util;
 
 public interface ModificationListener {
 	

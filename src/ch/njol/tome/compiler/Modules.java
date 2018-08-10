@@ -5,12 +5,12 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.common.Modifiable;
-import ch.njol.tome.common.ModificationListener;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.moduleast.ASTModule;
+import ch.njol.tome.util.Modifiable;
+import ch.njol.tome.util.ModificationListener;
 
 public class Modules implements ModificationListener {
 	

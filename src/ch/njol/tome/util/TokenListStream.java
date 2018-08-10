@@ -81,7 +81,8 @@ public class TokenListStream extends TokenStream {
 			return null;
 		final Token t = tokens.get(tokenIndex);
 		tokenIndex--;
-		characterIndex -= tokens.get(tokenIndex).regionLength();
+		if (tokenIndex >= 0)
+			characterIndex -= tokens.get(tokenIndex).regionLength();
 		return t;
 	}
 	

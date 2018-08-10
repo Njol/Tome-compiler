@@ -16,8 +16,6 @@ import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTMembers.ASTCodeGenerationCallMember;
 import ch.njol.tome.ast.ASTMembers.ASTMemberModifiers;
 import ch.njol.tome.ast.ASTMembers.ASTTemplate;
-import ch.njol.tome.common.Modifiable;
-import ch.njol.tome.common.ModificationListener;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.common.Visibility;
 import ch.njol.tome.compiler.Modules;
@@ -38,6 +36,8 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.moduleast.ASTModule;
 import ch.njol.tome.parser.Parser;
 import ch.njol.tome.util.ASTTokenStream;
+import ch.njol.tome.util.Modifiable;
+import ch.njol.tome.util.ModificationListener;
 import ch.njol.tome.util.TokenListStream;
 
 public class ASTTopLevelElements {
@@ -235,11 +235,12 @@ public class ASTTopLevelElements {
 //		public final List<ASTGenericTypeDeclaration> genericParameters = new ArrayList<>();
 		public @Nullable Visibility visibility;
 		public boolean isNative;
+		public boolean isTemplate;
 		
 		@Override
 		public @NonNull String toString() {
 			return /*(genericParameters.isEmpty() ? "" : "<" + StringUtils.join(genericParameters, ", ") + "> ")
-					+*/ (isNative ? "native " : "") + (visibility == null ? "" : visibility + " ");
+					+*/ (visibility == null ? "" : visibility + " ") + (isNative ? "native " : "") + (isNative ? "template " : "");
 		}
 		
 		public static ASTTopLevelElementModifiers startParsing(final Parser p) {
@@ -254,6 +255,8 @@ public class ASTTopLevelElements {
 				ast.isNative = p.try_("native");
 			}, () -> {
 				ast.visibility = Visibility.parse(p);
+			}, () -> {
+				ast.isTemplate = p.try_("template");
 			});
 			return ast;
 		}
@@ -268,6 +271,7 @@ public class ASTTopLevelElements {
 //			ast.genericParameters.addAll(genericParameters);
 			ast.visibility = visibility;
 			ast.isNative = isNative;
+			ast.template = isTemplate;
 			return p.done(ast);
 		}
 	}

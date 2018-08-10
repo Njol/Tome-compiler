@@ -50,10 +50,8 @@ public class Lexer {
 	 * <p>
 	 * Tokens before the start of the change remain unchanged, and following tokens may or may not change (e.g. if a new comment is started, everything afterwards becomes a comment
 	 * usually). Tokens in the change will be removed and/or new ones will be added (a token is immutable, so a change is a remove and an insert).
-	 * 
-	 * @return The end of the changed region
 	 */
-	public int update(final int offset, final int length) {
+	public void update(final int offset, final int length) {
 		final TokenListStream oldTokens = newStream();
 		tokens = new ArrayList<>(tokens.size() + 2); // usually only a single token or two are added, so the "+2" prevents an unnecessary resize operation
 		Token ot = null, nt;
@@ -65,28 +63,46 @@ public class Lexer {
 		// set text position to start of first intersecting token
 		in.setOffset(ot == null ? offset : oldTokens.getTextOffset());
 		
-		// ignore old tokens that intersect or touch the change
-//		while ((ot = oldTokens.forward()) != null && ot.regionStart() <= offset + length + 1) {} // "+1" because tokenizing sometimes looks ahead a single character
-		// 'ot' is now the first old token not intersecting the change
-		
 		// read new tokens
 		while ((nt = next()) != null) {
 			tokens.add(nt);
-			
-			// the following is not correct, as it wrongly thinks that a moved symbol for example is the same as an old one that was at that location before
-			// so the only way to make this is to either know the change in position (which is probably not correct all the time...), or to parse tokens from the end (which is complicated as e.g. comments are left-to-right)
-//			// move old token stream to new position
-//			while (ot != null && ot.regionStart() < nt.regionStart())
-//				ot = oldTokens.next();
-//			// if a token is equal, all following ones must be equal too, so add them and stop.
-//			if (ot != null && ot.equals(nt)) {
-//				int end = ot.regionStart();
-//				while ((ot = oldTokens.next()) != null)
-//					tokens.add(ot);
-//				return end;
-//			}
 		}
-		return in.getOffset();
+		
+		// start, end (exclusive) of changed tokens (relative to old list)
+		int changeStart = 0, changeEnd = oldTokens.tokens.size();
+		
+		// use old tokens if they are equal
+		// first from before the change (oldTokens is already at first non-identical token) (should be exactly one or zero tokens with a lookahead of 1 character)
+		int i = oldTokens.getTokenOffset();
+		while (i < tokens.size() && (ot = oldTokens.getAndMoveForward()) != null) {
+			Token t = tokens.get(i);
+			if (!t.dataEquals(ot)) {
+				changeStart = i;
+				break;
+			}
+			assert ot.absoluteRegionStart() == t.absoluteRegionStart();
+			tokens.set(i, ot);
+			i--;
+		}
+		// then from the end until after the change
+		oldTokens.setTokenOffset(oldTokens.tokens.size() - 1);
+		i = tokens.size() - 1;
+		while (i >= 0 && (ot = oldTokens.getAndMoveBackward()) != null) {
+			Token t = tokens.get(i);
+			if (!t.dataEquals(ot) || t == ot) {
+				changeEnd = oldTokens.getTokenOffset() + 1;
+				break;
+			}
+			ot.setAbsoluteRegionStart(t.absoluteRegionStart());
+			tokens.set(i, ot);
+			i--;
+		}
+		
+		// invalidate tokens that changed, and their ancestors
+		oldTokens.setTokenOffset(changeStart);
+		while (oldTokens.getTokenOffset() < changeEnd && (ot = oldTokens.getAndMoveForward()) != null) {
+			ot.invalidateSelfAndParents();
+		}
 	}
 	
 	private void tokenize() {
@@ -105,8 +121,16 @@ public class Lexer {
 		return x == '\n' || x == '\r' || x == -1;
 	}
 	
-	// NOTE: do not look ahead more than 1 character (otherwise would need to change the incremental tokenizer)!
 	private @Nullable Token next() {
+		final int start = in.getOffset();
+		final Token t = _next();
+		if (t != null)
+			t.setAbsoluteRegionStart(start);
+		return t;
+	}
+	
+	// NOTE: do not look ahead more than 1 character (otherwise would need to change the incremental tokenizer)!
+	private @Nullable Token _next() {
 		final int firstInt = in.next();
 		if (firstInt == -1)
 			return null;
@@ -119,7 +143,7 @@ public class Lexer {
 			while ((x = in.peekNext()) != -1 && (Character.isLetterOrDigit((char) x) || x == '_'))
 				b.append((char) in.next());
 //			if (keywords.contains(b))
-//				return new KeywordToken("" + b, start, in.getOffset());
+//				return new KeywordToken("" + b, in.getOffset());
 			return Character.isUpperCase(b.charAt(0)) ? new UppercaseWordToken("" + b) : new LowercaseWordToken("" + b);
 		} else if ('0' <= first && first <= '9') { // number (int or float)
 			return parseNumber(first);
@@ -160,7 +184,7 @@ public class Lexer {
 //			else if (isInBlockCodeGen && in.peekNext() == '}') {
 //				isInBlockCodeGen = false;
 //				in.next();
-//				return new CodeGenerationToken("$}", true, start, in.getOffset());
+//				return new CodeGenerationToken("$}", true, in.getOffset());
 //			}
 			final StringBuilder b = new StringBuilder();
 			boolean ended = false;
@@ -290,7 +314,8 @@ public class Lexer {
 		final BigDecimal bigRadix = new BigDecimal(radix);
 		final int fd = charToInt((char) first, radix);
 		if (fd == -1)
-			return new NumberToken(in.getText(start, in.getOffset()), new BigDecimal(0), Arrays.asList(new ParseError("Missing digit after " + (radix == 16 ? "'0x' (start of a hexadecimal number)" : "'0b' (start of a binary number)"), start, in.getOffset() - start)));
+			return new NumberToken(in.getText(start, in.getOffset()), new BigDecimal(0),
+					Arrays.asList(new ParseError("Missing digit after " + (radix == 16 ? "'0x' (start of a hexadecimal number)" : "'0b' (start of a binary number)"), start, in.getOffset() - start)));
 		BigDecimal res = new BigDecimal(fd);
 		int numIntDigits = 1;
 		int c = first;

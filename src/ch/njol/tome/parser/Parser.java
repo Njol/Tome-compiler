@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
+import java.util.function.Function;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
@@ -26,7 +27,7 @@ import ch.njol.util.CollectionUtils;
 
 public class Parser {
 	
-	private final TokenListStream in;
+	protected final TokenListStream in;
 	
 	private final List<ASTElementPart> parts = new ArrayList<>();
 	
@@ -65,7 +66,7 @@ public class Parser {
 		return newParent;
 	}
 	
-	private void addPart(final ASTElementPart part) {
+	protected void addPart(final ASTElementPart part) {
 		assert valid;
 		assert currentChild == null;
 		parts.add(part);
@@ -147,6 +148,10 @@ public class Parser {
 		assert parent.valid;
 		parent.currentChild = null;
 		valid = false;
+	}
+	
+	public <T extends ASTElement> T one(Function<Parser, T> p) {
+		return p.apply(start());
 	}
 	
 	private final List<ParseError> fatalParseErrors = new ArrayList<>(),
@@ -308,14 +313,18 @@ public class Parser {
 		if (Character.isLetter(wordOrSymbol.codePointAt(0))) {
 			final Token t = in.peekNext(delta, skipWhitespace);
 			return t instanceof WordToken && ((WordToken) t).word.equals(wordOrSymbol);
+		} else if (wordOrSymbol.length() == 1) {
+			final Token t = in.peekNext(delta, skipWhitespace);
+			return t instanceof SymbolToken && ((SymbolToken) t).symbol == wordOrSymbol.charAt(0);
 		} else {
-			Token t = in.peekNext(delta, skipWhitespace);
-			if (t == null)
-				return false;
 			final TokenListStream inClone = in.clone();
-			inClone.setTokenOffset(t);
+			for (int i = 0; i < delta; i++) {
+				inClone.moveForward();
+				if (skipWhitespace)
+					inClone.skipWhitespace(c -> {});
+			}
 			for (int i = 0; i < wordOrSymbol.length(); i++) {
-				t = inClone.getAndMoveForward();
+				Token t = inClone.getAndMoveForward();
 				if (!(t instanceof SymbolToken && ((SymbolToken) t).symbol == wordOrSymbol.charAt(i)))
 					return false;
 			}

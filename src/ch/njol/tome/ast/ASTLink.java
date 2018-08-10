@@ -2,10 +2,10 @@ package ch.njol.tome.ast;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.common.AbstractModifiable;
-import ch.njol.tome.common.Cache;
-import ch.njol.tome.common.Derived;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
+import ch.njol.tome.util.AbstractModifiable;
+import ch.njol.tome.util.Cache;
+import ch.njol.tome.util.Derived;
 
 public abstract class ASTLink<T extends Derived> extends AbstractModifiable {
 	

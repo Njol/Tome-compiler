@@ -1,4 +1,4 @@
-package ch.njol.tome.common;
+package ch.njol.tome.util;
 
 import static org.eclipse.jdt.annotation.DefaultLocation.*;
 

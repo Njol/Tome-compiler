@@ -6,7 +6,7 @@ import java.util.Iterator;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.common.Derived;
+import ch.njol.tome.util.Derived;
 
 /**
  * Implementation note: each IR element must register its dependencies using {@link AbstractIRElement#registerDependency}.

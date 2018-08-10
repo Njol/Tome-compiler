@@ -1,4 +1,4 @@
-package ch.njol.tome.common;
+package ch.njol.tome.util;
 
 import java.util.ArrayList;
 import java.util.Collection;

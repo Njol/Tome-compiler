@@ -4,9 +4,13 @@ import org.eclipse.jdt.annotation.Nullable;
 
 public class StringReader implements SourceReader {
 	
-	private final String s;
+	private String s;
 	
 	public StringReader(final String s) {
+		this.s = s;
+	}
+	
+	public void setString(String s) {
 		this.s = s;
 	}
 	

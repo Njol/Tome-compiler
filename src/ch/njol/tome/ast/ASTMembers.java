@@ -28,7 +28,6 @@ import ch.njol.tome.ast.ASTStatements.ASTStatement;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTClassDeclaration;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTInterfaceDeclaration;
 import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
-import ch.njol.tome.common.Cache;
 import ch.njol.tome.common.MethodModifiability;
 import ch.njol.tome.common.Visibility;
 import ch.njol.tome.compiler.Token;
@@ -76,6 +75,7 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.moduleast.ASTModule;
 import ch.njol.tome.parser.Parser;
+import ch.njol.tome.util.Cache;
 import ch.njol.util.StringUtils;
 
 // TODO sections (e.g. 'section nameHere { members here ... }')
@@ -187,6 +187,7 @@ public class ASTMembers {
 		public @Nullable Visibility visibility;
 		public boolean isNative;
 		public boolean isStatic;
+		public boolean template;
 		public @Nullable MethodModifiability modifiability;
 		public boolean context;
 		public boolean recursive;
@@ -195,6 +196,7 @@ public class ASTMembers {
 		@Override
 		public String toString() {
 			return (isNative ? "native " : "") + (isStatic ? "static " : "") + (visibility != null ? visibility + " " : "")
+					+ (template ? "template " : "")
 					+ (modifiability != null ? modifiability + " " : "") + (context ? "context " : "") + (recursive ? "recursive " : "") + (var ? "var " : "")
 					+ (override ? "override " : partialOverride ? "partialOverride " : "")
 					+ (hide ? "hide " : "") + (undefine ? "undefine " : "")
@@ -219,6 +221,8 @@ public class ASTMembers {
 				}, '>');
 			}, () -> {
 				ast.isStatic = p.try_("static");
+			}, () -> {
+				ast.template = p.try_("template");
 			}, () -> {
 				WordOrSymbols overrideToken;
 				if ((overrideToken = p.try2("override")) != null) {
