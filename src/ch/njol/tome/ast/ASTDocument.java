@@ -10,7 +10,7 @@ import ch.njol.tome.parser.ParseError;
  * Technically, every {@link ASTElement} is an AST, but this interface adds metadata to the whole tree, like the source list of tokens used to build it.
  */
 public interface ASTDocument<Root extends ASTElement> {
-
+	
 	/**
 	 * @return The root of this AST
 	 */

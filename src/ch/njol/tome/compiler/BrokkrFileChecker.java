@@ -1,6 +1,6 @@
 package ch.njol.tome.compiler;
 
-import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
+import ch.njol.tome.ast.toplevel.ASTSourceFile;
 
 public interface BrokkrFileChecker {
 	

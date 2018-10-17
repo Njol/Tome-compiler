@@ -7,9 +7,9 @@ import ch.njol.tome.parser.ParseError;
 public class SimpleASTDocument<Root extends ASTElement> implements ASTDocument<Root> {
 	
 	private final Root root;
-	private List<ParseError> fatalParseErrors;
+	private final List<ParseError> fatalParseErrors;
 	
-	public SimpleASTDocument(final Root root, List<ParseError> fatalParseErrors) {
+	public SimpleASTDocument(final Root root, final List<ParseError> fatalParseErrors) {
 		this.root = root;
 		this.fatalParseErrors = fatalParseErrors;
 	}
@@ -18,7 +18,7 @@ public class SimpleASTDocument<Root extends ASTElement> implements ASTDocument<R
 	public Root root() {
 		return root;
 	}
-
+	
 	@Override
 	public List<ParseError> fatalParseErrors() {
 		return fatalParseErrors;

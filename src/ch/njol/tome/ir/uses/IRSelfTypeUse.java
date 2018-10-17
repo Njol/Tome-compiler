@@ -29,7 +29,7 @@ public class IRSelfTypeUse extends AbstractIRTypeUse {
 	public IRSelfTypeUse(final IRTypeUse parent) {
 		this.parent = parent;
 	}
-
+	
 	/**
 	 * Creates a new 'Self' expression as if it were written where the given AST element is, i.e. will create a 'Self' expression for the innermost enclosing type of the given AST
 	 * element.

@@ -1,7 +1,7 @@
 package ch.njol.tome.compiler;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTVariable;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
+import ch.njol.tome.ast.toplevel.ASTSourceFile;
 import ch.njol.tome.ir.IRContext;
 
 /**

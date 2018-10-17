@@ -16,9 +16,9 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.interpreter.InterpretedNormalObject;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpretedTuple;
+import ch.njol.tome.interpreter.InterpretedTuple.InterpretedTypeTuple;
 import ch.njol.tome.interpreter.InterpreterContext;
 import ch.njol.tome.interpreter.InterpreterException;
-import ch.njol.tome.interpreter.InterpretedTuple.InterpretedTypeTuple;
 import ch.njol.tome.ir.AbstractIRElement;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.IRError;
@@ -389,7 +389,7 @@ public abstract class IRTuple extends AbstractIRElement implements IRExpression 
 		public Set<? extends IRTypeUse> allInterfaces() {
 			return new HashSet<>(Arrays.asList(typeTuple.irContext.getTypeUse("lang", "Tuple")));
 		}
-
+		
 		@Override
 		public List<IRAttributeRedefinition> positionalGenericParameters() {
 			return Collections.EMPTY_LIST;

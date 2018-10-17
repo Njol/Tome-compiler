@@ -26,7 +26,7 @@ public class IRContext {
 	/**
 	 * Creates a new, empty IR context. Useful only for cases where the context cannot be found, e.g. if a file has no module declaration.
 	 */
-	public IRContext(String description) {
+	public IRContext(final String description) {
 		this(new Modules(description));
 	}
 	

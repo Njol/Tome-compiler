@@ -3,7 +3,7 @@ package ch.njol.tome.ir.definitions;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.ASTMembers.ASTNormalResult;
+import ch.njol.tome.ast.members.ASTNormalResult;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.expressions.IRExpression;
 

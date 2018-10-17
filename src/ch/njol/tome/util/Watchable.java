@@ -3,7 +3,7 @@ package ch.njol.tome.util;
 /**
  * Object of this type may change, and can inform listeners of that fact.
  */
-public interface Modifiable {
+public interface Watchable {
 	
 	/**
 	 * Registers a listener to be notified when this object becomes invalid.

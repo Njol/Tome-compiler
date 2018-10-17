@@ -4,7 +4,7 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.ast.ASTMembers.ASTAttributeDeclaration;
+import ch.njol.tome.ast.members.ASTAttributeDeclaration;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterException;
 

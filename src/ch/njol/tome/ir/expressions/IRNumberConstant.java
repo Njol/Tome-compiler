@@ -2,7 +2,7 @@ package ch.njol.tome.ir.expressions;
 
 import java.math.BigDecimal;
 
-import ch.njol.tome.ast.ASTExpressions.ASTNumberConstant;
+import ch.njol.tome.ast.expressions.ASTNumberConstant;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterContext;
 import ch.njol.tome.interpreter.InterpreterException;
@@ -24,8 +24,8 @@ public class IRNumberConstant extends AbstractIRExpression {
 	private final BigDecimal value;
 	
 	public IRNumberConstant(final ASTNumberConstant ast) {
-		this.irContext = ast.getIRContext();
-		this.value = registerDependency(ast).value;
+		irContext = ast.getIRContext();
+		value = registerDependency(ast).value;
 	}
 	
 	@Override

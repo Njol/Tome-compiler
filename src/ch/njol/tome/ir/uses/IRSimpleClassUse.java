@@ -12,7 +12,6 @@ public class IRSimpleClassUse extends IRSimpleTypeUse implements IRClassUse {
 		super(type);
 	}
 	
-	
 	@Override
 	public IRClassDefinition getDefinition() {
 		return (IRClassDefinition) super.getDefinition();

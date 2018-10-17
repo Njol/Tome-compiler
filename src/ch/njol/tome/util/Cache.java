@@ -23,7 +23,7 @@ public class Cache<T extends Derived> implements ModificationListener {
 	}
 	
 	@Override
-	public void onModification(final Modifiable source) {
+	public void onModification(final Watchable source) {
 		if (value != null) {
 			synchronized (this) {
 				value = null;

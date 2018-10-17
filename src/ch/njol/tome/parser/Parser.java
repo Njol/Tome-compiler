@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
@@ -29,27 +30,28 @@ public class Parser {
 	
 	protected final TokenListStream in;
 	
-	private final List<ASTElementPart> parts = new ArrayList<>();
+	protected final List<ASTElementPart> parts = new ArrayList<>();
 	
-	private @Nullable Parser parent;
+	protected @Nullable Parser parent;
 	
-	private @Nullable Parser currentChild;
+	protected @Nullable Parser currentChild;
 	
-	private boolean valid = true;
+	protected boolean valid = true;
 	
 	public Parser(final TokenListStream in) {
 		this.in = in;
 		parent = null;
 	}
 	
-	private Parser(final Parser parent) {
+	protected Parser(final Parser parent) {
 		in = parent.in;
 		this.parent = parent;
 	}
 	
+	@SuppressWarnings("null")
 	public Parser start() {
 		assert valid;
-		assert currentChild == null;
+		assert currentChild == null : currentChild.parts.stream().map(e -> e + "[" + e.getClass() + "]").collect(Collectors.toList());
 		return currentChild = new Parser(this);
 	}
 	
@@ -150,8 +152,41 @@ public class Parser {
 		valid = false;
 	}
 	
-	public <T extends ASTElement> T one(Function<Parser, T> p) {
-		return p.apply(start());
+	public <T extends ASTElement> T one(final Function<Parser, T> p) {
+		final Parser child = start();
+		final T result = p.apply(child);
+		assert valid;
+		assert currentChild == child;
+		child.done(result);
+		return result;
+	}
+	
+	/**
+	 * Removes a parsed element, and replaces it with its children
+	 * 
+	 * @param ast
+	 */
+	public void unparse(final ASTElement ast) {
+		assert valid;
+		assert currentChild == null;
+		assert ast.parent() == null;
+		int index = -1;
+		for (int i = 0; i < parts.size(); i++) {
+			if (parts.get(i) == ast) {
+				index = i;
+				break;
+			}
+		}
+		assert index >= 0;
+		parts.remove(index);
+		int i = index;
+		for (final ASTElementPart part : ast.parts()) {
+			parts.add(i, part);
+			i++;
+		}
+		ast.clearChildren();
+		ast.invalidateSelf();
+		return;
 	}
 	
 	private final List<ParseError> fatalParseErrors = new ArrayList<>(),
@@ -324,7 +359,7 @@ public class Parser {
 					inClone.skipWhitespace(c -> {});
 			}
 			for (int i = 0; i < wordOrSymbol.length(); i++) {
-				Token t = inClone.getAndMoveForward();
+				final Token t = inClone.getAndMoveForward();
 				if (!(t instanceof SymbolToken && ((SymbolToken) t).symbol == wordOrSymbol.charAt(i)))
 					return false;
 			}

@@ -134,7 +134,7 @@ public class IRTypeUseClassUse extends AbstractIRTypeUse implements IRClassUse {
 			}
 			return IRTypeDefinition.compareTypeDefinitionClasses(this.getClass(), other.getClass());
 		}
-
+		
 		@Override
 		public List<IRAttributeRedefinition> positionalGenericParameters() {
 			// TODO has one parameter, but what attribute should it link to?

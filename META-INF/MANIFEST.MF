@@ -8,6 +8,10 @@ Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Require-Bundle: org.eclipse.jdt.annotation
 Export-Package: ch.njol.tome,
  ch.njol.tome.ast,
+ ch.njol.tome.ast.expressions,
+ ch.njol.tome.ast.members,
+ ch.njol.tome.ast.statements,
+ ch.njol.tome.ast.toplevel,
  ch.njol.tome.common,
  ch.njol.tome.compiler,
  ch.njol.tome.ir,

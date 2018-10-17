@@ -11,9 +11,9 @@ import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTModuleDeclaration;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTModuleIdentifier;
+import ch.njol.tome.ast.toplevel.ASTModuleDeclaration;
+import ch.njol.tome.ast.toplevel.ASTModuleIdentifier;
+import ch.njol.tome.ast.toplevel.ASTSourceFile;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.compiler.SourceCodeLinkable;
 import ch.njol.tome.ir.AbstractIRElement;
@@ -72,7 +72,7 @@ public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement i
 //	public boolean isStatic() {
 //		return true;
 //	}
-
+	
 //	@Override
 //	public @Nullable IRMemberUse getUse(@Nullable final IRTypeUse targetType, final Map<IRGenericTypeDefinition, IRTypeUse> genericArguments) {
 //		return null;
@@ -121,22 +121,22 @@ public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement i
 			return Collections.singleton(new IRUnknownTypeUse(getIRContext()));
 		}
 	}
-
+	
 	private @Nullable List<IRAttributeRedefinition> positionalGenericParameters = null;
 	
 	@Override
 	public List<IRAttributeRedefinition> positionalGenericParameters() {
-		 List<IRAttributeRedefinition> positionalGenericParameters = this.positionalGenericParameters;
+		List<IRAttributeRedefinition> positionalGenericParameters = this.positionalGenericParameters;
 		if (positionalGenericParameters == null) {
 			this.positionalGenericParameters = positionalGenericParameters = new ArrayList<>();
 			for (final ASTGenericParameter gp : ast.genericParameters()) {
-				IRAttributeRedefinition attribute = gp.declaration();
+				final IRAttributeRedefinition attribute = gp.declaration();
 				if (attribute != null)
 					positionalGenericParameters.add(attribute);
 			}
 		}
 		return positionalGenericParameters;
-	
+		
 	}
 	
 	@Override

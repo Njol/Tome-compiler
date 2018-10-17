@@ -1,6 +1,6 @@
 package ch.njol.tome.ir.definitions;
 
-import ch.njol.tome.ast.ASTMembers.ASTAttributeDeclaration;
+import ch.njol.tome.ast.members.ASTAttributeDeclaration;
 
 public class IRBrokkrAttributeRedefinition extends AbstractIRBrokkrAttribute {
 	

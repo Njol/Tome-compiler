@@ -47,7 +47,7 @@ public interface SourceReader {
 		while (Character.isWhitespace(peekNext()))
 			next();
 	}
-
+	
 	public String getText(int start, int end);
 	
 }

@@ -136,7 +136,7 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 	default InterpretedObject interpretDispatched(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) throws InterpreterException {
 		return thisObject.nativeClass().getAttributeImplementation(definition()).interpretImplementation(thisObject, arguments, allResults);
 	}
-
+	
 	default IRAttributeUse getUse(@Nullable final IRTypeUse targetType) {
 		final Map<IRParameterDefinition, IRTypeUse> argumentTypes = new HashMap<>();
 		for (final IRParameterRedefinition p : parameters()) {
@@ -144,7 +144,7 @@ public interface IRAttributeRedefinition extends IRMemberRedefinition, IRVariabl
 		}
 		return new IRAttributeUse(this, targetType, argumentTypes);
 	}
-
+	
 	@Override
 	default @NonNull IRAttributeUse getUse(@Nullable final IRTypeUse targetType, final Map<IRAttributeDefinition, IRTypeUse> genericArguments) {
 		final Map<IRParameterDefinition, IRTypeUse> argumentTypes = new HashMap<>();

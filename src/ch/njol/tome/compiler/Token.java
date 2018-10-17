@@ -11,9 +11,8 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.Constants;
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTElementPart;
-import ch.njol.tome.ast.ASTLink;
 import ch.njol.tome.parser.ParseError;
-import ch.njol.tome.util.AbstractModifiable;
+import ch.njol.tome.util.AbstractInvalidatable;
 import ch.njol.tome.util.PrettyPrinter;
 import ch.njol.util.StringUtils;
 
@@ -39,13 +38,7 @@ public interface Token extends ASTElementPart {
 	
 	public void setAbsoluteRegionStart(int absoluteRegionStart);
 	
-	@Override
-	public default void invalidateSelf() {
-		ASTElementPart.super.invalidateSelf();
-		setAbsoluteRegionStart(-1);
-	}
-	
-	public abstract class AbstractToken implements Token {
+	public abstract class AbstractToken extends AbstractInvalidatable implements Token {
 		
 		private int absoluteRegionStart = -1;
 		
@@ -105,6 +98,12 @@ public interface Token extends ASTElementPart {
 		 * @return
 		 */
 		protected abstract boolean dataEquals_(Token t);
+		
+		@Override
+		public void invalidateSelf() {
+			setAbsoluteRegionStart(-1);
+			invalidate();
+		}
 		
 	}
 	
@@ -182,7 +181,7 @@ public interface Token extends ASTElementPart {
 		
 	}
 	
-	public final static class SymbolsWord extends AbstractModifiable implements WordOrSymbols, ASTElement {
+	public final static class SymbolsWord extends AbstractInvalidatable implements WordOrSymbols, ASTElement {
 		
 		public final List<SymbolToken> symbols;
 		private final String joined;
@@ -235,18 +234,8 @@ public interface Token extends ASTElementPart {
 		}
 		
 		@Override
-		public void addLink(final ASTLink<?> link) {
-			throw new UnsupportedOperationException();
-		}
-		
-		@Override
-		public List<ASTLink<?>> links() {
-			return Collections.emptyList();
-		}
-		
-		@Override
 		public void invalidateSelf() {
-			modified();
+			invalidate();
 		}
 		
 		@Override
@@ -598,6 +587,10 @@ public interface Token extends ASTElementPart {
 			return prettyStringRemovalPattern.matcher(
 					comment.substring(Constants.MULTI_LINE_COMMENT_START.length(), comment.length() - Constants.MULTI_LINE_COMMENT_END.length()))
 					.replaceAll(" ").trim();
+		}
+		
+		public boolean isEndedProperly() {
+			return errors.isEmpty(); // TODO what if there will be other errors eventually?
 		}
 		
 		@Override

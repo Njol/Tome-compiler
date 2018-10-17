@@ -1,6 +1,6 @@
 package ch.njol.tome.ir.definitions;
 
-import ch.njol.tome.ast.ASTMembers.ASTNormalResult;
+import ch.njol.tome.ast.members.ASTNormalResult;
 
 public class IRBrokkrResultRedefinition extends AbstractIRBrokkrResult {
 	

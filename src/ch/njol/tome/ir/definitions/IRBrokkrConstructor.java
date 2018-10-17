@@ -10,9 +10,9 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
-import ch.njol.tome.ast.ASTMembers.ASTConstructor;
-import ch.njol.tome.ast.ASTMembers.ASTSimpleParameter;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTClassDeclaration;
+import ch.njol.tome.ast.members.ASTConstructor;
+import ch.njol.tome.ast.members.ASTSimpleParameter;
+import ch.njol.tome.ast.toplevel.ASTClassDeclaration;
 import ch.njol.tome.interpreter.InterpretedNormalObject;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterContext;

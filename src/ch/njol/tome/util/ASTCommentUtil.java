@@ -14,7 +14,7 @@ public final class ASTCommentUtil {
 	 */
 	public static String getCommentBefore(final ASTElement ast) {
 		final StringBuilder result = new StringBuilder();
-		ASTTokenStream stream = new ASTTokenStream(ast);
+		final ASTTokenStream stream = new ASTTokenStream(ast);
 		stream.moveBackward(); // move to the first token before the element
 		// combine comments as long as we only see comment and whitespace tokens
 		Token t = stream.current();

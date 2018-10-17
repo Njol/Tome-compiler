@@ -16,7 +16,7 @@ import ch.njol.tome.ast.ASTDocument;
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
+import ch.njol.tome.ast.toplevel.ASTSourceFile;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.compiler.Modules;
 import ch.njol.tome.compiler.Token.UppercaseWordToken;
@@ -68,27 +68,34 @@ public class ASTModule extends ASTModuleFileElement {
 	public Map<ModuleIdentifier, List<ASTImport>> imports = new HashMap<>();
 	
 	public final static class ASTImport extends ASTModuleFileElement {
-		public ASTLink<IRTypeDefinition> type = new ASTLink<IRTypeDefinition>(this) {
+		public ASTImportLink type;
+		public String alias;
+		
+		private static class ASTImportLink extends ASTLink<IRTypeDefinition> {
 			@Override
-			protected @Nullable IRTypeDefinition tryLink(final String name) {
+			protected @Nullable IRTypeDefinition tryLink(String name) {
 				final ASTModule module = getParentOfType(ASTModule.class);
+				final ASTImport importStatement = getParentOfType(ASTImport.class);
 				assert module != null;
 				for (final Entry<ModuleIdentifier, List<ASTImport>> e : module.imports.entrySet()) {
-					if (!e.getValue().stream().anyMatch(l -> l == ASTImport.this)) // find module of this import // TODO improve this to directly access parent element
+					if (!e.getValue().stream().anyMatch(l -> l == importStatement)) // find module of this import // TODO improve this to directly access parent element
 						continue;
 					final ASTModule importedModule = module.modules.get(e.getKey());
 					return importedModule == null ? null : importedModule.getDeclaredType(name);
 				}
 				return null;
 			}
-		};
-		public String alias;
+			
+			private static @Nullable ASTImportLink tryParse(Parser parent) {
+				return tryParse(new ASTImportLink(), parent, Parser::oneTypeIdentifierToken);
+			}
+		}
 		
 		@SuppressWarnings({"null", "unused"})
 		private ASTImport() {}
 		
 		public ASTImport(final WordToken type, final @Nullable String alias) {
-			this.type.setName(type);
+			this.type = new ASTImportLink();
 			this.alias = alias == null ? type.word : alias;
 		}
 		
@@ -97,15 +104,16 @@ public class ASTModule extends ASTModuleFileElement {
 			return type.getName() + (alias.equals(type.getName()) ? "" : " as " + alias);
 		}
 		
+		@SuppressWarnings("null")
 		@Override
 		public ASTModuleFileElement parse(final Parser parent) {
-			Parser p = parent.start();
-			ASTImport ast = new ASTImport();
-			final UppercaseWordToken typeName = p.oneTypeIdentifierToken();
-			if (typeName == null)
+			final Parser p = parent.start();
+			final ASTImport ast = new ASTImport();
+			ASTImportLink type = ASTImportLink.tryParse(p);
+			if (type == null)
 				return p.done(ast);
-			ast.type.setName(typeName);
-			ast.alias = typeName.word; // make sure 'alias' not null even if the next lines fail
+			ast.type = type;
+			ast.alias = type.getName(); // make sure 'alias' not null even if the next lines fail
 			if (p.try_("as")) {
 				final String alias = p.oneTypeIdentifier();
 				if (alias != null)

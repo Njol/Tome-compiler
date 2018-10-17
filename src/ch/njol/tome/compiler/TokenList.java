@@ -94,7 +94,7 @@ public class TokenList implements Iterable<Token> {
 	@Override
 	public boolean equals(@Nullable final Object obj) {
 		if (obj instanceof TokenList) {
-			List<Token> tokens2 = ((TokenList) obj).tokens;
+			final List<Token> tokens2 = ((TokenList) obj).tokens;
 			if (tokens.size() != tokens2.size())
 				return false;
 			for (int i = 0; i < tokens.size(); i++) {

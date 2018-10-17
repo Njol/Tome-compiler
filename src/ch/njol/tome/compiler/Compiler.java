@@ -19,7 +19,7 @@ import org.eclipse.jdt.annotation.NonNull;
 import ch.njol.tome.ast.ASTDocument;
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTElementPart;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
+import ch.njol.tome.ast.toplevel.ASTSourceFile;
 import ch.njol.tome.parser.ParseError;
 import ch.njol.tome.util.PrettyPrinter;
 
@@ -50,7 +50,7 @@ public class Compiler {
 		result.root().print(new PrettyPrinter(System.out, "| "));
 		System.out.println();
 		
-		List<ParseError> errors = result.fatalParseErrors();
+		final List<ParseError> errors = result.fatalParseErrors();
 		if (errors.isEmpty()) {
 			System.out.println("Parsing successful (" + (System.nanoTime() - startTime) / 1_000_000.0 + " ms)");
 		} else {

@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
@@ -80,7 +81,7 @@ public abstract class CollectionUtils {
 		}
 		return -1;
 	}
-
+	
 	public static <T> boolean contains(final @Nullable T @Nullable [] array, final @Nullable T o) {
 		return indexOf(array, o) != -1;
 	}
@@ -128,11 +129,11 @@ public abstract class CollectionUtils {
 		}
 		return -1;
 	}
-
+	
 	public final static boolean contains(final int @Nullable [] array, final int num) {
 		return indexOf(array, num) != -1;
 	}
-
+	
 	public static int indexOf(final char @Nullable [] array, final char c) {
 		if (array == null)
 			return -1;
@@ -154,7 +155,7 @@ public abstract class CollectionUtils {
 		}
 		return -1;
 	}
-
+	
 	public final static boolean contains(final char @Nullable [] array, final char c) {
 		return indexOf(array, c) != -1;
 	}
@@ -467,6 +468,10 @@ public abstract class CollectionUtils {
 		for (final Collection<T> c : collections)
 			result.addAll(c);
 		return result;
+	}
+	
+	public static <T> boolean anyMatch(@NonNull final T[] array, final Predicate<? super T> predicate) {
+		return Arrays.asList(array).stream().anyMatch(predicate);
 	}
 	
 }

@@ -1,6 +1,6 @@
 package ch.njol.tome.ir.expressions;
 
-import ch.njol.tome.ast.ASTExpressions.ASTNull;
+import ch.njol.tome.ast.expressions.ASTNull;
 import ch.njol.tome.interpreter.InterpretedNullConstant;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterContext;

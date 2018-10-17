@@ -11,7 +11,7 @@ public interface IRClassDefinition extends IRTypeDefinition {
 //	default boolean isSupertypeOfOrEqual(final IRTypeDefinition other) {
 //		return equalsType(other); // classes cannot be subtyped // TODO actually, tuples can - or should those be split into interfaces and classes?
 //	}
-
+	
 //	default @Nullable IRAttributeImplementation getAttributeImplementation(final IRAttributeDefinition definition) {
 //		final IRAttributeRedefinition redefinition = getAttributeRedefinition(definition);
 //		if (redefinition == null)
@@ -20,5 +20,5 @@ public interface IRClassDefinition extends IRTypeDefinition {
 //			throw new InterpreterException("Attribute " + redefinition.name() + " in class " + this + " is not implemented");
 //		return (IRAttributeImplementation) redefinition;
 //	}
-
+	
 }

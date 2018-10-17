@@ -18,8 +18,8 @@ import java.util.Map.Entry;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElement;
-import ch.njol.tome.ast.ASTTopLevelElements.ASTModuleIdentifier;
 import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.toplevel.ASTModuleIdentifier;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
@@ -31,7 +31,7 @@ import ch.njol.tome.parser.Parser.VoidProcessor;
 public abstract class ASTModuleFileElement extends AbstractASTElement {
 	
 	public ASTModuleFileElement parse(final Parser parent) {
-		Parser p = parent.start();
+		final Parser p = parent.start();
 		final VoidProcessor x = () -> {
 			do {
 				final LowercaseWordToken key = p.oneVariableIdentifierToken();
@@ -131,7 +131,7 @@ public abstract class ASTModuleFileElement extends AbstractASTElement {
 		}
 		
 		public static MapElement parseMap(final Parser parent, final String name, final ParameterizedType genericType) {
-			Parser p = parent.start();
+			final Parser p = parent.start();
 			final MapElement ast = new MapElement(name);
 			final Type keyType = genericType.getActualTypeArguments()[0],
 					valueType = genericType.getActualTypeArguments()[1];
@@ -162,7 +162,7 @@ public abstract class ASTModuleFileElement extends AbstractASTElement {
 		}
 		
 		public static ListElement parseList(final Parser parent, final String name, final ParameterizedType genericType) {
-			Parser p = parent.start();
+			final Parser p = parent.start();
 			final ListElement ast = new ListElement(name);
 			final Type valueType = genericType.getActualTypeArguments()[0];
 			assert valueType != null;

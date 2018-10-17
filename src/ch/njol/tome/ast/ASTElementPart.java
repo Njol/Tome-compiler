@@ -7,17 +7,20 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.compiler.SourceCodeLinkable;
 import ch.njol.tome.ir.IRContext;
+import ch.njol.tome.util.Invalidatable;
 import ch.njol.tome.util.PrettyPrinter;
 
-public interface ASTElementPart extends SourceCodeLinkable {
+public interface ASTElementPart extends SourceCodeLinkable, Invalidatable {
 	
 	public @Nullable ASTElement parent();
 	
 	public static void assertValidParent(final ASTElementPart child, @Nullable final ASTElement parent) {
 		assert parent != child; // TODO check for longer cycles as well
 		final ASTElement existingParent = child.parent();
-		assert existingParent == null || !existingParent.containsChild(child);
+		assert existingParent == null || !existingParent.isValid() || !existingParent.containsChild(child);
 		assert parent == null || parent.containsChild(child);
+		assert parent == null || child.isValid();
+		assert parent == null || parent.isValid();
 	}
 	
 	/**
@@ -32,7 +35,7 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	public void setParent(@Nullable ASTElement parent);
 	
 	default void removeFromParent() {
-		ASTElement parent = parent();
+		final ASTElement parent = parent();
 		if (parent != null)
 			parent.removeChild(this);
 	}
@@ -53,10 +56,10 @@ public interface ASTElementPart extends SourceCodeLinkable {
 		return (T) e;
 	}
 	
-	public default boolean isDescendantOf(ASTElement element) {
+	public default boolean isDescendantOf(final ASTElement element) {
 		if (this == element)
 			return true;
-		ASTElement parent = parent();
+		final ASTElement parent = parent();
 		if (parent == null)
 			return false;
 		return parent.isDescendantOf(element);
@@ -90,7 +93,7 @@ public interface ASTElementPart extends SourceCodeLinkable {
 //		assert false : "AST element part [" + this + "] is not a part of its parent element [" + parent + "]. All reported sibling elements: " + parent.parts();
 //		return -1;
 //	}
-//	
+//
 //	/**
 //	 * @return The end of this element (in characters from the start of the parent element), exclusive. If this element has no parent, returns the length of this element.
 //	 */
@@ -130,13 +133,11 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	 * @param out
 	 */
 	public void print(PrettyPrinter out);
-
+	
 	/**
 	 * Invalidates this element only.
 	 */
-	default void invalidateSelf() {
-		setParent(null);
-	}
+	void invalidateSelf();
 	
 	default void invalidateSelfAndParents() {
 		invalidateSelf();
@@ -148,10 +149,8 @@ public interface ASTElementPart extends SourceCodeLinkable {
 	 */
 	default void invalidateParents() {
 		final ASTElement parent = parent();
-		if (parent != null) {
-			parent.invalidateSelf();
-			parent.invalidateParents();
-		}
+		if (parent != null)
+			parent.invalidateSelfAndParents();
 	}
 	
 	/**

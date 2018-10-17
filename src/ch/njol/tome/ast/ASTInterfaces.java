@@ -3,9 +3,13 @@ package ch.njol.tome.ast;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.ast.ASTMembers.ASTMemberModifiers;
+import ch.njol.tome.ast.expressions.ASTArgument;
+import ch.njol.tome.ast.expressions.ASTAttributeAssignment;
+import ch.njol.tome.ast.expressions.ASTDirectAttributeAccess;
+import ch.njol.tome.ast.members.ASTMemberModifiers;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
 import ch.njol.tome.ir.IRElement;
 import ch.njol.tome.ir.IRError;
@@ -54,7 +58,21 @@ public class ASTInterfaces {
 	}
 	
 	public static interface ASTElementWithIR extends ASTElement {
-		public IRElement getIR();
+		public @Nullable IRElement getIR();
+	}
+	
+	/**
+	 * A method call with arguments. Used by {@link ASTArgument} to find its linked parameter.
+	 */
+	public static interface ASTMethodCall extends ASTElement {
+		public @Nullable IRAttributeRedefinition attribute();
+	}
+	
+	/**
+	 * Used by the links in {@link ASTDirectAttributeAccess} and {@link ASTAttributeAssignment} .
+	 */
+	public static interface ASTTargettedExpression extends ASTElement {
+		public @Nullable IRTypeUse targetType();
 	}
 	
 	public static interface ASTVariableOrAttribute extends NamedASTElement, TypedASTElement {}
@@ -66,23 +84,23 @@ public class ASTInterfaces {
 	public static interface ASTLocalVariable extends ASTVariable, ASTElementWithIR {
 		
 		@Override
-		public IRVariableRedefinition getIR();
+		public @NonNull IRVariableRedefinition getIR();
 		
 	}
 	
 	public static interface ASTParameter extends ASTVariable, ASTElementWithIR {
 		
 		@Override
-		IRParameterRedefinition getIR();
+		public @NonNull IRParameterRedefinition getIR();
 		
 //		public @Nullable FormalParameter overridden();
-	
+		
 	}
 	
 	public static interface ASTResult extends TypedASTElement, NamedASTElement, ASTElementWithIR {
 		
 		@Override
-		IRResultRedefinition getIR();
+		public @NonNull IRResultRedefinition getIR();
 		
 	}
 	
@@ -96,7 +114,7 @@ public class ASTInterfaces {
 				if (name.equals(e.name()))
 					return e.getIRError();
 			}
-			final IRMemberRedefinition parent = modifiers().overridden.get();
+			final IRMemberRedefinition parent = modifiers().overridden();
 			return parent != null && parent instanceof IRAttributeRedefinition ? ((IRAttributeRedefinition) parent).getErrorByName(name) : null;
 		}
 		
@@ -107,7 +125,7 @@ public class ASTInterfaces {
 				if (name.equals(r.name()))
 					return r.getIR();
 			}
-			final IRMemberRedefinition parent = modifiers().overridden.get();
+			final IRMemberRedefinition parent = modifiers().overridden();
 			if (parent != null && parent instanceof IRAttributeRedefinition) {
 				final IRResultRedefinition r = ((IRAttributeRedefinition) parent).getResultByName(name);
 				if (r != null)
@@ -150,7 +168,7 @@ public class ASTInterfaces {
 		}
 		
 		@Override
-		public IRAttributeRedefinition getIR();
+		public @NonNull IRAttributeRedefinition getIR();
 		
 	}
 	
@@ -177,7 +195,7 @@ public class ASTInterfaces {
 	public static interface ASTExpression extends TypedASTElement, ASTElementWithIR {
 		
 		@Override
-		IRExpression getIR();
+		public @NonNull IRExpression getIR();
 		
 		@Override
 		default IRTypeUse getIRType() {
@@ -200,7 +218,7 @@ public class ASTInterfaces {
 		IRTypeUse parentTypes();
 		
 		@Override
-		IRTypeDefinition getIR();
+		public @NonNull IRTypeDefinition getIR();
 		
 	}
 	
@@ -235,7 +253,7 @@ public class ASTInterfaces {
 	public static interface ASTTypeUse extends TypedASTElement, ASTElementWithIR {
 		
 		@Override
-		IRTypeUse getIR();
+		public @NonNull IRTypeUse getIR();
 		
 		@Override
 		default IRTypeUse getIRType() {

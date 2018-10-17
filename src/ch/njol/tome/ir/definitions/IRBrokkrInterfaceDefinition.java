@@ -1,6 +1,6 @@
 package ch.njol.tome.ir.definitions;
 
-import ch.njol.tome.ast.ASTTopLevelElements.ASTInterfaceDeclaration;
+import ch.njol.tome.ast.toplevel.ASTInterfaceDeclaration;
 
 /**
  * The native description of a Brokkr interface.

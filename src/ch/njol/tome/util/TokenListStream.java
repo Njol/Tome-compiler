@@ -197,6 +197,10 @@ public class TokenListStream extends TokenStream {
 	public void setTextOffset(final int index) {
 		assert 0 <= index : index;
 		characterIndex = 0;
+		if (index == 0) { // special case: 0 is allowed if token list is empty
+			tokenIndex = 0;
+			return;
+		}
 		for (int i = 0; i < tokens.size(); i++) {
 			final Token token = tokens.get(i);
 			if (characterIndex <= index) {

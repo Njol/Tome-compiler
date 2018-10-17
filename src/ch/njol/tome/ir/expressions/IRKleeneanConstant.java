@@ -1,6 +1,6 @@
 package ch.njol.tome.ir.expressions;
 
-import ch.njol.tome.ast.ASTExpressions.ASTKleeneanConstant;
+import ch.njol.tome.ast.expressions.ASTKleeneanConstant;
 import ch.njol.tome.common.Kleenean;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterContext;
@@ -14,9 +14,9 @@ public class IRKleeneanConstant extends AbstractIRExpression {
 	private final IRContext irContext;
 	private final Kleenean value;
 	
-	public IRKleeneanConstant(ASTKleeneanConstant ast) {
-		this.irContext = ast.getIRContext();
-		this.value = registerDependency(ast).value;
+	public IRKleeneanConstant(final ASTKleeneanConstant ast) {
+		irContext = ast.getIRContext();
+		value = registerDependency(ast).value;
 	}
 	
 	@Override

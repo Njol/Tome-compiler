@@ -3,13 +3,12 @@ package ch.njol.tome.ir.statements;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import ch.njol.tome.ast.ASTStatements.ASTCodeGenerationStatement;
+import ch.njol.tome.ast.statements.ASTCodeGenerationStatement;
 import ch.njol.tome.compiler.Token.CodeGenerationToken;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterContext;
 import ch.njol.tome.interpreter.InterpreterException;
 import ch.njol.tome.ir.IRContext;
-import ch.njol.tome.ir.IRElement;
 import ch.njol.tome.ir.expressions.IRExpression;
 
 public class IRCodeGenerationStatement extends AbstractIRStatement {
@@ -18,11 +17,11 @@ public class IRCodeGenerationStatement extends AbstractIRStatement {
 	private final List<CodeGenerationToken> code;
 	private final List<IRExpression> expressions;
 	
-	public IRCodeGenerationStatement(ASTCodeGenerationStatement ast) {
+	public IRCodeGenerationStatement(final ASTCodeGenerationStatement ast) {
 		registerDependency(ast);
-		this.irContext = ast.getIRContext();
-		this.code = ast.code;
-		this.expressions = ast.expressions.stream().map(e -> e.getIR()).collect(Collectors.toList());
+		irContext = ast.getIRContext();
+		code = ast.code;
+		expressions = ast.expressions.stream().map(e -> e.getIR()).collect(Collectors.toList());
 	}
 	
 	@Override

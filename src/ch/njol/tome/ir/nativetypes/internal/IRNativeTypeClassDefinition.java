@@ -91,7 +91,7 @@ public class IRNativeTypeClassDefinition extends AbstractIRElement implements IR
 	public Set<? extends IRTypeUse> allInterfaces() {
 		return Collections.EMPTY_SET;
 	}
-
+	
 	@Override
 	public List<IRAttributeRedefinition> positionalGenericParameters() {
 		return Collections.EMPTY_LIST;

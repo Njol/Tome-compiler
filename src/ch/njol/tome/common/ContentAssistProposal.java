@@ -11,11 +11,11 @@ public class ContentAssistProposal {
 		this.elementToShow = elementToShow;
 		this.replacementString = replacementString;
 	}
-
+	
 	public IRElement getElementToShow() {
 		return elementToShow;
 	}
-
+	
 	public String getReplacementString() {
 		return replacementString;
 	}

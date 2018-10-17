@@ -10,7 +10,7 @@ public class StringReader implements SourceReader {
 		this.s = s;
 	}
 	
-	public void setString(String s) {
+	public void setString(final String s) {
 		this.s = s;
 	}
 	
@@ -88,7 +88,7 @@ public class StringReader implements SourceReader {
 	}
 	
 	@Override
-	public String getText(int start, int end) {
+	public String getText(final int start, final int end) {
 		return s.substring(start, end);
 	}
 	

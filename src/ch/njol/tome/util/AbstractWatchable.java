@@ -8,7 +8,7 @@ import org.eclipse.jdt.annotation.Nullable;
 /**
  * This class is thread-safe.
  */
-public abstract class AbstractModifiable implements Modifiable {
+public abstract class AbstractWatchable implements Watchable {
 	
 	private volatile @Nullable List<ModificationListener> modificationListeners = null;
 	
@@ -34,7 +34,7 @@ public abstract class AbstractModifiable implements Modifiable {
 		final List<ModificationListener> modificationListeners = this.modificationListeners;
 		if (modificationListeners != null) {
 			// make a copy in case a listener unregisters itself on being notified
-			List<ModificationListener> modificationListenersCopy = new ArrayList<>(modificationListeners);
+			final List<ModificationListener> modificationListenersCopy = new ArrayList<>(modificationListeners);
 			for (final ModificationListener l : modificationListenersCopy)
 				l.onModification(this);
 		}

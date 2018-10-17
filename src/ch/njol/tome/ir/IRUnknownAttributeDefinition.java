@@ -13,16 +13,16 @@ import ch.njol.tome.ir.definitions.IRTypeDefinition;
 
 public class IRUnknownAttributeDefinition extends AbstractIRUnknown implements IRAttributeDefinition {
 	
-	private IRTypeDefinition declaringType;
+	private final IRTypeDefinition declaringType;
 	private final String name;
 	
-	public IRUnknownAttributeDefinition(IRTypeDefinition declaringType, final String name, final String errorMessage, @Nullable final ASTElementPart location, final IRContext irContext) {
+	public IRUnknownAttributeDefinition(final IRTypeDefinition declaringType, final String name, final String errorMessage, @Nullable final ASTElementPart location, final IRContext irContext) {
 		super(errorMessage, location, irContext);
 		this.declaringType = declaringType;
 		this.name = name;
 	}
 	
-	public IRUnknownAttributeDefinition(IRTypeDefinition declaringType, final String name, final String errorMessage, final ASTElementPart location) {
+	public IRUnknownAttributeDefinition(final IRTypeDefinition declaringType, final String name, final String errorMessage, final ASTElementPart location) {
 		super(errorMessage, location);
 		this.declaringType = declaringType;
 		this.name = name;

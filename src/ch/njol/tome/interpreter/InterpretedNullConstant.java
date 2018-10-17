@@ -87,7 +87,7 @@ public class InterpretedNullConstant implements InterpretedObject {
 		public Set<? extends IRTypeUse> allInterfaces() {
 			return Collections.EMPTY_SET; // TODO all interfaces that exist? none? only Any?
 		}
-
+		
 		@Override
 		public List<IRAttributeRedefinition> positionalGenericParameters() {
 			return Collections.EMPTY_LIST;

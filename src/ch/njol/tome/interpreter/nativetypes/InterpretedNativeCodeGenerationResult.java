@@ -3,8 +3,8 @@ package ch.njol.tome.interpreter.nativetypes;
 import java.util.ArrayList;
 import java.util.List;
 
-import ch.njol.tome.ast.ASTMembers.ASTCodeGenerationCallMember;
-import ch.njol.tome.ast.ASTStatements.ASTCodeGenerationCallStatement;
+import ch.njol.tome.ast.members.ASTCodeGenerationCallMember;
+import ch.njol.tome.ast.statements.ASTCodeGenerationCallStatement;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.statements.IRStatement;

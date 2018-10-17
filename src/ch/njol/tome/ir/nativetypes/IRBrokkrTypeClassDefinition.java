@@ -63,7 +63,7 @@ public class IRBrokkrTypeClassDefinition extends AbstractIRElement implements IR
 		// TODO members of {Type}
 		return Collections.EMPTY_LIST;
 	}
-
+	
 	@Override
 	public List<IRAttributeRedefinition> positionalGenericParameters() {
 		// TODO has one parameter, but what attribute should it link to?

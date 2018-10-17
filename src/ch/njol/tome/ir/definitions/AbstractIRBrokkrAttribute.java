@@ -8,12 +8,12 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElementPart;
-import ch.njol.tome.ast.ASTExpressions.ASTBlock;
 import ch.njol.tome.ast.ASTInterfaces.ASTResult;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
-import ch.njol.tome.ast.ASTMembers.ASTAttributeDeclaration;
-import ch.njol.tome.ast.ASTMembers.ASTErrorDeclaration;
-import ch.njol.tome.ast.ASTMembers.ASTSimpleParameter;
+import ch.njol.tome.ast.expressions.ASTBlock;
+import ch.njol.tome.ast.members.ASTAttributeDeclaration;
+import ch.njol.tome.ast.members.ASTErrorDeclaration;
+import ch.njol.tome.ast.members.ASTSimpleParameter;
 import ch.njol.tome.common.MethodModifiability;
 import ch.njol.tome.interpreter.InterpretedNormalObject;
 import ch.njol.tome.interpreter.InterpretedObject;

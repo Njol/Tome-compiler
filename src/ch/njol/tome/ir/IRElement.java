@@ -22,7 +22,7 @@ public interface IRElement extends Derived {
 //	 * The returned collection my be empty if this IR element is not generated from an AST, e.g. if it represents native code.
 //	 */
 //	Collection<ASTElement> sources();
-
+	
 //	@Override
 //	default void linked(final ASTLink<?> link) {
 //		for (final ASTElement source : sources())
@@ -34,11 +34,11 @@ public interface IRElement extends Derived {
 //		for (final ASTElement source : sources())
 //			source.unlinked(link);
 //	}
-
+	
 	public static void assertSameIRContext(final IRElement e1, final IRElement e2) {
 		assertSameIRContext(e1, e1.getIRContext(), e2, e2.getIRContext());
 	}
-
+	
 	public static void assertSameIRContext(final IRElement e1, final IRContext irc1, final IRElement e2, final IRContext irc2) {
 		assert irc1 == irc2 : "Differing IR contexts for elements " + e1 + " (" + irc1 + ") and " + e2 + " (" + irc2 + ")";
 	}

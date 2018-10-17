@@ -6,10 +6,10 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.util.AbstractModifiable;
+import ch.njol.tome.util.AbstractInvalidatable;
 import ch.njol.tome.util.PrettyPrinter;
 
-public abstract class AbstractASTElement extends AbstractModifiable implements ASTElement {
+public abstract class AbstractASTElement extends AbstractInvalidatable implements ASTElement {
 	
 	public @Nullable ASTElement parent = null;
 	
@@ -49,9 +49,9 @@ public abstract class AbstractASTElement extends AbstractModifiable implements A
 	
 	@Override
 	public void clearChildren() {
-		ArrayList<ASTElementPart> parts = new ArrayList<>(this.parts);
+		final ArrayList<ASTElementPart> parts = new ArrayList<>(this.parts);
 		this.parts.clear();
-		for (ASTElementPart part : parts)
+		for (final ASTElementPart part : parts)
 			part.setParent(null);
 	}
 	
@@ -61,21 +61,8 @@ public abstract class AbstractASTElement extends AbstractModifiable implements A
 	}
 	
 	@Override
-	public void addLink(final ASTLink<?> link) {
-		links.add(link);
-	}
-	
-	private final List<ASTLink<?>> links = new ArrayList<>();
-	
-	@Override
-	public List<ASTLink<?>> links() {
-		return links;
-	}
-	
-	@Override
 	public final void invalidateSelf() {
-		ASTElement.super.invalidateSelf();
-		modified();
+		invalidate();
 	}
 	
 	@Override
@@ -87,14 +74,6 @@ public abstract class AbstractASTElement extends AbstractModifiable implements A
 	public final int hashCode() {
 		return super.hashCode();
 	}
-	
-//		public @Nullable Symbol lastSymbol() {
-//			for (int i = parts.size() - 1; i >= 0; i--) {
-//				if (parts.get(i) instanceof Symbol)
-//					return (Symbol) parts.get(i);
-//			}
-//			return null;
-//		}
 	
 	@Override
 	public void print(final PrettyPrinter out) {

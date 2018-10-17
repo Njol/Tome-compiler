@@ -28,7 +28,7 @@ public interface IRMemberUse extends SourceCodeLinkable, IRElement {
 		return redefinition().getLinked();
 	}
 	
-	default IRMemberUse getGenericUse(Map<IRAttributeDefinition, IRGenericArgument> arguments) {
+	default IRMemberUse getGenericUse(final Map<IRAttributeDefinition, IRGenericArgument> arguments) {
 		return this; // FIXME implement
 	}
 	

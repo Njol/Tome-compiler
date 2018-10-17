@@ -1,6 +1,6 @@
 package ch.njol.tome.ir.expressions;
 
-import ch.njol.tome.ast.ASTExpressions.ASTString;
+import ch.njol.tome.ast.expressions.ASTString;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpreterContext;
 import ch.njol.tome.interpreter.nativetypes.InterpretedNativeString;

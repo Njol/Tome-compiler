@@ -9,8 +9,8 @@ import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.moduleast.ASTModule;
-import ch.njol.tome.util.Modifiable;
 import ch.njol.tome.util.ModificationListener;
+import ch.njol.tome.util.Watchable;
 
 public class Modules implements ModificationListener {
 	
@@ -21,7 +21,7 @@ public class Modules implements ModificationListener {
 	
 	private final String description;
 	
-	public Modules(String description) {
+	public Modules(final String description) {
 		this.description = description;
 	}
 	
@@ -34,7 +34,7 @@ public class Modules implements ModificationListener {
 		final ModuleIdentifier id = mod.id;
 		if (id == null)
 			return;
-		ASTModule oldMod = modules.put(id, mod);
+		final ASTModule oldMod = modules.put(id, mod);
 		mod.addModificationListener(this);
 		if (oldMod != null) {
 			oldMod.removeModificationListener(this);
@@ -55,7 +55,7 @@ public class Modules implements ModificationListener {
 	}
 	
 	@Override
-	public void onModification(final Modifiable source) {
+	public void onModification(final Watchable source) {
 		if (source instanceof ASTModule) {
 			unregister((ASTModule) source);
 		}

@@ -19,14 +19,14 @@ import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 
 public class IRGenericTypeUse extends AbstractIRTypeUse {
 	
-	private IRTypeUse baseType;
-	private Map<IRAttributeDefinition, IRGenericArgument> genericArguments;
-
-	public IRGenericTypeUse(IRTypeUse use, Map<IRAttributeDefinition, IRGenericArgument> genericArguments) {
+	private final IRTypeUse baseType;
+	private final Map<IRAttributeDefinition, IRGenericArgument> genericArguments;
+	
+	public IRGenericTypeUse(final IRTypeUse use, final Map<IRAttributeDefinition, IRGenericArgument> genericArguments) {
 		assert !(use instanceof IRGenericTypeUse);
 		assert genericArguments.size() > 0;
 		IRElement.assertSameIRContext(genericArguments.keySet(), genericArguments.values(), Arrays.asList(use));
-		this.baseType = use;
+		baseType = use;
 		this.genericArguments = genericArguments;
 	}
 	
@@ -39,16 +39,16 @@ public class IRGenericTypeUse extends AbstractIRTypeUse {
 	}
 	
 	@Override
-	public IRGenericTypeUse getGenericUse(Map<IRAttributeDefinition, IRGenericArgument> moreGenericArguments) {
+	public IRGenericTypeUse getGenericUse(final Map<IRAttributeDefinition, IRGenericArgument> moreGenericArguments) {
 		if (moreGenericArguments.isEmpty())
 			return this;
-		HashMap<IRAttributeDefinition, IRGenericArgument> combinedGenerics = new HashMap<>();
+		final HashMap<IRAttributeDefinition, IRGenericArgument> combinedGenerics = new HashMap<>();
 		combinedGenerics.putAll(genericArguments);
 		combinedGenerics.putAll(moreGenericArguments);
 		// FIXME do not just override generic attributes - combine them! (logical AND operation)
 		return new IRGenericTypeUse(baseType, combinedGenerics);
 	}
-
+	
 	@Override
 	public boolean equalsType(final IRTypeUse other) {
 		return other instanceof IRSimpleTypeUse && baseType.equalsType(((IRGenericTypeUse) other).baseType) && genericArguments.equals(((IRGenericTypeUse) other).genericArguments);
@@ -84,37 +84,37 @@ public class IRGenericTypeUse extends AbstractIRTypeUse {
 	public int typeHashCode() {
 		return baseType.typeHashCode() + 31 * genericArguments.hashCode();
 	}
-
+	
 	@Override
 	public Set<? extends IRTypeUse> allInterfaces() {
 		return baseType.allInterfaces().stream().map(i -> {
 			return i.getGenericUse(genericArguments);
 		}).collect(Collectors.toSet());
 	}
-
+	
 	@Override
-	public boolean isSubtypeOfOrEqual(IRTypeUse other) {
+	public boolean isSubtypeOfOrEqual(final IRTypeUse other) {
 		// TODO check generic (also define how this method works for the different type uses)
 		return false;
 	}
-
+	
 	@Override
-	public boolean isSupertypeOfOrEqual(IRTypeUse other) {
+	public boolean isSupertypeOfOrEqual(final IRTypeUse other) {
 		// TODO Auto-generated method stub
 		return baseType.isSupertypeOfOrEqual(other);
 	}
-
+	
 	@Override
 	public List<? extends IRMemberUse> members() {
 		return baseType.members().stream().map(mu -> mu.getGenericUse(genericArguments)).collect(Collectors.toList());
 	}
-
+	
 	@Override
-	public InterpretedTypeUse interpret(InterpreterContext context) throws InterpreterException {
+	public InterpretedTypeUse interpret(final InterpreterContext context) throws InterpreterException {
 		// TODO do the generics give any info at runtime?
 		return baseType.interpret(context);
 	}
-
+	
 	@Override
 	public IRContext getIRContext() {
 		return baseType.getIRContext();
@@ -122,7 +122,7 @@ public class IRGenericTypeUse extends AbstractIRTypeUse {
 	
 	@Override
 	public String toString() {
-		return baseType +"<"+genericArguments.entrySet().stream().map(e -> e.getKey() + ": "+e.getValue()).collect(Collectors.joining(", ", "", ""))+">";
+		return baseType + "<" + genericArguments.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).collect(Collectors.joining(", ", "", "")) + ">";
 	}
 	
 }

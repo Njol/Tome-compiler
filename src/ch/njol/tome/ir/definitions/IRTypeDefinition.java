@@ -10,10 +10,10 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElementPart;
+import ch.njol.tome.ir.IRContext.IRUnresolvedTypeDefinition;
 import ch.njol.tome.ir.IRElement;
 import ch.njol.tome.ir.IRGenericArgument;
 import ch.njol.tome.ir.IRUnknownAttributeDefinition;
-import ch.njol.tome.ir.IRContext.IRUnresolvedTypeDefinition;
 import ch.njol.tome.ir.nativetypes.IRBrokkrTypeClassDefinition;
 import ch.njol.tome.ir.nativetypes.IRTuple.IRTypeTupleDefinition;
 import ch.njol.tome.ir.nativetypes.internal.IRNativeTypeClassDefinition;
@@ -72,7 +72,7 @@ public interface IRTypeDefinition extends IRElement, Comparable<IRTypeDefinition
 	/**
 	 * Gets an attribute by the name it has in this type. Also finds inherited attributes.
 	 */
-	default IRAttributeRedefinition getAttributeByName(final String name, final  @Nullable ASTElementPart location) {
+	default IRAttributeRedefinition getAttributeByName(final String name, final @Nullable ASTElementPart location) {
 		final IRMemberRedefinition m = getMemberByName(name);
 		if (m instanceof IRAttributeRedefinition)
 			return (IRAttributeRedefinition) m;

@@ -11,12 +11,12 @@ import ch.njol.tome.compiler.Token;
 public class ASTTokenStream extends TokenStream {
 	
 	private @Nullable Token current;
-
+	
 	public ASTTokenStream(final ASTElementPart start) {
 		current = getFirstToken(start);
 	}
-
-	private ASTTokenStream(@Nullable Token current) {
+	
+	private ASTTokenStream(@Nullable final Token current) {
 		this.current = current;
 	}
 	

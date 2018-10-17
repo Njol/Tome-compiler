@@ -5,12 +5,12 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.ast.ASTElementPart;
 
 public class IRUnknownGenericArgument extends AbstractIRUnknown implements IRGenericArgument {
-
-	public IRUnknownGenericArgument(String errorMessage, ASTElementPart location) {
+	
+	public IRUnknownGenericArgument(final String errorMessage, final ASTElementPart location) {
 		super(errorMessage, location);
 	}
-
-	public IRUnknownGenericArgument(String errorMessage, @Nullable ASTElementPart location, IRContext irContext) {
+	
+	public IRUnknownGenericArgument(final String errorMessage, @Nullable final ASTElementPart location, final IRContext irContext) {
 		super(errorMessage, location, irContext);
 	}
 	

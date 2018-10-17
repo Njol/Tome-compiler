@@ -30,6 +30,8 @@ public class Lexer {
 	
 	private final SourceReader in;
 	
+	private List<Token> tokens = new ArrayList<>();
+	
 	public Lexer(final SourceReader in) {
 		this.in = in;
 		tokenize();
@@ -43,66 +45,10 @@ public class Lexer {
 		return new TokenList(tokens);
 	}
 	
-	private List<Token> tokens = new ArrayList<>();
-	
-	/**
-	 * Performs an incremental update of the lexer.
-	 * <p>
-	 * Tokens before the start of the change remain unchanged, and following tokens may or may not change (e.g. if a new comment is started, everything afterwards becomes a comment
-	 * usually). Tokens in the change will be removed and/or new ones will be added (a token is immutable, so a change is a remove and an insert).
-	 */
-	public void update(final int offset, final int length) {
-		final TokenListStream oldTokens = newStream();
+	public void update() {
+		in.setOffset(0);
 		tokens = new ArrayList<>(tokens.size() + 2); // usually only a single token or two are added, so the "+2" prevents an unnecessary resize operation
-		Token ot = null, nt;
-		
-		// add unaffected tokens before the change to the new list
-		while (oldTokens.getTextOffsetAfterCurrentToken() < offset && (ot = oldTokens.getAndMoveForward()) != null)
-			tokens.add(ot);
-		
-		// set text position to start of first intersecting token
-		in.setOffset(ot == null ? offset : oldTokens.getTextOffset());
-		
-		// read new tokens
-		while ((nt = next()) != null) {
-			tokens.add(nt);
-		}
-		
-		// start, end (exclusive) of changed tokens (relative to old list)
-		int changeStart = 0, changeEnd = oldTokens.tokens.size();
-		
-		// use old tokens if they are equal
-		// first from before the change (oldTokens is already at first non-identical token) (should be exactly one or zero tokens with a lookahead of 1 character)
-		int i = oldTokens.getTokenOffset();
-		while (i < tokens.size() && (ot = oldTokens.getAndMoveForward()) != null) {
-			Token t = tokens.get(i);
-			if (!t.codeEquals(ot)) {
-				changeStart = i;
-				break;
-			}
-			assert ot.absoluteRegionStart() == t.absoluteRegionStart();
-			tokens.set(i, ot);
-			i--;
-		}
-		// then from the end until after the change
-		oldTokens.setTokenOffset(oldTokens.tokens.size() - 1);
-		i = tokens.size() - 1;
-		while (i >= 0 && (ot = oldTokens.getAndMoveBackward()) != null) {
-			Token t = tokens.get(i);
-			if (!t.codeEquals(ot) || t == ot) {
-				changeEnd = oldTokens.getTokenOffset() + 1;
-				break;
-			}
-			ot.setAbsoluteRegionStart(t.absoluteRegionStart());
-			tokens.set(i, ot);
-			i--;
-		}
-		
-		// invalidate tokens that changed, and their ancestors
-		oldTokens.setTokenOffset(changeStart);
-		while (oldTokens.getTokenOffset() < changeEnd && (ot = oldTokens.getAndMoveForward()) != null) {
-			ot.invalidateSelfAndParents();
-		}
+		tokenize();
 	}
 	
 	private void tokenize() {
@@ -131,11 +77,11 @@ public class Lexer {
 	
 	// NOTE: do not look ahead more than 1 character (otherwise would need to change the incremental tokenizer)!
 	private @Nullable Token _next() {
+		final int start = in.getOffset();
 		final int firstInt = in.next();
 		if (firstInt == -1)
 			return null;
 		final char first = (char) firstInt;
-		final int start = in.getOffset() - 1;
 		if (Character.isLetter(first) || first == '_') { // word
 			final StringBuilder b = new StringBuilder();
 			b.append(first);
@@ -145,9 +91,9 @@ public class Lexer {
 //			if (keywords.contains(b))
 //				return new KeywordToken("" + b, in.getOffset());
 			return Character.isUpperCase(b.charAt(0)) ? new UppercaseWordToken("" + b) : new LowercaseWordToken("" + b);
-		} else if ('0' <= first && first <= '9') { // number (int or float)
+		} else if ('0' <= first && first <= '9') { // number (int or float) // includes prefixes '0b' and '0x'
 			return parseNumber(first);
-		} else if (first == '\'' || first == '"') { // string // TOOD LANG multi-line strings? (TBD: syntax, semantics) (e.g. 1 quote, 3 quotes, what about indentation, ...)
+		} else if (first == '\'' || first == '"') { // string // TODO LANG multi-line strings? (TBD: syntax, semantics) (e.g. 1 quote, 3 quotes, what about indentation, ...)
 			return parseString(first);
 		} else if (first == '#' && in.peekNext() != '|') { // single-line comment
 			final StringBuilder b = new StringBuilder(Constants.SINGLE_LINE_COMMENT_START);

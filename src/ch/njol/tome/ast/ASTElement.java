@@ -7,17 +7,18 @@ import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.ast.ASTTopLevelElements.ASTSourceFile;
+import ch.njol.tome.ast.toplevel.ASTSourceFile;
 import ch.njol.tome.common.ContentAssistProposal;
+import ch.njol.tome.compiler.SemanticError;
+import ch.njol.tome.compiler.SourceCodeLinkable;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.moduleast.ASTModule;
-import ch.njol.tome.util.Modifiable;
 import ch.njol.tome.util.StringMatcher;
 
-public interface ASTElement extends ASTElementPart, Modifiable {
-
+public interface ASTElement extends ASTElementPart {
+	
 	public default ASTElement root() {
-		ASTElement parent = parent();
+		final ASTElement parent = parent();
 		return parent == null ? this : parent.root();
 	}
 	
@@ -44,14 +45,14 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 		child.removeFromParent();
 		insertChild(child, parts().size());
 		assert child.parent() == this;
-		invalidateSubtreeAndParents();
 	}
+	
 	public default void addChildren(final List<? extends ASTElementPart> children) {
-		for (ASTElementPart child : children) {
+		for (final ASTElementPart child : children) {
 			addChild(child);
 		}
 	}
-
+	
 	/**
 	 * Removes a child node from this tree.
 	 */
@@ -59,7 +60,7 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 	
 	void clearChildren();
 	
-	default boolean containsChild(ASTElementPart ast) {
+	default boolean containsChild(final ASTElementPart ast) {
 		return parts().stream().anyMatch(p -> p == ast);
 	}
 	
@@ -75,10 +76,6 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 		return null;
 	}
 	
-	public void addLink(ASTLink<?> link);
-	
-	public List<ASTLink<?>> links();
-	
 	@Override
 	public abstract String toString();
 	
@@ -92,7 +89,7 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 	
 	/**
 	 * @param token The token where the content assist was executed on, or the left one if it was done between two tokens.
-	 * @param matcher A mather to filter resulting proposals
+	 * @param matcher A matcher to filter resulting proposals
 	 * @return A {@link Stream} of proposals
 	 */
 	default public @Nullable Stream<ContentAssistProposal> getContentAssistProposals(final Token token, final StringMatcher matcher) {
@@ -129,14 +126,6 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 		invalidateParents();
 	}
 	
-	@Override
-	default void invalidateSelf() {
-		ASTElementPart.super.invalidateSelf();
-		for (final ASTLink<?> link : links())
-			link.modified();
-		clearChildren();
-	}
-	
 	/**
 	 * Invalidates this element and any descendants.
 	 */
@@ -146,6 +135,21 @@ public interface ASTElement extends ASTElementPart, Modifiable {
 			if (part instanceof ASTElement)
 				((ASTElement) part).invalidateSubtree();
 		}
+	}
+	
+	/**
+	 * @param t A token that is a descendant of this element
+	 * @return An object to link to, or null if the token does not represent anything linkable.
+	 */
+	public default @Nullable SourceCodeLinkable getLinked(final Token t) {
+		final ASTElement parent = parent();
+		return parent != null ? parent.getLinked(t) : null;
+	}
+	
+	public default void getSemanticErrors(Consumer<SemanticError> consumer) {
+//		final ASTElement parent = parent();
+//		if (parent != null)
+//			parent.getSemanticErrors(consumer);
 	}
 	
 }

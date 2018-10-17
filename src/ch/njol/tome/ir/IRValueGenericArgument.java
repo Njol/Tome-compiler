@@ -22,17 +22,17 @@ public class IRValueGenericArgument extends AbstractIRElement implements IRGener
 	public InterpretedObject getValue() {
 		return value;
 	}
-
+	
 	public static IRGenericArgument fromExpression(final ASTExpression expression) {
 		return fromExpression(expression.getIR(), expression);
 	}
-
-	public static IRGenericArgument fromExpression(final IRExpression expression, @Nullable ASTElementPart location) {
+	
+	public static IRGenericArgument fromExpression(final IRExpression expression, @Nullable final ASTElementPart location) {
 		try {
 			final InterpretedObject value = expression.interpret(new InterpreterContext(expression.getIRContext(), null));
 			return new IRValueGenericArgument(value, expression.getIRContext());
 		} catch (final InterpreterException e) {
-			return new IRUnknownGenericArgument("Invalid value ("+e.getMessage()+")", location, expression.getIRContext());
+			return new IRUnknownGenericArgument("Invalid value (" + e.getMessage() + ")", location, expression.getIRContext());
 		}
 	}
 	

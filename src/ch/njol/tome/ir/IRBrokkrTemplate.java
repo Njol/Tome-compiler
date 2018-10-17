@@ -8,7 +8,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
-import ch.njol.tome.ast.ASTMembers.ASTTemplate;
+import ch.njol.tome.ast.members.ASTTemplate;
 import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRParameterRedefinition;
 import ch.njol.tome.ir.definitions.IRResultRedefinition;
