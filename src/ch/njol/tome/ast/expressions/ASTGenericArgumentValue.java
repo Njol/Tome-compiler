@@ -33,7 +33,8 @@ public class ASTGenericArgumentValue extends AbstractASTElement {
 //		} else {
 //			value = ActualType.parse(this, true, true);
 //		}
-			ast.expression = ASTExpressions.parse(p, false);
+			
+			ast.expression = ASTExpressions.parse(p);
 			return ast;
 		});
 	}

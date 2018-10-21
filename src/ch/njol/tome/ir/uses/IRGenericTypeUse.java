@@ -122,7 +122,7 @@ public class IRGenericTypeUse extends AbstractIRTypeUse {
 	
 	@Override
 	public String toString() {
-		return baseType + "<" + genericArguments.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).collect(Collectors.joining(", ", "", "")) + ">";
+		return baseType + "<" + genericArguments.entrySet().stream().map(e -> e.getKey().name() + ": " + e.getValue()).collect(Collectors.joining(", ", "", "")) + ">";
 	}
 	
 }

@@ -31,6 +31,8 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 	
 	@Override
 	public String toString() {
+		if (expressions.isEmpty())
+			return "<incomplete operator expression>";
 		final StringBuilder b = new StringBuilder();
 		b.append('(');
 		b.append(expressions.get(0));
@@ -56,20 +58,16 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 		return null;
 	}
 	
-	private final static String[] opsWithoutComp = {//
-			"&", "|", "+", "-", "*", "/", "^", //
-			"implies"};
-	//, "extends", "super", "is"}; // FIXME extends, super, and is are problematic, as extensions (which can make a class/interface implement a new interface) may or may not be loaded at runtime
-	// (e.g. they may not be included, but another loaded library loads them), making these operations quite volatile.
-	// LANG better: allow check only for subinterfaces of interfaces marked in a specific way (this wouldn't help with extensions though)
-	private final static String[] opsWithComp = {//
+	private final static String[] ops = {//
 			"&", "|", "+", "-", "*", "/", "^", // copy of above
 			">=", ">", "<=", "<", //
 			"===", "==", "!==", "!=",
-			"implies"};//, "extends", "super", "is"}; // copy of above
+			"implies"};//, "extends", "super", "is"}; // FIXME extends, super, and is are problematic, as extensions (which can make a class/interface implement a new interface) may or may not be loaded at runtime
+	// (e.g. they may not be included, but another loaded library loads them), making these operations quite volatile.
+	// LANG better: allow check only for subinterfaces of interfaces marked in a specific way (this wouldn't help with extensions though)
 	private final static Set<String> assingmentOps = new HashSet<>(Arrays.asList("&", "|", "+", "-", "*", "/"));
 	
-	public static ASTExpression parse(final Parser parent, final boolean allowComparisons) {
+	public static ASTExpression parse(final Parser parent) {
 		final Parser p = parent.start();
 		final ASTOperatorExpression ast = new ASTOperatorExpression();
 		final ASTExpression first = ASTOperatorExpressionPart.parse(p);
@@ -81,7 +79,7 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 		ASTLink<IRAttributeRedefinition> op;
 		Token next;
 		while (!((next = p.peekNext()) instanceof SymbolToken && assingmentOps.contains("" + ((SymbolToken) next).symbol) && p.peekNext('=', 1, true)) // +=/*=/etc.
-				&& (op = ASTOperatorLink.tryParse(p, true, allowComparisons ? opsWithComp : opsWithoutComp)) != null) {
+				&& (op = ASTOperatorLink.tryParse(p, true, ops)) != null) {
 			ast.operators.add(op);
 			final ASTExpression expression = ASTOperatorExpressionPart.parse(p);
 			if (expression == null) {

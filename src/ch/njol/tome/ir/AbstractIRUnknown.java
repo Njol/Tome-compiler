@@ -42,4 +42,9 @@ public abstract class AbstractIRUnknown extends AbstractIRElement implements IRU
 		return location;
 	}
 	
+	@Override
+	public String toString() {
+		return "<unknown>";
+	}
+	
 }

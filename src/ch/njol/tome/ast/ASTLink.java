@@ -37,7 +37,7 @@ public abstract class ASTLink<T extends IRElement> extends AbstractASTElement im
 	
 	protected abstract @Nullable T tryLink(String name);
 	
-	protected String errorMessage(String name) {
+	protected @Nullable String errorMessage(String name) {
 		return "Cannot find [" + name + "]";
 	}
 	
@@ -96,8 +96,11 @@ public abstract class ASTLink<T extends IRElement> extends AbstractASTElement im
 		WordOrSymbols name = this.name;
 		if (name != null) { // if name is null there's already a syntax error
 			final @Nullable T value = get();
-			if (value == null)
-				consumer.accept(new SemanticError(errorMessage(name.toString()), absoluteRegionStart(), regionLength()));
+			if (value == null) {
+				String errorMessage = errorMessage(name.toString());
+				if (errorMessage != null)
+					consumer.accept(new SemanticError(errorMessage, absoluteRegionStart(), regionLength()));
+			}
 		}
 		super.getSemanticErrors(consumer);
 	}

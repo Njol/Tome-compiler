@@ -46,8 +46,10 @@ public class ASTStatements {
 			final ASTExpression expr = ASTExpressions.parse(p);
 			if (p.peekNext(';'))
 				return ASTExpressionStatement.finishParsing(p, expr);
-			if (allowExpressionAtEnd && p.peekNext() == null)
+			if (allowExpressionAtEnd && p.peekNext() == null) {
+				p.doneAsChildren();
 				return expr;
+			}
 			if (expr instanceof ASTTypeUse) {
 				// variable declaration
 				return ASTVariableDeclarations.finishParsing(p, (ASTTypeUse) expr);

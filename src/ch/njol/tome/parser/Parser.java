@@ -49,9 +49,13 @@ public class Parser {
 	}
 	
 	@SuppressWarnings("null")
+	private void assertNoCurrentChild() {
+		assert currentChild == null : currentChild.parts.stream().map(e -> e + "[" + e.getClass() + "]").collect(Collectors.toList());
+	}
+	
 	public Parser start() {
 		assert valid;
-		assert currentChild == null : currentChild.parts.stream().map(e -> e + "[" + e.getClass() + "]").collect(Collectors.toList());
+		assertNoCurrentChild();
 		return currentChild = new Parser(this);
 	}
 	
@@ -70,7 +74,7 @@ public class Parser {
 	
 	protected void addPart(final ASTElementPart part) {
 		assert valid;
-		assert currentChild == null;
+		assertNoCurrentChild();
 		parts.add(part);
 		if (part instanceof Token)
 			fatalParseErrors.addAll(((Token) part).errors());
@@ -86,7 +90,7 @@ public class Parser {
 	
 	public <T extends ASTElement> T done(final T ast) {
 		assert valid;
-		assert currentChild == null;
+		assertNoCurrentChild();
 		final Parser parent = this.parent;
 		assert parent != null;
 		final List<ASTElementPart> parentParts = parent.parts;
@@ -222,15 +226,15 @@ public class Parser {
 	
 	// TODO allow guards that block even if they are not the current one? (cannot do this in general or nested brackets wouldn't work, e.g. '(Type<(T)>)')
 	
-	private int lastGuard = -1;
-	private final Deque<Character> guards = new ArrayDeque<>();
+	private static int lastGuard = -1;
+	private static final Deque<Character> guards = new ArrayDeque<>();
 	
-	private final void startGuard(final char guard) {
+	private static final void startGuard(final char guard) {
 		guards.addLast(guard);
 		lastGuard = guard;
 	}
 	
-	private final static String openingBrackets = "([{<", closingBrackets = ")]}>";
+	private static final String openingBrackets = "([{<", closingBrackets = ")]}>";
 	
 	private final void endGuard(final char guard, final boolean consume) {
 		final char last = guards.removeLast();
@@ -260,14 +264,14 @@ public class Parser {
 				addPart(t);
 			}
 			if (t != null) {
+				// TODO required? or only if no errors so far? or make a different error?
+				errorFatal("Unexpected data before '" + guard + "'", start, in.getTextOffset() - start);
 				if (consume) {
 					addPart(t);
 					in.skipWhitespace(this::addPart);
 				} else {
 					in.moveBackward();
 				}
-				// TODO required? or only if no errors so far? or make a different error?
-				errorFatal("Unexpected data before '" + guard + "'", start, in.getTextOffset() - start);
 			} else {
 				errorFatal(ParseError.EXPECTED + "'" + guard + "'", start, 1);
 				assert in.isAfterEnd();
@@ -417,7 +421,7 @@ public class Parser {
 	}
 	
 	public void repeatUntil(final VoidProcessor lambda, final char until, final boolean allowEmpty, final boolean consumeEndChar) {
-		if (allowEmpty && try_(until)) {
+		if (allowEmpty && (consumeEndChar ? try_(until) : peekNext(until))) {
 			return;
 		}
 		startGuard(until);
@@ -578,7 +582,7 @@ public class Parser {
 	
 	public final @Nullable SymbolToken try2(final char symbol) {
 		final Token t = in.current();
-		if (t instanceof SymbolToken && ((SymbolToken) t).symbol == symbol) {
+		if (t instanceof SymbolToken && ((SymbolToken) t).symbol == symbol && symbol != lastGuard) {
 			next();
 			trySuccessful();
 			return (SymbolToken) t;
@@ -605,7 +609,7 @@ public class Parser {
 				return try2(keywordOrSymbol.charAt(0));
 			final List<SymbolToken> tokens = new ArrayList<>();
 			for (int i = 0; i < keywordOrSymbol.length(); i++) {
-				final Token t = in.peekNext(i, false);
+				final Token t = peekNext(i, false); // not in.peekNext to handle guards correctly
 				if (!(t instanceof SymbolToken && ((SymbolToken) t).symbol == keywordOrSymbol.charAt(i))) {
 					expectedPossible("'" + keywordOrSymbol + "'");
 					return null;
@@ -674,7 +678,6 @@ public class Parser {
 	
 	public final @Nullable String try_(final String... symbolsAndWords) {
 		for (final String s : symbolsAndWords) {
-			assert s != null;
 			if (try_(s))
 				return s;
 		}
@@ -683,7 +686,6 @@ public class Parser {
 	
 	public final @Nullable WordOrSymbols try2(final String... symbolsAndWords) {
 		for (final String s : symbolsAndWords) {
-			assert s != null;
 			final WordOrSymbols t = try2(s);
 			if (t != null)
 				return t;

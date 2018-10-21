@@ -48,6 +48,17 @@ public class ASTDirectAttributeAccess extends AbstractASTElement implements ASTA
 			return a == null ? null : a.redefinition();
 		}
 		
+		@Override
+		protected @Nullable String errorMessage(String name) {
+			final ASTTargettedExpression accessExpression = getParentOfType(ASTTargettedExpression.class);
+			if (accessExpression == null)
+				return null;
+			final IRTypeUse type = accessExpression.targetType();
+			if (type == null)
+				return null;
+			return "Cannot find " + name + " in " + type;
+		}
+		
 		private static ASTDirectAttributeAccessLink parse(Parser parent) {
 			return parseAsVariableIdentifier(new ASTDirectAttributeAccessLink(), parent);
 		}

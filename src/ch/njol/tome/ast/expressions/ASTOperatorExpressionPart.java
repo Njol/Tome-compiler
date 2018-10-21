@@ -38,8 +38,6 @@ public class ASTOperatorExpressionPart extends AbstractASTElement implements AST
 		if (mod != null) {
 			final Parser p2 = p.startNewParent();
 			final ASTTypeExpression e = ASTModifierTypeUse.finishParsing(p, mod);
-			if (p2.peekNext('<'))
-				return ASTTypeWithGenericArguments.finishParsingWithModifiers(p2, e);
 			p2.doneAsChildren();
 			return e;
 		}

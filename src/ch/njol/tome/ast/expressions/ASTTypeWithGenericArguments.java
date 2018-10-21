@@ -32,19 +32,6 @@ public class ASTTypeWithGenericArguments extends AbstractASTElement implements A
 		return baseType + "<" + StringUtils.join(genericArguments, ",") + ">";
 	}
 	
-	public static ASTTypeExpression finishParsingWithModifiers(final Parser p, final ASTTypeExpression withModifiers) {
-		if (withModifiers instanceof ASTSimpleTypeUse)
-			return finishParsing(p, (ASTSimpleTypeUse) withModifiers);
-		p.unparse(withModifiers);
-		final ASTModifierTypeUse modifierTypeUse = (ASTModifierTypeUse) withModifiers;
-		final ASTSimpleTypeUse typeUseElement = (ASTSimpleTypeUse) modifierTypeUse.type; // cast is valid, as the other case is constructed here
-		assert typeUseElement != null; // shouldn't get here if this is null
-		final ASTTypeWithGenericArguments generic = finishParsing(p, typeUseElement);
-		modifierTypeUse.type = generic;
-		modifierTypeUse.addChild(generic); // FIXME
-		return p.done(modifierTypeUse);
-	}
-	
 	public static ASTTypeExpression parse(Parser parent) {
 		Parser p = parent.start();
 		ASTSimpleTypeUse baseType = ASTSimpleTypeUse.parse(p);
@@ -78,4 +65,5 @@ public class ASTTypeWithGenericArguments extends AbstractASTElement implements A
 		}
 		return baseTypeIR.getGenericUse(genericArguments);
 	}
+	
 }

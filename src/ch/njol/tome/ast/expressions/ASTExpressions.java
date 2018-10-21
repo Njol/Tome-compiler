@@ -21,10 +21,6 @@ import ch.njol.tome.parser.Parser;
 public class ASTExpressions {
 	
 	public static ASTExpression parse(final Parser parent) {
-		return parse(parent, true);
-	}
-	
-	public static ASTExpression parse(final Parser parent, final boolean allowComparisons) {
 		
 		if (parent.peekNext('{'))
 			return ASTBlock.parse(parent);
@@ -61,7 +57,7 @@ public class ASTExpressions {
 		}
 		
 		final Parser p = parent.start();
-		final ASTExpression expr = ASTOperatorExpression.parse(p, allowComparisons);
+		final ASTExpression expr = ASTOperatorExpression.parse(p);
 		SymbolToken sym;
 		SymbolToken plainAssignmentToken = p.try2('=');
 		final ASTOperatorLink assignmentOp = plainAssignmentToken != null ? null : ASTOperatorLink.tryParse(p, true, "+=", "-=", "*=", "/=", "&=", "|=");

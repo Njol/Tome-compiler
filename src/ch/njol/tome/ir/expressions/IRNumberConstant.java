@@ -48,6 +48,11 @@ public class IRNumberConstant extends AbstractIRExpression {
 		return irContext;
 	}
 	
+	@Override
+	public String toString() {
+		return "" + value;
+	}
+	
 	// FIXME should return a non-native object, e.g. need to call [Int8.fronNative(...)] in addition to the current code
 	// TODO or allow native types to implement Brokkr interfaces (e.g. via extensions)
 	public static InterpretedObject interpreted(final IRContext irContext, final BigDecimal value) throws InterpreterException {
