@@ -8,9 +8,9 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElementPart;
-import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
+import ch.njol.tome.ast.toplevel.ASTGenericParameterDeclaration;
 import ch.njol.tome.ast.toplevel.ASTModuleDeclaration;
 import ch.njol.tome.ast.toplevel.ASTModuleIdentifier;
 import ch.njol.tome.ast.toplevel.ASTSourceFile;
@@ -24,9 +24,9 @@ import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 
 public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement implements IRBrokkrTypeDefinition, SourceCodeLinkable {
 	
-	protected final ASTTypeDeclaration ast;
+	protected final ASTTypeDeclaration<?> ast;
 	
-	public AbstractIRBrokkrTypeDefinition(final ASTTypeDeclaration ast) {
+	public AbstractIRBrokkrTypeDefinition(final ASTTypeDeclaration<?> ast) {
 		this.ast = registerDependency(ast);
 		final ASTSourceFile astBrokkrFile = ast.getParentOfType(ASTSourceFile.class);
 		registerDependency(astBrokkrFile != null && astBrokkrFile.moduleDeclaration != null ? astBrokkrFile.moduleDeclaration : astBrokkrFile);
@@ -78,15 +78,13 @@ public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement i
 //		return null;
 //	}
 	
-	@SuppressWarnings("null")
 	@Override
-	public ASTElementPart getLinked() {
+	public @Nullable ASTElementPart getLinked() {
 		return ast.nameToken();
 	}
 	
 	private @Nullable List<IRMemberRedefinition> members = null;
 	
-	@SuppressWarnings("null")
 	@Override
 	public List<IRMemberRedefinition> members() {
 		List<IRMemberRedefinition> members = this.members;
@@ -97,11 +95,14 @@ public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement i
 				members.addAll(m.getIRMembers());
 			}
 			// inherited members
-			for (final IRMemberUse mu : ast.parentTypes().members()) {
-				final IRMemberRedefinition redefinition = mu.redefinition();
-				if (members.stream().anyMatch(m -> m.isRedefinitionOf(redefinition)))
-					continue; // don't add overridden members twice
-				members.add(mu.getRedefinitionFor(this));
+			IRTypeUse parentTypes = ast.parentTypes();
+			if (parentTypes != null) {
+				for (final IRMemberUse mu : parentTypes.members()) {
+					final IRMemberRedefinition redefinition = mu.redefinition();
+					if (members.stream().anyMatch(m -> m.isRedefinitionOf(redefinition)))
+						continue; // don't add overridden members twice
+					members.add(mu.getRedefinitionFor(this));
+				}
 			}
 		}
 		return members;
@@ -122,20 +123,18 @@ public abstract class AbstractIRBrokkrTypeDefinition extends AbstractIRElement i
 		}
 	}
 	
-	private @Nullable List<IRAttributeRedefinition> positionalGenericParameters = null;
+	private @Nullable List<IRGenericParameter> penericParameters = null;
 	
 	@Override
-	public List<IRAttributeRedefinition> positionalGenericParameters() {
-		List<IRAttributeRedefinition> positionalGenericParameters = this.positionalGenericParameters;
-		if (positionalGenericParameters == null) {
-			this.positionalGenericParameters = positionalGenericParameters = new ArrayList<>();
-			for (final ASTGenericParameter gp : ast.genericParameters()) {
-				final IRAttributeRedefinition attribute = gp.declaration();
-				if (attribute != null)
-					positionalGenericParameters.add(attribute);
+	public List<IRGenericParameter> genericParameters() {
+		List<IRGenericParameter> penericParameters = this.penericParameters;
+		if (penericParameters == null) {
+			this.penericParameters = penericParameters = new ArrayList<>();
+			for (final ASTGenericParameterDeclaration<?> gp : ast.genericParameters()) {
+				penericParameters.add(gp.getIR());
 			}
 		}
-		return positionalGenericParameters;
+		return penericParameters;
 		
 	}
 	

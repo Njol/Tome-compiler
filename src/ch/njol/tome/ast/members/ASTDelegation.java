@@ -22,21 +22,22 @@ import ch.njol.util.StringUtils;
 
 // TODO remove this? can be done with code generation, assuming it can work with incomplete types (what incomplete types?)
 public class ASTDelegation extends AbstractASTElement implements ASTMember {
+	
 	public List<ASTDelegationLink> methods = new ArrayList<>();
-	public List<ASTTypeExpression> types = new ArrayList<>();
-	public List<ASTExpression> expressions = new ArrayList<>();
-	public @Nullable ASTExpression joinWith;
+	public List<ASTTypeExpression<?>> types = new ArrayList<>();
+	public List<ASTExpression<?>> expressions = new ArrayList<>();
+	public @Nullable ASTExpression<?> joinWith;
 	
 	private static class ASTDelegationLink extends ASTLink<IRAttributeRedefinition> {
 		@Override
-		protected @Nullable IRAttributeRedefinition tryLink(String name) {
-			final ASTTypeDeclaration type = getParentOfType(ASTTypeDeclaration.class);
+		protected @Nullable IRAttributeRedefinition tryLink(final String name) {
+			final ASTTypeDeclaration<?> type = getParentOfType(ASTTypeDeclaration.class);
 			if (type == null)
 				return null;
 			return type.getIR().getAttributeByName(name);
 		}
 		
-		private static ASTDelegationLink parse(Parser parent) {
+		private static ASTDelegationLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ASTDelegationLink(), parent);
 		}
 	}
@@ -78,4 +79,5 @@ public class ASTDelegation extends AbstractASTElement implements ASTMember {
 	public List<? extends IRMemberRedefinition> getIRMembers() {
 		return Collections.EMPTY_LIST; // TODO
 	}
+	
 }

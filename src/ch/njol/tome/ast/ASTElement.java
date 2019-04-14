@@ -146,7 +146,7 @@ public interface ASTElement extends ASTElementPart {
 		return parent != null ? parent.getLinked(t) : null;
 	}
 	
-	public default void getSemanticErrors(Consumer<SemanticError> consumer) {
+	public default void getSemanticErrors(final Consumer<SemanticError> consumer) {
 //		final ASTElement parent = parent();
 //		if (parent != null)
 //			parent.getSemanticErrors(consumer);

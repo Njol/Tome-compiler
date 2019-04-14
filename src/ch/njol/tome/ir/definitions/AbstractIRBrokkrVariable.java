@@ -1,5 +1,8 @@
 package ch.njol.tome.ir.definitions;
 
+import org.eclipse.jdt.annotation.Nullable;
+
+import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.ast.ASTInterfaces.ASTVariable;
 import ch.njol.tome.ir.AbstractIRElement;
 import ch.njol.tome.ir.IRContext;
@@ -31,6 +34,11 @@ public abstract class AbstractIRBrokkrVariable extends AbstractIRElement impleme
 	@Override
 	public IRContext getIRContext() {
 		return ast.getIRContext();
+	}
+	
+	@Override
+	public @Nullable ASTElementPart getLinked() {
+		return ast;
 	}
 	
 	@Override

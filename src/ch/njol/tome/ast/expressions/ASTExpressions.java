@@ -16,12 +16,14 @@ import ch.njol.tome.compiler.Token.SymbolToken;
 import ch.njol.tome.compiler.Token.UppercaseWordToken;
 import ch.njol.tome.compiler.Token.WhitespaceToken;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
+import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.parser.Parser;
 
 public class ASTExpressions {
 	
-	public static ASTExpression parse(final Parser parent) {
+	public static ASTExpression<?> parse(final Parser parent) {
 		
+		// TODO is a block really an expression?
 		if (parent.peekNext('{'))
 			return ASTBlock.parse(parent);
 		if (parent.peekNext("create"))
@@ -57,12 +59,12 @@ public class ASTExpressions {
 		}
 		
 		final Parser p = parent.start();
-		final ASTExpression expr = ASTOperatorExpression.parse(p);
+		final ASTExpression<?> expr = ASTOperatorExpression.parse(p);
 		SymbolToken sym;
-		SymbolToken plainAssignmentToken = p.try2('=');
+		final SymbolToken plainAssignmentToken = p.try2('=');
 		final ASTOperatorLink assignmentOp = plainAssignmentToken != null ? null : ASTOperatorLink.tryParse(p, true, "+=", "-=", "*=", "/=", "&=", "|=");
 		if (plainAssignmentToken != null || assignmentOp != null) {
-			WordOrSymbols assignmentOpToken = assignmentOp != null ? assignmentOp.getNameToken() : plainAssignmentToken;
+			final WordOrSymbols assignmentOpToken = assignmentOp != null ? assignmentOp.getNameToken() : plainAssignmentToken;
 			assert assignmentOpToken != null;
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse) {
 				final ASTVariableOrUnqualifiedAttributeUse varOrAttribute = (ASTVariableOrUnqualifiedAttributeUse) expr;
@@ -96,7 +98,7 @@ public class ASTExpressions {
 			return ASTErrorHandlingExpression.finishParsing(p, expr, sym);
 		} else if (expr instanceof ASTTypeUse && p.peekNext() instanceof LowercaseWordToken && p.peekNext("->", 1, true)) {
 			final Parser paramParser = p.start();
-			final ASTLambdaParameter param = ASTLambdaParameter.finishParsing(paramParser, (ASTTypeUse) expr);
+			final ASTLambdaParameter param = ASTLambdaParameter.finishParsing(paramParser, (ASTTypeUse<?>) expr);
 			return ASTLambda.finishParsing(p, param);
 		} else {
 			p.doneAsChildren();
@@ -106,8 +108,8 @@ public class ASTExpressions {
 	
 	public static interface ASTAccess extends TypedASTElement {}
 	
-	public static interface ASTAtomicExpression extends ASTExpression {
-		public static @Nullable ASTExpression parse(final Parser parent) {
+	public static interface ASTAtomicExpression extends ASTExpression<IRExpression> {
+		public static @Nullable ASTExpression<?> parse(final Parser parent) {
 			// peek is acceptable here, as nobody needs content assist for expression *syntax*.
 			final Token next = parent.peekNext();
 			if (next instanceof StringToken) {
@@ -122,8 +124,8 @@ public class ASTExpressions {
 				return ASTParenthesesExpression.parse(parent);
 			if (parent.peekNext('['))
 				return ASTTuple.parse(parent);
-			if (parent.peekNext('~'))
-				return ASTUnqualifiedMetaAccess.parse(parent);
+//			if (parent.peekNext("::"))
+//				return ASTUnqualifiedMetaAccess.parse(parent);
 //			if (parent.peekNext('?'))
 //				return ImplicitLambdaArgument.parse(parent);
 			if (parent.peekNext("this"))
@@ -166,15 +168,15 @@ public class ASTExpressions {
 	
 	public static class ASTTypeExpressions {
 		
-		public static ASTTypeExpression parse(final Parser parent, final boolean allowOps, final boolean allowTuple) {
+		public static ASTTypeExpression<?> parse(final Parser parent, final boolean allowOps, final boolean allowTuple) {
 			return parse(parent, allowOps, allowTuple, allowOps);
 		}
 		
-		public static ASTTypeExpression parse(final Parser parent, final boolean allowOps, final boolean allowTuple, final boolean allowDotGeneric) {
+		public static ASTTypeExpression<?> parse(final Parser parent, final boolean allowOps, final boolean allowTuple, final boolean allowDotGeneric) {
 			assert !(!allowDotGeneric && allowOps) : "generics are automatically allowed when operators are";
 			if (allowDotGeneric && !allowOps) { // if allowing ops, ops are done first
 				final Parser p = parent.start();
-				final ASTTypeExpression target = ASTTypeExpressions.parse(p, false, false, false); // TODO do tuples have generics? or should this just be allowed to then produce a better error message?
+				final ASTTypeExpression<?> target = ASTTypeExpressions.parse(p, false, false, false); // TODO do tuples have generics? or should this just be allowed to then produce a better error message?
 				if (p.peekNext('.'))
 					return ASTGenericTypeAccess.finishParsing(p, target);
 				p.doneAsChildren();

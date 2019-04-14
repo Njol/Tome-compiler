@@ -54,15 +54,19 @@ public class IRBlock extends AbstractIRExpression {
 		return new InterpretedNativeClosure(IRTypeTuple.emptyTuple(irContext), new IRTypeTupleBuilder(irContext).addEntry("result", resultType()).build(), true) {
 			@Override
 			protected InterpretedTuple interpret(final InterpretedTuple arguments) throws InterpreterException {
-				for (final IRStatement statement : statements) {
-					statement.interpret(context);
-					if (context.isReturning)
-						break;
-					// TODO different 'return's for returning from the outermost function, and only returning from a single block?
-				}
+				interpretDirectly(context);
 				return new InterpretedTuple(IRTypeTuple.emptyTuple(getIRContext()), Collections.EMPTY_LIST); // a block doesn't return anything - the result is stored in whatever result variable(s) is/are used
 			}
 		};
+	}
+	
+	public void interpretDirectly(final InterpreterContext context) throws InterpreterException {
+		for (final IRStatement statement : statements) {
+			statement.interpret(context);
+			if (context.isReturning)
+				break;
+			// TODO different 'return's for returning from the outermost function, and only returning from a single block?
+		}
 	}
 	
 	@Override

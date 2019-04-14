@@ -7,7 +7,7 @@ public enum PartialRelation {
 		return this == LESS || this == EQUAL;
 	}
 	
-	public final boolean isLargeThanOrEqual() {
+	public final boolean isGreaterThanOrEqual() {
 		return this == GREATER || this == EQUAL;
 	}
 	

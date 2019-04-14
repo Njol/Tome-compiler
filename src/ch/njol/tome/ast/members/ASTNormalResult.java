@@ -10,7 +10,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTResult;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTInterfaces.ASTVariable;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.compiler.Token;
@@ -25,15 +25,16 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTNormalResult extends AbstractASTElement implements ASTVariable, ASTResult {
-	public @Nullable ASTTypeUse type;
+public class ASTNormalResult extends AbstractASTElementWithIR<IRResultRedefinition> implements ASTVariable, ASTResult {
+	
+	public @Nullable ASTTypeUse<?> type;
 	public @Nullable LowercaseWordToken name;
-	public @Nullable ASTExpression defaultValue;
+	public @Nullable ASTExpression<?> defaultValue;
 	private @Nullable ASTNormalResultLink overridden;
 	
 	private static class ASTNormalResultLink extends ASTLink<IRResultRedefinition> {
 		@Override
-		protected @Nullable IRResultRedefinition tryLink(String name) {
+		protected @Nullable IRResultRedefinition tryLink(final String name) {
 			@SuppressWarnings("null")
 			final IRAttributeRedefinition parentAttr = getParentOfType(ASTAttribute.class).getIR().parentRedefinition();
 			if (parentAttr == null)
@@ -41,7 +42,7 @@ public class ASTNormalResult extends AbstractASTElement implements ASTVariable, 
 			return parentAttr.getResultByName(name);
 		}
 		
-		private static ASTNormalResultLink parse(Parser parent) {
+		private static ASTNormalResultLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ASTNormalResultLink(), parent);
 		}
 	}
@@ -101,7 +102,7 @@ public class ASTNormalResult extends AbstractASTElement implements ASTVariable, 
 	
 	@Override
 	public IRTypeUse getIRType() {
-		final ASTTypeUse type = this.type;
+		final ASTTypeUse<?> type = this.type;
 		if (type != null)
 			return type.getIR();
 		final IRResultRedefinition parent = overridden != null ? overridden.get() : null;
@@ -110,15 +111,12 @@ public class ASTNormalResult extends AbstractASTElement implements ASTVariable, 
 		return parent.type();
 	}
 	
-	private @Nullable IRResultRedefinition ir;
-	
 	@Override
-	public IRResultRedefinition getIR() {
-		if (ir != null)
-			return ir;
+	protected IRResultRedefinition calculateIR() {
 		final IRResultRedefinition parent = overridden != null ? overridden.get() : null;
 		final ASTAttribute attribute = attribute();
 		assert attribute != null;
-		return ir = parent == null ? new IRBrokkrResultDefinition(this, attribute.getIR()) : new IRBrokkrResultRedefinition(this, parent, attribute.getIR());
+		return parent == null ? new IRBrokkrResultDefinition(this, attribute.getIR()) : new IRBrokkrResultRedefinition(this, parent, attribute.getIR());
 	}
+	
 }

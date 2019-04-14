@@ -3,7 +3,7 @@ package ch.njol.tome.ast.expressions;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.compiler.Token.SymbolToken;
 import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRIf;
@@ -13,11 +13,12 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTTernaryIf extends AbstractASTElement implements ASTExpression {
-	public ASTExpression condition;
-	public @Nullable ASTExpression then, otherwise;
+public class ASTTernaryIf extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
 	
-	public ASTTernaryIf(final ASTExpression condition, final SymbolToken questionMark) {
+	public ASTExpression<?> condition;
+	public @Nullable ASTExpression<?> then, otherwise;
+	
+	public ASTTernaryIf(final ASTExpression<?> condition, final SymbolToken questionMark) {
 		this.condition = condition;
 	}
 	
@@ -26,7 +27,7 @@ public class ASTTernaryIf extends AbstractASTElement implements ASTExpression {
 		return condition + " ? " + then + " : " + otherwise;
 	}
 	
-	public static ASTTernaryIf finishParsing(final Parser p, final ASTExpression condition, final SymbolToken questionMark) {
+	public static ASTTernaryIf finishParsing(final Parser p, final ASTExpression<?> condition, final SymbolToken questionMark) {
 		final ASTTernaryIf ast = new ASTTernaryIf(condition, questionMark);
 		ast.then = ASTExpressions.parse(p);
 		p.one(':');
@@ -40,7 +41,8 @@ public class ASTTernaryIf extends AbstractASTElement implements ASTExpression {
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		return new IRIf(condition.getIR(), then != null ? then.getIR() : new IRUnknownExpression("Syntax error. Correct syntax: [test ? then : otherwise]", this), otherwise != null ? otherwise.getIR() : null);
 	}
+	
 }

@@ -9,7 +9,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTLocalVariable;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.ast.statements.ASTStatements.ASTStatement;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
@@ -24,13 +24,14 @@ import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 import ch.njol.util.StringUtils;
 
-public class ASTVariableDeclarations extends AbstractASTElement implements ASTStatement {
-	public @Nullable ASTTypeUse type;
+public class ASTVariableDeclarations extends AbstractASTElementWithIR<IRStatement> implements ASTStatement<IRStatement> {
+	
+	public @Nullable ASTTypeUse<?> type;
 	public List<ASTVariableDeclarationsVariable> variables = new ArrayList<>();
 	
 	public ASTVariableDeclarations() {}
 	
-	public ASTVariableDeclarations(final ASTTypeUse type) {
+	public ASTVariableDeclarations(final ASTTypeUse<?> type) {
 		this.type = type;
 	}
 	
@@ -43,7 +44,7 @@ public class ASTVariableDeclarations extends AbstractASTElement implements ASTSt
 		return finishParsing(parent.start(), null);
 	}
 	
-	public static ASTVariableDeclarations finishParsing(final Parser p, @Nullable final ASTTypeUse type) {
+	public static ASTVariableDeclarations finishParsing(final Parser p, @Nullable final ASTTypeUse<?> type) {
 		final ASTVariableDeclarations ast = new ASTVariableDeclarations();
 		if (type != null)
 			ast.type = type;
@@ -58,13 +59,14 @@ public class ASTVariableDeclarations extends AbstractASTElement implements ASTSt
 	}
 	
 	@Override
-	public IRStatement getIR() {
+	protected IRStatement calculateIR() {
 		return new IRStatementList(getIRContext(), variables.stream().map(v -> v.getIRDeclaration()).collect(Collectors.toList()));
 	}
 	
-	public static class ASTVariableDeclarationsVariable extends AbstractASTElement implements ASTLocalVariable {
+	public static class ASTVariableDeclarationsVariable extends AbstractASTElementWithIR<IRVariableRedefinition> implements ASTLocalVariable {
+		
 		public @Nullable LowercaseWordToken nameToken;
-		public @Nullable ASTExpression initialValue;
+		public @Nullable ASTExpression<?> initialValue;
 		
 		@Override
 		public @Nullable WordToken nameToken() {
@@ -90,7 +92,7 @@ public class ASTVariableDeclarations extends AbstractASTElement implements ASTSt
 			final ASTVariableDeclarations variableDeclarations = (ASTVariableDeclarations) parent;
 			if (variableDeclarations == null)
 				return new IRUnknownTypeUse(getIRContext());
-			final ASTTypeUse typeUse = variableDeclarations.type;
+			final ASTTypeUse<?> typeUse = variableDeclarations.type;
 			if (typeUse == null) {
 				if (initialValue != null)
 					return initialValue.getIRType();
@@ -100,7 +102,7 @@ public class ASTVariableDeclarations extends AbstractASTElement implements ASTSt
 		}
 		
 		@Override
-		public IRVariableRedefinition getIR() {
+		protected IRVariableRedefinition calculateIR() {
 			return new IRBrokkrLocalVariable(this);
 		}
 		

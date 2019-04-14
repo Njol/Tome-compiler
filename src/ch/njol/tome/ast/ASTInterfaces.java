@@ -3,13 +3,13 @@ package ch.njol.tome.ast;
 import java.util.Collections;
 import java.util.List;
 
-import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.expressions.ASTArgument;
 import ch.njol.tome.ast.expressions.ASTAttributeAssignment;
 import ch.njol.tome.ast.expressions.ASTDirectAttributeAccess;
 import ch.njol.tome.ast.members.ASTMemberModifiers;
+import ch.njol.tome.ast.toplevel.ASTGenericParameterDeclaration;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
 import ch.njol.tome.ir.IRElement;
 import ch.njol.tome.ir.IRError;
@@ -24,6 +24,7 @@ import ch.njol.tome.ir.nativetypes.IRTuple.IRTypeTuple;
 import ch.njol.tome.ir.nativetypes.IRTuple.IRTypeTupleBuilder;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
+import ch.njol.tome.util.Cache;
 
 public class ASTInterfaces {
 	
@@ -44,9 +45,9 @@ public class ASTInterfaces {
 		}
 		
 		@Override
-		public default int linkEnd() {
+		public default int linkLength() {
 			final WordOrSymbols t = nameToken();
-			return t == null ? absoluteRegionEnd() : t.absoluteRegionEnd();
+			return t == null ? regionLength() : t.regionLength();
 		}
 	}
 	
@@ -57,8 +58,12 @@ public class ASTInterfaces {
 		public IRTypeUse getIRType();
 	}
 	
-	public static interface ASTElementWithIR extends ASTElement {
-		public @Nullable IRElement getIR();
+	public static interface ASTElementWithIR<IR extends @Nullable IRElement> extends ASTElement {
+		public Cache<? extends IR> irChache();
+		
+		public default IR getIR() {
+			return irChache().get();
+		}
 	}
 	
 	/**
@@ -81,38 +86,29 @@ public class ASTInterfaces {
 		
 	}
 	
-	public static interface ASTLocalVariable extends ASTVariable, ASTElementWithIR {
-		
-		@Override
-		public @NonNull IRVariableRedefinition getIR();
+	public static interface ASTLocalVariable extends ASTVariable, ASTElementWithIR<IRVariableRedefinition> {
 		
 	}
 	
-	public static interface ASTParameter extends ASTVariable, ASTElementWithIR {
-		
-		@Override
-		public @NonNull IRParameterRedefinition getIR();
+	public static interface ASTParameter extends ASTVariable, ASTElementWithIR<IRParameterRedefinition> {
 		
 //		public @Nullable FormalParameter overridden();
+	
+	}
+	
+	public static interface ASTResult extends TypedASTElement, NamedASTElement, ASTElementWithIR<IRResultRedefinition> {
 		
 	}
 	
-	public static interface ASTResult extends TypedASTElement, NamedASTElement, ASTElementWithIR {
-		
-		@Override
-		public @NonNull IRResultRedefinition getIR();
-		
-	}
-	
-	public static interface ASTAttribute extends ASTVariableOrAttribute, ASTElementWithVariables, ASTMember, ASTElementWithIR {
+	public static interface ASTAttribute extends ASTVariableOrAttribute, ASTElementWithVariables, ASTMember, ASTElementWithIR<IRAttributeRedefinition> {
 		public ASTMemberModifiers modifiers();
 		
-		public List<? extends ASTError> declaredErrors();
+		public List<? extends ASTError<?>> declaredErrors();
 		
 		public default @Nullable IRError getError(final String name) {
-			for (final ASTError e : declaredErrors()) {
+			for (final ASTError<?> e : declaredErrors()) {
 				if (name.equals(e.name()))
-					return e.getIRError();
+					return e.getIR();
 			}
 			final IRMemberRedefinition parent = modifiers().overridden();
 			return parent != null && parent instanceof IRAttributeRedefinition ? ((IRAttributeRedefinition) parent).getErrorByName(name) : null;
@@ -167,9 +163,6 @@ public class ASTInterfaces {
 			return Collections.singletonList(getIR());
 		}
 		
-		@Override
-		public @NonNull IRAttributeRedefinition getIR();
-		
 	}
 	
 	public static interface ASTElementWithVariables extends ASTElement {
@@ -186,16 +179,11 @@ public class ASTInterfaces {
 		
 	}
 	
-	public static interface ASTError extends NamedASTElement {
-		
-		IRError getIRError();
+	public static interface ASTError<IR extends IRError> extends NamedASTElement, ASTElementWithIR<IR> {
 		
 	}
 	
-	public static interface ASTExpression extends TypedASTElement, ASTElementWithIR {
-		
-		@Override
-		public @NonNull IRExpression getIR();
+	public static interface ASTExpression<IR extends IRExpression> extends TypedASTElement, ASTElementWithIR<IR> {
 		
 		@Override
 		default IRTypeUse getIRType() {
@@ -207,18 +195,19 @@ public class ASTInterfaces {
 	/**
 	 * A type declaration, with members and possible supertypes (currently either an interface, class, generic type, enum, or enum constant declaration).
 	 */
-	public static interface ASTTypeDeclaration extends NamedASTElement, ASTElementWithIR {
+	public static interface ASTTypeDeclaration<IR extends IRTypeDefinition> extends NamedASTElement, ASTElementWithIR<IR> {
 		
 		List<? extends ASTMember> declaredMembers();
 		
-		List<? extends ASTGenericParameter> genericParameters();
+		List<? extends ASTGenericParameterDeclaration<?>> genericParameters();
 		
 		// TODO remove?
 		@Nullable
 		IRTypeUse parentTypes();
 		
+		// without this, getParentOfType(ASTTypeDeclaration.class).getIR() does not properly result in an IRTypeDefinition...
 		@Override
-		public @NonNull IRTypeDefinition getIR();
+		IR getIR();
 		
 	}
 	
@@ -236,24 +225,21 @@ public class ASTInterfaces {
 		
 	}
 	
-	public static interface ASTGenericParameter {
-		enum Variance {
-			COVARIANT, CONTRAVARIANT, INVARIANT;
-		}
-		
-		public Variance variance();
-		
-		public @Nullable IRAttributeRedefinition declaration();
-	}
+//	public static interface ASTGenericParameter {
+//		enum Variance {
+//			COVARIANT, CONTRAVARIANT, INVARIANT;
+//		}
+//
+//		public Variance variance();
+//
+//		public @Nullable IRAttributeRedefinition declaration();
+//	}
 	
 	/**
 	 * A type use, e.g. in 'x(String): Int' or 'var x = String'.
 	 * It is also automatically a TypedElement whose type is Type&lt;<i>this</i>&gt;
 	 */
-	public static interface ASTTypeUse extends TypedASTElement, ASTElementWithIR {
-		
-		@Override
-		public @NonNull IRTypeUse getIR();
+	public static interface ASTTypeUse<IR extends IRTypeUse> extends TypedASTElement, ASTElementWithIR<IR> {
 		
 		@Override
 		default IRTypeUse getIRType() {
@@ -262,7 +248,7 @@ public class ASTInterfaces {
 		
 	}
 	
-	public static interface ASTTypeExpression extends ASTTypeUse, ASTExpression {
+	public static interface ASTTypeExpression<IR extends IRTypeUse> extends ASTTypeUse<IR>, ASTExpression<IR> {
 		
 		@Override
 		default IRTypeUse getIRType() {

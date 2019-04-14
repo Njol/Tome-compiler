@@ -1,20 +1,17 @@
 package ch.njol.tome.util;
 
-import java.util.Map;
-
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.interpreter.InterpretedObject;
-import ch.njol.tome.interpreter.InterpretedTypeUse;
-import ch.njol.tome.ir.IRGenericArgument;
-import ch.njol.tome.ir.IRValueGenericArgument;
-import ch.njol.tome.ir.definitions.IRAttributeDefinition;
+import ch.njol.tome.ir.IRGenericArguments;
+import ch.njol.tome.ir.definitions.IRGenericTypeDefinition;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
-import ch.njol.tome.ir.uses.IRGenericTypeUse;
+import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.uses.IRSimpleTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
+import ch.njol.tome.ir.uses.IRTypeUseWithGenerics;
 
 public final class IRUtils {
+	
 	private IRUtils() {}
 	
 	/**
@@ -24,25 +21,29 @@ public final class IRUtils {
 	 * @return If the given type use is of the form {@code Type<X>}, returns {@code X}, otherwise {@code null}.
 	 */
 	public static @Nullable IRTypeUse extractTypeType(final IRTypeUse use) {
-		if (use instanceof IRGenericTypeUse) {
-			final IRTypeUse base = ((IRGenericTypeUse) use).getBaseType();
+		if (use instanceof IRTypeUseWithGenerics) {
+			// if 'Type<X>', return 'X'
+			final IRTypeUse base = ((IRTypeUseWithGenerics) use).getBaseType();
 			final IRTypeDefinition typeTypeDefinition = use.getIRContext().getTypeDefinition("lang", "Type");
 			if (!base.equalsType(typeTypeDefinition.getUse()))
 				return null;
-			final Map<IRAttributeDefinition, IRGenericArgument> generics = ((IRGenericTypeUse) use).getGenericArguments();
-			final IRGenericArgument argument = generics.get(typeTypeDefinition.getAttributeByName("T"));
-			if (argument instanceof IRValueGenericArgument) {
-				final InterpretedObject value = ((IRValueGenericArgument) argument).getValue();
-				if (value instanceof InterpretedTypeUse)
-					return ((InterpretedTypeUse) value).irType();
-			}
+			// Type<...> at this point
+			final IRGenericArguments generics = ((IRTypeUseWithGenerics) use).getGenericArguments();
+			IRGenericTypeDefinition genericType = typeTypeDefinition.getGenericTypeDefinitionByName("T");
+			if (genericType == null)
+				return null;
+			final IRExpression value = generics.getValueArgument(genericType);
+			if (value instanceof IRTypeUse)
+				return (IRTypeUse) value;
 			return use.getIRContext().getTypeUse("lang", "Any");
 		} else if (use instanceof IRSimpleTypeUse) {
+			// if just 'Type' with no parameters, return 'Any'
 			final IRTypeDefinition typeDefinition = ((IRSimpleTypeUse) use).getDefinition();
 			final IRTypeDefinition typeTypeDefinition = use.getIRContext().getTypeDefinition("lang", "Type");
 			if (typeDefinition.equalsType(typeTypeDefinition))
-				return use.getIRContext().getTypeUse("lang", "Any");
+				return use.getIRContext().getTypeUse("lang", "Any"); // TODO make constants for all the strings used here
 		}
 		return null;
 	}
+	
 }

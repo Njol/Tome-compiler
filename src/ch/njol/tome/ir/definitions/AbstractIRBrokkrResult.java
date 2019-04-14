@@ -28,7 +28,7 @@ public abstract class AbstractIRBrokkrResult extends AbstractIRBrokkrVariable im
 	
 	@Override
 	public @Nullable IRExpression defaultValue() {
-		final ASTExpression defaultValue = ((ASTNormalResult) ast).defaultValue;
+		final ASTExpression<?> defaultValue = ((ASTNormalResult) ast).defaultValue;
 		return defaultValue == null ? null : defaultValue.getIR();
 	}
 	

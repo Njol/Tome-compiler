@@ -12,7 +12,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.SymbolToken;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
@@ -25,8 +25,10 @@ import ch.njol.util.CollectionUtils;
 import ch.njol.util.PartialComparator;
 import ch.njol.util.PartialRelation;
 
-public class ASTOperatorExpression extends AbstractASTElement implements ASTExpression {
-	public List<ASTExpression> expressions = new ArrayList<>();
+public class ASTOperatorExpression extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
+	
+	public List<ASTExpression<?>> expressions = new ArrayList<>();
+	
 	public List<ASTLink<IRAttributeRedefinition>> operators = new ArrayList<>();
 	
 	@Override
@@ -67,10 +69,10 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 	// LANG better: allow check only for subinterfaces of interfaces marked in a specific way (this wouldn't help with extensions though)
 	private final static Set<String> assingmentOps = new HashSet<>(Arrays.asList("&", "|", "+", "-", "*", "/"));
 	
-	public static ASTExpression parse(final Parser parent) {
+	public static ASTExpression<?> parse(final Parser parent) {
 		final Parser p = parent.start();
 		final ASTOperatorExpression ast = new ASTOperatorExpression();
-		final ASTExpression first = ASTOperatorExpressionPart.parse(p);
+		final ASTExpression<?> first = ASTOperatorExpressionPart.parse(p);
 		if (first == null) {
 			p.expectedFatal("an expression");
 			return p.done(ast);
@@ -81,7 +83,7 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 		while (!((next = p.peekNext()) instanceof SymbolToken && assingmentOps.contains("" + ((SymbolToken) next).symbol) && p.peekNext('=', 1, true)) // +=/*=/etc.
 				&& (op = ASTOperatorLink.tryParse(p, true, ops)) != null) {
 			ast.operators.add(op);
-			final ASTExpression expression = ASTOperatorExpressionPart.parse(p);
+			final ASTExpression<?> expression = ASTOperatorExpressionPart.parse(p);
 			if (expression == null) {
 				p.expectedFatal("an expression");
 				return p.done(ast);
@@ -167,7 +169,7 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		if (operators.size() > 1) {
 			for (final ASTLink<IRAttributeRedefinition> op : operators) {
 				final WordOrSymbols w = op.getNameToken();
@@ -178,4 +180,5 @@ public class ASTOperatorExpression extends AbstractASTElement implements ASTExpr
 		}
 		return build(0, expressions.size() - 1);
 	}
+	
 }

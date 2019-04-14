@@ -8,7 +8,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTMethodCall;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.members.ASTAttributeDeclaration;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
@@ -23,7 +23,8 @@ import ch.njol.tome.parser.Parser;
 /**
  * The keyword 'recurse' which calls the current method, with optionally new arguments (and all unspecified arguments left the same).
  */
-public class ASTRecurse extends AbstractASTElement implements ASTExpression, ASTMethodCall {
+public class ASTRecurse extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression>, ASTMethodCall {
+	
 	public List<ASTArgument> arguments = new ArrayList<>();
 	
 	@Override
@@ -65,11 +66,12 @@ public class ASTRecurse extends AbstractASTElement implements ASTExpression, AST
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		final IRAttributeRedefinition attribute = attribute();
 		if (attribute == null)
 			return new IRUnknownExpression("Internal compiler error", this);
 		return new IRAttributeAccess(attribute.isStatic() ? null : IRThis.makeNew(this),
 				attribute, ASTArgument.makeIRArgumentMap(attribute.definition(), arguments), false, false, false);
 	}
+	
 }

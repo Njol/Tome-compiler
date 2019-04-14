@@ -6,11 +6,10 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.ast.members.ASTMemberModifiers;
 import ch.njol.tome.ast.members.ASTMembers;
@@ -21,12 +20,13 @@ import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTClassDeclaration extends AbstractASTElement implements ASTTypeDeclaration, ASTMember {
+public class ASTClassDeclaration extends AbstractASTElementWithIR<IRBrokkrClassDefinition> implements ASTTypeDeclaration<IRBrokkrClassDefinition>, ASTMember {
+	
 	public final ASTMemberModifiers modifiers;
 	
 	public @Nullable UppercaseWordToken name;
-	public List<ASTGenericParameterDeclaration> genericParameters = new ArrayList<>();
-	public List<ASTTypeUse> parents = new ArrayList<>();
+	public List<ASTGenericParameterDeclaration<?>> genericParameters = new ArrayList<>();
+	public List<ASTTypeUse<?>> parents = new ArrayList<>();
 	public List<ASTMember> members = new ArrayList<>();
 	
 	public ASTClassDeclaration(final ASTMemberModifiers modifiers) {
@@ -49,7 +49,7 @@ public class ASTClassDeclaration extends AbstractASTElement implements ASTTypeDe
 	}
 	
 	@Override
-	public List<? extends ASTGenericParameter> genericParameters() {
+	public List<? extends ASTGenericParameterDeclaration<?>> genericParameters() {
 		return genericParameters;
 	}
 	
@@ -65,7 +65,9 @@ public class ASTClassDeclaration extends AbstractASTElement implements ASTTypeDe
 			ast.name = p.oneTypeIdentifierToken();
 			p.tryGroup('<', () -> {
 				do {
-					ast.genericParameters.add(ASTGenericParameterDeclaration.parse(p));
+					final ASTGenericParameterDeclaration<?> genericParameterDeclaration = ASTGenericParameterDeclaration.parse(p);
+					if (genericParameterDeclaration != null)
+						ast.genericParameters.add(genericParameterDeclaration);
 				} while (p.try_(','));
 			}, '>');
 			if (p.try_("implements")) {
@@ -80,13 +82,9 @@ public class ASTClassDeclaration extends AbstractASTElement implements ASTTypeDe
 		return p.done(ast);
 	}
 	
-	private @Nullable IRBrokkrClassDefinition ir = null;
-	
 	@Override
-	public IRBrokkrClassDefinition getIR() {
-		if (ir != null)
-			return ir;
-		return ir = new IRBrokkrClassDefinition(this);
+	protected IRBrokkrClassDefinition calculateIR() {
+		return new IRBrokkrClassDefinition(this);
 	}
 	
 	@Override

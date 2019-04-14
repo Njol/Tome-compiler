@@ -1,15 +1,15 @@
 package ch.njol.tome.ast.toplevel;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.compiler.Token.WordToken;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
@@ -18,11 +18,13 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 
 // TODO remove this? (can use a static variable instead)
-public class ASTTypeAliasDeclaration extends AbstractASTElement implements ASTTypeDeclaration {
+public class ASTTypeAliasDeclaration extends AbstractASTElementWithIR<IRTypeDefinition> implements ASTTypeDeclaration<IRTypeDefinition> {
+	
 	public final ASTTopLevelElementModifiers modifiers;
 	
 	public @Nullable WordToken name;
-	public @Nullable ASTTypeExpression aliasOf;
+	public List<ASTGenericParameterDeclaration<?>> genericParameters = new ArrayList<>();
+	public @Nullable ASTTypeExpression<?> aliasOf;
 	
 	public ASTTypeAliasDeclaration(final ASTTopLevelElementModifiers modifiers) {
 		this.modifiers = modifiers;
@@ -44,8 +46,8 @@ public class ASTTypeAliasDeclaration extends AbstractASTElement implements ASTTy
 	}
 	
 	@Override
-	public List<ASTGenericParameter> genericParameters() {
-		return Collections.EMPTY_LIST; // TODO aliases should allow generic params too (e.g. 'alias Generator<T> = Procedure<[], T>')
+	public List<ASTGenericParameterDeclaration<?>> genericParameters() {
+		return genericParameters;
 	}
 	
 	@Override
@@ -58,9 +60,11 @@ public class ASTTypeAliasDeclaration extends AbstractASTElement implements ASTTy
 		p.one("alias");
 		p.until(() -> {
 			ast.name = p.oneTypeIdentifierToken();
-//				tryGroup('<', () -> {
-//					// TODO generic params
-//				}, '>');
+			p.tryGroup('<', () -> {
+				final ASTGenericParameterDeclaration<?> genericParameterDeclaration = ASTGenericParameterDeclaration.parse(p);
+				if (genericParameterDeclaration != null)
+					ast.genericParameters.add(genericParameterDeclaration);
+			}, '>');
 			p.one('=');
 			ast.aliasOf = ASTTypeExpressions.parse(p, false, false);
 		}, ';', false);
@@ -68,8 +72,9 @@ public class ASTTypeAliasDeclaration extends AbstractASTElement implements ASTTy
 	}
 	
 	@Override
-	public IRTypeDefinition getIR() {
+	protected IRTypeDefinition calculateIR() {
 		return new IRUnknownTypeDefinition(getIRContext(), "not implemented", this);
 //			return aliasOf.interpret(new InterpreterContext(null));
 	}
+	
 }

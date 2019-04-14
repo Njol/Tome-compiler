@@ -23,7 +23,7 @@ public class IRBrokkrTemplate extends AbstractIRElement implements IRAttributeDe
 	
 	public IRBrokkrTemplate(final ASTTemplate ast) {
 		this.ast = registerDependency(ast);
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
+		final ASTTypeDeclaration<?> type = ast.getParentOfType(ASTTypeDeclaration.class);
 		declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (template not in type: " + this + ")", ast));
 	}
 	

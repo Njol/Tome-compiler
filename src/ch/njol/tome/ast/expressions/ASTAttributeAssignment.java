@@ -18,10 +18,10 @@ import ch.njol.tome.parser.Parser;
 
 public class ASTAttributeAssignment extends AbstractASTAssignment<ASTAttributeAssignment> implements ASTTargettedExpression {
 	
-	public final ASTExpression target;
+	public final ASTExpression<?> target;
 	public final @Nullable ASTLink<? extends IRAttributeRedefinition> attribute;
 	
-	public ASTAttributeAssignment(final ASTExpression target, final @Nullable ASTLink<? extends IRAttributeRedefinition> attribute, final @Nullable ASTOperatorLink assignmentOpLink, WordOrSymbols assignmentOpToken) {
+	public ASTAttributeAssignment(final ASTExpression<?> target, final @Nullable ASTLink<? extends IRAttributeRedefinition> attribute, final @Nullable ASTOperatorLink assignmentOpLink, final WordOrSymbols assignmentOpToken) {
 		super(assignmentOpLink, assignmentOpToken);
 		this.target = target;
 		this.attribute = attribute;
@@ -32,8 +32,8 @@ public class ASTAttributeAssignment extends AbstractASTAssignment<ASTAttributeAs
 		return target + "." + attribute + " " + assignmentOpToken + " " + value;
 	}
 	
-	public static ASTAttributeAssignment finishParsing(final Parser p, final ASTExpression target, final @Nullable ASTLink<? extends IRAttributeRedefinition> attribute,
-			final @Nullable ASTOperatorLink assignmentOpLink, WordOrSymbols assignmentOpToken) {
+	public static ASTAttributeAssignment finishParsing(final Parser p, final ASTExpression<?> target, final @Nullable ASTLink<? extends IRAttributeRedefinition> attribute,
+			final @Nullable ASTOperatorLink assignmentOpLink, final WordOrSymbols assignmentOpToken) {
 		final ASTAttributeAssignment ast = new ASTAttributeAssignment(target, attribute, assignmentOpLink, assignmentOpToken);
 		ast.value = ASTExpressions.parse(p);
 		return p.done(ast);

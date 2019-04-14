@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.ast.statements.ASTStatements.ASTStatement;
 import ch.njol.tome.compiler.Token;
@@ -19,10 +19,11 @@ import ch.njol.tome.parser.Parser;
  * -> actually, should use different syntax for 'code here' (currently [$=]) and 'code for later' (currently [$]), so that this statement is still only valid in code generation
  * methods.
  */
-public class ASTCodeGenerationStatement extends AbstractASTElement implements ASTStatement {
+public class ASTCodeGenerationStatement extends AbstractASTElementWithIR<IRStatement> implements ASTStatement<IRStatement> {
+	
 	// TODO make these a single list?
 	public final List<CodeGenerationToken> code = new ArrayList<>();
-	public final List<ASTExpression> expressions = new ArrayList<>();
+	public final List<ASTExpression<?>> expressions = new ArrayList<>();
 	
 	@Override
 	public String toString() {
@@ -51,7 +52,8 @@ public class ASTCodeGenerationStatement extends AbstractASTElement implements AS
 	}
 	
 	@Override
-	public IRStatement getIR() {
+	protected IRStatement calculateIR() {
 		return new IRCodeGenerationStatement(this);
 	}
+	
 }

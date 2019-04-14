@@ -1,6 +1,7 @@
 package ch.njol.tome.ir.expressions;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,7 +34,7 @@ public class IRAttributeAccess extends AbstractIRExpression {
 	
 	public IRAttributeAccess(@Nullable final IRExpression target, final IRAttributeRedefinition attribute, final Map<IRParameterDefinition, IRExpression> arguments,
 			final boolean allResults, final boolean nullSafe, final boolean meta) {
-		IRElement.assertSameIRContext(target == null ? Arrays.asList(attribute) : Arrays.asList(target, attribute), arguments.keySet(), arguments.values());
+		IRElement.assertSameIRContext(target != null ? Collections.singletonList(target) : Collections.emptyList(), Arrays.asList(attribute), arguments.keySet(), arguments.values());
 		this.target = registerDependency(target);
 		this.attribute = registerDependency(attribute);
 		this.arguments = arguments;
@@ -50,9 +51,9 @@ public class IRAttributeAccess extends AbstractIRExpression {
 			// TODO return a tuple of one element when not using all results, or just the result itself?
 			// TODO remove passed arguments from resulting arguments tuple
 			return getIRContext().getTypeDefinition("lang", attribute.isModifying() ? "Procedure" : "Function")
-					.getGenericUse("Arguments", IRValueGenericArgument.fromExpression(attribute.allParameterTypes(), null),
-							"Results", IRValueGenericArgument.fromExpression(allResults ? attribute.allResultTypes()
-									: new IRTypeTupleBuilder(getIRContext()).addEntry("result", attribute.mainResultType()).build(), null),
+					.getGenericUse("Arguments", new IRValueGenericArgument(attribute.allParameterTypes()),
+							"Results", new IRValueGenericArgument(allResults ? attribute.allResultTypes()
+									: new IRTypeTupleBuilder(getIRContext()).addEntry("result", attribute.mainResultType()).build()),
 							null);
 		} else {
 			return allResults ? attribute.allResultTypes() : attribute.mainResultType();

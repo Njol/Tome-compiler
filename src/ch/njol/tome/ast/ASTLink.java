@@ -13,13 +13,14 @@ import ch.njol.tome.compiler.Token.WordOrSymbols;
 import ch.njol.tome.ir.IRElement;
 import ch.njol.tome.parser.Parser;
 import ch.njol.tome.util.Cache;
+import ch.njol.tome.util.Watchable;
 
-public abstract class ASTLink<T extends IRElement> extends AbstractASTElement implements ASTElementWithIR {
+public abstract class ASTLink<T extends @Nullable IRElement> extends AbstractASTElement implements ASTElementWithIR<@Nullable T> {
 	
 	protected @Nullable WordOrSymbols name;
 	
 	private boolean isLinking = false;
-	private final Cache<@Nullable T> cache = new Cache<>(() -> {
+	private final Cache<@Nullable T> cache = new Cache<>(this, () -> {
 		if (isLinking) {// recursion - abort
 //				assert false : this;
 			return null;
@@ -37,38 +38,48 @@ public abstract class ASTLink<T extends IRElement> extends AbstractASTElement im
 	
 	protected abstract @Nullable T tryLink(String name);
 	
-	protected @Nullable String errorMessage(String name) {
+	protected void registerDependency(Watchable dependency) {
+		// TODO remove dependencies before tryLink (as that will add them again, or even add less if some became obsolete)
+		cache.registerDependency(dependency);
+	}
+	
+	protected @Nullable String errorMessage(final String name) {
 		return "Cannot find [" + name + "]";
 	}
 	
 //	protected abstract List<T> contentAssist(StringMatcher matcher);
 	
-	protected static <T extends IRElement, L extends ASTLink<T>> L parseAsTypeIdentifier(L link, final Parser parent) {
+	protected static <T extends @Nullable IRElement, L extends ASTLink<T>> L parseAsTypeIdentifier(final L link, final Parser parent) {
 		return parse(link, parent, Parser::oneTypeIdentifierToken);
 	}
 	
-	protected static <T extends IRElement, L extends ASTLink<T>> L parseAsVariableIdentifier(L link, final Parser parent) {
+	protected static <T extends @Nullable IRElement, L extends ASTLink<T>> L parseAsVariableIdentifier(final L link, final Parser parent) {
 		return parse(link, parent, Parser::oneVariableIdentifierToken);
 	}
 	
-	protected static <T extends IRElement, L extends ASTLink<T>> L parseAsAnyIdentifier(L link, final Parser parent) {
+	protected static <T extends @Nullable IRElement, L extends ASTLink<T>> L parseAsAnyIdentifier(final L link, final Parser parent) {
 		return parse(link, parent, Parser::oneIdentifierToken);
 	}
 	
-	protected static <T extends IRElement, L extends ASTLink<T>> L parse(L link, final Parser parent, final Function<Parser, @Nullable WordOrSymbols> tokenParserFunction) {
+	protected static <T extends @Nullable IRElement, L extends ASTLink<T>> L parse(final L link, final Parser parent, final Function<Parser, @Nullable WordOrSymbols> tokenParserFunction) {
 		return parent.one(p -> {
 			link.name = tokenParserFunction.apply(p);
 			return link;
 		});
 	}
 	
-	protected static <T extends IRElement, L extends ASTLink<T>> @Nullable L tryParse(L link, final Parser parent, final Function<Parser, @Nullable WordOrSymbols> tokenParserFunction) {
+	protected static <T extends @Nullable IRElement, L extends ASTLink<T>> @Nullable L tryParse(final L link, final Parser parent, final Function<Parser, @Nullable WordOrSymbols> tokenParserFunction) {
 		final Parser p = parent.start();
 		final WordOrSymbols name = tokenParserFunction.apply(p);
 		if (name == null) {
 			p.cancel();
 			return null;
 		}
+		link.name = name;
+		return p.done(link);
+	}
+	
+	protected static <T extends @Nullable IRElement, L extends ASTLink<T>> L finishParsing(final L link, final Parser p, final WordOrSymbols name) {
 		link.name = name;
 		return p.done(link);
 	}
@@ -87,17 +98,22 @@ public abstract class ASTLink<T extends IRElement> extends AbstractASTElement im
 	}
 	
 	@Override
-	public @Nullable IRElement getIR() {
+	public Cache<@Nullable T> irChache() {
+		return cache;
+	}
+	
+	@Override
+	public @Nullable T getIR() {
 		return get();
 	}
 	
 	@Override
-	public void getSemanticErrors(Consumer<SemanticError> consumer) {
-		WordOrSymbols name = this.name;
+	public void getSemanticErrors(final Consumer<SemanticError> consumer) {
+		final WordOrSymbols name = this.name;
 		if (name != null) { // if name is null there's already a syntax error
 			final @Nullable T value = get();
 			if (value == null) {
-				String errorMessage = errorMessage(name.toString());
+				final String errorMessage = errorMessage(name.toString());
 				if (errorMessage != null)
 					consumer.accept(new SemanticError(errorMessage, absoluteRegionStart(), regionLength()));
 			}

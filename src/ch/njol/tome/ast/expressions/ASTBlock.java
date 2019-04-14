@@ -9,18 +9,17 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElement;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.statements.ASTStatements.ASTStatement;
 import ch.njol.tome.ir.expressions.IRBlock;
-import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTBlock extends AbstractASTElement implements ASTExpression {
+public class ASTBlock extends AbstractASTElementWithIR<IRBlock> implements ASTExpression<IRBlock> {
 	
-	public @Nullable ASTExpression expression;
-	public List<ASTStatement> statements = new ArrayList<>();
+	public @Nullable ASTExpression<?> expression;
+	public List<ASTStatement<?>> statements = new ArrayList<>();
 	
 	@Override
 	public IRTypeUse getIRType() {
@@ -35,7 +34,7 @@ public class ASTBlock extends AbstractASTElement implements ASTExpression {
 	
 	public ASTBlock() {}
 	
-	public ASTBlock(final @NonNull ASTStatement... statements) {
+	public ASTBlock(final @NonNull ASTStatement<?>... statements) {
 		this.statements.addAll(Arrays.asList(statements));
 	}
 	
@@ -51,9 +50,9 @@ public class ASTBlock extends AbstractASTElement implements ASTExpression {
 				if (ast.statements.isEmpty()) {
 					final ASTElement e = ASTStatement.parseWithExpression(p);
 					if (e instanceof ASTExpression)
-						ast.expression = (ASTExpression) e;
+						ast.expression = (ASTExpression<?>) e;
 					else
-						ast.statements.add((ASTStatement) e);
+						ast.statements.add((ASTStatement<?>) e);
 				} else {
 					ast.statements.add(ASTStatement.parse(p));
 					assert ast.expression == null;
@@ -64,9 +63,9 @@ public class ASTBlock extends AbstractASTElement implements ASTExpression {
 	}
 	
 	@Override
-	public IRExpression getIR() {
-		if (expression != null)
-			return expression.getIR(); // FIXME actually returns a block like [[ {return expression;} ]]
+	protected IRBlock calculateIR() {
+//		if (expression != null)
+//			return expression.getIR(); // FIXME actually returns a block like [[ {return expression;} ]]
 		return new IRBlock(getIRContext(), statements.stream().map(s -> s.getIR()));
 	}
 	

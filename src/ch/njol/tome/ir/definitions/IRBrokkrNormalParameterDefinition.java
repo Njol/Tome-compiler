@@ -21,7 +21,7 @@ public class IRBrokkrNormalParameterDefinition extends AbstractIRBrokkrParameter
 	
 	@Override
 	public @Nullable InterpretedObject defaultValue(final InterpreterContext context) throws InterpreterException {
-		final ASTExpression defaultValueExpr = ((ASTSimpleParameter) ast).defaultValue;
+		final ASTExpression<?> defaultValueExpr = ((ASTSimpleParameter) ast).defaultValue;
 		return defaultValueExpr == null ? null : defaultValueExpr.getIR().interpret(context);
 	}
 	

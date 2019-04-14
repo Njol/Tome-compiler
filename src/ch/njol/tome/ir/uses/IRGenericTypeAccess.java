@@ -8,26 +8,22 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.compiler.SourceCodeLinkable;
-import ch.njol.tome.interpreter.InterpretedNormalObject;
-import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpretedTypeUse;
 import ch.njol.tome.interpreter.InterpreterContext;
 import ch.njol.tome.interpreter.InterpreterException;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.IRElement;
-import ch.njol.tome.util.IRUtils;
+import ch.njol.tome.ir.definitions.IRGenericTypeDefinition;
 
 public class IRGenericTypeAccess extends AbstractIRTypeUse implements SourceCodeLinkable {
 	
 	private final IRTypeUse target;
-	private final IRAttributeUse attribute;
-	private final @Nullable IRTypeUse typeUse;
+	private final IRGenericTypeDefinition genericType;
 	
-	public IRGenericTypeAccess(final IRTypeUse target, final IRAttributeUse genericType) {
+	public IRGenericTypeAccess(final IRTypeUse target, final IRGenericTypeDefinition genericType) {
 		IRElement.assertSameIRContext(target, genericType);
 		this.target = target;
-		attribute = genericType;
-		typeUse = IRUtils.extractTypeType(genericType.mainResultType());
+		this.genericType = genericType;
 	}
 	
 	@Override
@@ -53,7 +49,7 @@ public class IRGenericTypeAccess extends AbstractIRTypeUse implements SourceCode
 			final int c = target.compareTo(o.target);
 			if (c != 0)
 				return c;
-			return System.identityHashCode(attribute) - System.identityHashCode(o.attribute);
+			return genericType.compareTo(o.genericType);
 		}
 		return IRTypeUse.compareTypeUseClasses(this.getClass(), other.getClass());
 	}
@@ -72,38 +68,41 @@ public class IRGenericTypeAccess extends AbstractIRTypeUse implements SourceCode
 	
 	@Override
 	public Set<? extends IRTypeUse> allInterfaces() {
-		return typeUse != null ? typeUse.allInterfaces() : Collections.EMPTY_SET;
+		IRTypeUse extended = genericType.extends_();
+		return extended != null ? extended.allInterfaces() : Collections.EMPTY_SET;
 	}
 	
 	@Override
 	public List<? extends IRMemberUse> members() {
-		return typeUse != null ? typeUse.members() : Collections.EMPTY_LIST;
+		IRTypeUse extended = genericType.extends_();
+		return extended != null ? extended.members() : Collections.EMPTY_LIST;
 	}
 	
 	@Override
 	public InterpretedTypeUse interpret(final InterpreterContext context) throws InterpreterException {
-		if (typeUse == null)
-			throw new InterpreterException("Invalid generic type access");
-		final InterpretedTypeUse interpretedTarget = target.interpret(context);
-		if (interpretedTarget instanceof InterpretedNormalObject) {
-			final InterpretedObject attributeValue = ((InterpretedNormalObject) interpretedTarget).getAttributeValue(attribute.definition());
-			if (attributeValue instanceof InterpretedTypeUse)
-				return (InterpretedTypeUse) attributeValue;
-			throw new InterpreterException("Type attribute did not return a Type");
-		}
-		throw new InterpreterException("base type of generic type access is not a normal type");
+//		if (typeUse == null)
+//			throw new InterpreterException("Invalid generic type access");
+//		final InterpretedTypeUse interpretedTarget = target.interpret(context);
+//		if (interpretedTarget instanceof InterpretedNormalObject) {
+//			final InterpretedObject attributeValue = ((InterpretedNormalObject) interpretedTarget).getAttributeValue(attribute.definition());
+//			if (attributeValue instanceof InterpretedTypeUse)
+//				return (InterpretedTypeUse) attributeValue;
+//			throw new InterpreterException("Type attribute did not return a Type");
+//		}
+//		throw new InterpreterException("base type of generic type access is not a normal type");
+		throw new InterpreterException("not implemented");
 	}
 	
 	@Override
 	public String toString() {
 		if (target instanceof IRSelfTypeUse)
-			return attribute.definition().name();
-		return target + "." + attribute.definition().name();
+			return genericType.name();
+		return target + "." + genericType.name();
 	}
 	
 	@Override
 	public @Nullable ASTElementPart getLinked() {
-		return attribute.getLinked();
+		return genericType.getLinked();
 	}
 	
 }

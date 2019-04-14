@@ -24,7 +24,7 @@ public class ASTLocalVariableOrUnqualifiedAttributeAssignment extends AbstractAS
 	
 	public final ASTVariableOrUnqualifiedAttributeUse varOrAttribute;
 	
-	public ASTLocalVariableOrUnqualifiedAttributeAssignment(final ASTVariableOrUnqualifiedAttributeUse varOrAttribute, final @Nullable ASTOperatorLink assignmentOpLink, WordOrSymbols assignmentOpToken) {
+	public ASTLocalVariableOrUnqualifiedAttributeAssignment(final ASTVariableOrUnqualifiedAttributeUse varOrAttribute, final @Nullable ASTOperatorLink assignmentOpLink, final WordOrSymbols assignmentOpToken) {
 		super(assignmentOpLink, assignmentOpToken);
 		this.varOrAttribute = varOrAttribute;
 	}
@@ -35,7 +35,7 @@ public class ASTLocalVariableOrUnqualifiedAttributeAssignment extends AbstractAS
 	}
 	
 	public static ASTLocalVariableOrUnqualifiedAttributeAssignment finishParsing(final Parser p, final ASTVariableOrUnqualifiedAttributeUse varOrAttribute,
-			final @Nullable ASTOperatorLink assignmentOpLink, WordOrSymbols assignmentOpToken) {
+			final @Nullable ASTOperatorLink assignmentOpLink, final WordOrSymbols assignmentOpToken) {
 		final ASTLocalVariableOrUnqualifiedAttributeAssignment ast = new ASTLocalVariableOrUnqualifiedAttributeAssignment(varOrAttribute, assignmentOpLink, assignmentOpToken);
 		ast.value = ASTExpressions.parse(p);
 		return p.done(ast);

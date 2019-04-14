@@ -9,10 +9,10 @@ import ch.njol.tome.parser.Parser;
  * <p>
  * Exclusively used for parsing a tuple as a type only; normal tuples that contain only types must be handled equal to such a type tuple.
  */
-public class ASTTypeTuple extends ASTTuple implements ASTTypeExpression {
+public class ASTTypeTuple extends AbstractASTTuple<IRTypeTuple> implements ASTTypeExpression<IRTypeTuple> {
 	
 	@Override
-	public IRTypeTuple getIR() {
+	protected IRTypeTuple calculateIR() {
 		return (IRTypeTuple) ASTTupleEntry.makeIRNormalTuple(getIRContext(), entries);
 	}
 	

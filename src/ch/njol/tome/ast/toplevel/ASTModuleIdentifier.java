@@ -46,7 +46,7 @@ public class ASTModuleIdentifier extends AbstractASTElement {
 	}
 	
 	@Override
-	public @Nullable SourceCodeLinkable getLinked(Token t) {
+	public @Nullable SourceCodeLinkable getLinked(final Token t) {
 		// TODO make link over the whole element, not only one token
 		if (parent instanceof ASTModule)
 			return null;

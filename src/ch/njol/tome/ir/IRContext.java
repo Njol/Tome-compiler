@@ -12,8 +12,8 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.common.ModuleIdentifier;
 import ch.njol.tome.compiler.Modules;
 import ch.njol.tome.interpreter.nativetypes.InterpretedNativeObject;
-import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRBrokkrTypeDefinition;
+import ch.njol.tome.ir.definitions.IRGenericParameter;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.nativetypes.internal.IRNativeTypeClassDefinition;
@@ -93,7 +93,7 @@ public class IRContext {
 		}
 		
 		@Override
-		public List<IRAttributeRedefinition> positionalGenericParameters() {
+		public List<IRGenericParameter> genericParameters() {
 			return Collections.EMPTY_LIST;
 		}
 		

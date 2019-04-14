@@ -340,10 +340,10 @@ public class Parser {
 		return t instanceof SymbolToken && ((SymbolToken) t).symbol == symbol;
 	}
 	
-	public final boolean peekNext(final String word) {
-		final boolean success = peekNext(word, 0, false);
+	public final boolean peekNext(final String wordOrSymbol) {
+		final boolean success = peekNext(wordOrSymbol, 0, false);
 		if (!success)
-			expectedPossible("'" + word + "'");
+			expectedPossible("'" + wordOrSymbol + "'");
 		return success;
 	}
 	
@@ -454,12 +454,16 @@ public class Parser {
 	}
 	
 	public void oneGroup(final char start, final VoidProcessor lambda, final char end) {
-		one(start);
+		SymbolToken startToken = one(start);
+		if (startToken == null)
+			return;
 		until(lambda, end, true);
 	}
 	
 	public void oneRepeatingGroup(final char start, final VoidProcessor lambda, final char end) {
-		one(start);
+		SymbolToken startToken = one(start);
+		if (startToken == null)
+			return;
 		repeatUntil(lambda, end, true);
 	}
 	

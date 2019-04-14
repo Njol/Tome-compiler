@@ -22,8 +22,9 @@ import ch.njol.tome.parser.Parser;
  * An entry of a tuple, with an optional name.
  */
 public class ASTTupleEntry extends AbstractASTElement {
+	
 	public @Nullable WordToken name;
-	public @Nullable ASTExpression value;
+	public @Nullable ASTExpression<?> value;
 	
 	@Override
 	public String toString() {
@@ -62,15 +63,16 @@ public class ASTTupleEntry extends AbstractASTElement {
 	}
 	
 	public IRTupleBuilderEntry getNormalIR() {
-		final ASTExpression expression = value;
+		final ASTExpression<?> expression = value;
 		final WordToken nameToken = name;
 		final IRTypeUse valueType = expression == null ? new IRUnknownTypeUse(getIRContext()) : expression.getIRType();
 		return new IRTupleBuilderEntry(nameToken == null ? "<unknown>" : nameToken.word, valueType); // TODO make an UnknownString? maybe as a constant?
 	}
 	
 	public IRTupleBuilderEntry getTypeIR() {
-		final ASTExpression expression = value;
+		final ASTExpression<?> expression = value;
 		final WordToken nameToken = name;
 		return new IRTupleBuilderEntry(nameToken == null ? "<unknown>" : nameToken.word, expression == null ? new IRUnknownExpression("Syntax error, expected an expression", this) : expression.getIR());
 	}
+	
 }

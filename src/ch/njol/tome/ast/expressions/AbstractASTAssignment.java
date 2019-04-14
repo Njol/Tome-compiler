@@ -5,7 +5,7 @@ import java.util.Collections;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
 import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRParameterRedefinition;
@@ -15,13 +15,13 @@ import ch.njol.tome.ir.expressions.IRUnknownExpression;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 
-public abstract class AbstractASTAssignment<T extends AbstractASTAssignment<T>> extends AbstractASTElement implements ASTExpression {
+public abstract class AbstractASTAssignment<T extends AbstractASTAssignment<T>> extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
 	
 	public final WordOrSymbols assignmentOpToken;
 	public final @Nullable ASTOperatorLink assignmentOpLink;
-	public @Nullable ASTExpression value;
+	public @Nullable ASTExpression<?> value;
 	
-	protected AbstractASTAssignment(final @Nullable ASTOperatorLink assignmentOpLink, WordOrSymbols assignmentOpToken) {
+	protected AbstractASTAssignment(final @Nullable ASTOperatorLink assignmentOpLink, final WordOrSymbols assignmentOpToken) {
 		this.assignmentOpLink = assignmentOpLink;
 		this.assignmentOpToken = assignmentOpToken;
 	}
@@ -75,8 +75,8 @@ public abstract class AbstractASTAssignment<T extends AbstractASTAssignment<T>> 
 	protected abstract IRExpression makeAccessIR();
 	
 	@Override
-	public final IRExpression getIR() {
-		final ASTExpression expression = value;
+	protected final IRExpression calculateIR() {
+		final ASTExpression<?> expression = value;
 		if (expression == null)
 			return new IRUnknownExpression("Missing right-hand side of assignment", this);
 		final IRExpression val = expression.getIR();

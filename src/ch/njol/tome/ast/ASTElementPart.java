@@ -114,17 +114,10 @@ public interface ASTElementPart extends SourceCodeLinkable, Invalidatable {
 	}
 	
 	/**
-	 * @return End of the region to select when linked to this element, in characters from the start of the document
-	 */
-	public default int linkEnd() {
-		return absoluteRegionEnd();
-	}
-	
-	/**
 	 * @return Length of the region to select when linked to this element
 	 */
 	public default int linkLength() {
-		return linkEnd() - linkStart();
+		return regionLength();
 	}
 	
 	/**

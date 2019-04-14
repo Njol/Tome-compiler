@@ -13,7 +13,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTMethodCall;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.statements.ASTVariableDeclarations;
 import ch.njol.tome.ast.statements.ASTVariableDeclarations.ASTVariableDeclarationsVariable;
 import ch.njol.tome.common.ContentAssistProposal;
@@ -39,7 +39,7 @@ import ch.njol.tome.util.StringMatcher;
  * <p>
  * Also handles unqualified attribute calls, but not unqualified meta accesses (see {@link ASTUnqualifiedMetaAccess})
  */
-public class ASTVariableOrUnqualifiedAttributeUse extends AbstractASTElement implements ASTExpression, ASTMethodCall, DebugString {
+public class ASTVariableOrUnqualifiedAttributeUse extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression>, ASTMethodCall, DebugString {
 	
 	public @Nullable ASTVariableOrUnqualifiedAttributeUseLink varOrAttributeLink;
 	
@@ -63,7 +63,7 @@ public class ASTVariableOrUnqualifiedAttributeUse extends AbstractASTElement imp
 						return var;
 				}
 				if (p instanceof ASTTypeDeclaration) {
-					final IRAttributeRedefinition attribute = ((ASTTypeDeclaration) p).getIR().getAttributeByName(name);
+					final IRAttributeRedefinition attribute = ((ASTTypeDeclaration<?>) p).getIR().getAttributeByName(name);
 					if (attribute != null)
 						return attribute;
 //						else
@@ -133,10 +133,10 @@ public class ASTVariableOrUnqualifiedAttributeUse extends AbstractASTElement imp
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		final IRVariableOrAttributeRedefinition varOrAttribute = varOrAttribute();
 		if (varOrAttribute == null) {
-			final ASTTypeDeclaration selfAST = getParentOfType(ASTTypeDeclaration.class);
+			final ASTTypeDeclaration<?> selfAST = getParentOfType(ASTTypeDeclaration.class);
 			ASTElementPart location = varOrAttributeLink != null ? varOrAttributeLink.getNameToken() : null;
 			if (location == null)
 				location = this;
@@ -170,7 +170,7 @@ public class ASTVariableOrUnqualifiedAttributeUse extends AbstractASTElement imp
 				}
 			}
 			if (p instanceof ASTTypeDeclaration) {
-				for (final IRMemberRedefinition member : ((ASTTypeDeclaration) p).getIR().members()) {
+				for (final IRMemberRedefinition member : ((ASTTypeDeclaration<?>) p).getIR().members()) {
 					if (member instanceof IRAttributeRedefinition && matcher.matches(member.name())) {
 						if (result.stream().anyMatch(cap -> cap.getElementToShow() instanceof IRVariableRedefinition && ((IRVariableRedefinition) cap.getElementToShow()).name().equals(member.name())))
 							result.add(new ContentAssistProposal(member, "this." + member.name()));

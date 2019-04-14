@@ -3,7 +3,7 @@ package ch.njol.tome.ast.statements;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.ast.statements.ASTStatements.ASTStatement;
 import ch.njol.tome.interpreter.InterpretedNormalObject;
@@ -15,8 +15,9 @@ import ch.njol.tome.ir.statements.IRStatement;
 import ch.njol.tome.ir.statements.IRUnknownStatement;
 import ch.njol.tome.parser.Parser;
 
-public class ASTCodeGenerationCallStatement extends AbstractASTElement implements ASTStatement {
-	public @Nullable ASTExpression code;
+public class ASTCodeGenerationCallStatement extends AbstractASTElementWithIR<IRStatement> implements ASTStatement<IRStatement> {
+	
+	public @Nullable ASTExpression<?> code;
 	
 	@Override
 	public String toString() {
@@ -34,8 +35,8 @@ public class ASTCodeGenerationCallStatement extends AbstractASTElement implement
 	}
 	
 	@Override
-	public IRStatement getIR() {
-		final ASTExpression code = this.code;
+	protected IRStatement calculateIR() {
+		final ASTExpression<?> code = this.code;
 		if (code == null)
 			return new IRUnknownStatement("Syntax error. proper syntax: [$= some_expression;]", this);
 		try {
@@ -47,4 +48,5 @@ public class ASTCodeGenerationCallStatement extends AbstractASTElement implement
 			return new IRUnknownStatement("" + e.getMessage(), this);
 		}
 	}
+	
 }

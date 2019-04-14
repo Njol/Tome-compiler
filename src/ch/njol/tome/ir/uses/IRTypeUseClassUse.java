@@ -16,8 +16,8 @@ import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.IRValueGenericArgument;
 import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
-import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRClassDefinition;
+import ch.njol.tome.ir.definitions.IRGenericTypeParameter;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.nativetypes.IRBrokkrTypeClassDefinition;
@@ -72,7 +72,8 @@ public class IRTypeUseClassUse extends AbstractIRTypeUse implements IRClassUse {
 	
 	@Override
 	public Set<? extends IRTypeUse> allInterfaces() {
-		return new HashSet<>(Arrays.asList(getIRContext().getTypeDefinition("lang", "Type").getGenericUse("T", IRValueGenericArgument.fromExpression(typeUse, null), null), getIRContext().getTypeUse("lang", "Any")));
+		return new HashSet<>(Arrays.asList(getIRContext().getTypeDefinition("lang", "Type")
+				.getGenericUse("T", new IRValueGenericArgument(typeUse), null), getIRContext().getTypeUse("lang", "Any")));
 	}
 	
 	@Override
@@ -136,9 +137,15 @@ public class IRTypeUseClassUse extends AbstractIRTypeUse implements IRClassUse {
 		}
 		
 		@Override
-		public List<IRAttributeRedefinition> positionalGenericParameters() {
-			// TODO has one parameter, but what attribute should it link to?
+		public List<? extends IRGenericTypeParameter> genericParameters() {
+			// TODO has one parameter 'T'
 			return Collections.EMPTY_LIST;
+		}
+		
+		@Override
+		public @Nullable IRGenericTypeParameter getGenericTypeParameterByName(final String name) {
+			// TODO Auto-generated method stub
+			return null;
 		}
 		
 	}

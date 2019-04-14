@@ -7,7 +7,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
@@ -15,25 +15,27 @@ import ch.njol.tome.ir.IRUnknownParameterDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRBrokkrConstructorFieldParameter;
 import ch.njol.tome.ir.definitions.IRParameterDefinition;
+import ch.njol.tome.ir.definitions.IRParameterRedefinition;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTConstructorFieldParameter extends AbstractASTElement implements ASTParameter {
+// TODO make more specific, e.g. AbstractASTElementWithIR<IRParameterRedefinition, IRParameterDefinition>
+public class ASTConstructorFieldParameter extends AbstractASTElementWithIR<IRParameterRedefinition> implements ASTParameter {
 	
 	private @Nullable ASTConstructorFieldParameterLink attribute;
-	public @Nullable ASTExpression defaultValue;
+	public @Nullable ASTExpression<?> defaultValue;
 	
 	private static class ASTConstructorFieldParameterLink extends ASTLink<IRAttributeRedefinition> {
 		@Override
-		protected @Nullable IRAttributeRedefinition tryLink(String name) {
-			final ASTTypeDeclaration mc = getParentOfType(ASTTypeDeclaration.class);
+		protected @Nullable IRAttributeRedefinition tryLink(final String name) {
+			final ASTTypeDeclaration<?> mc = getParentOfType(ASTTypeDeclaration.class);
 			if (mc == null)
 				return null;
 			return mc.getIR().getAttributeByName(name);
 		}
 		
-		private static ASTConstructorFieldParameterLink parse(Parser parent) {
+		private static ASTConstructorFieldParameterLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ASTConstructorFieldParameterLink(), parent);
 		}
 	}
@@ -76,18 +78,14 @@ public class ASTConstructorFieldParameter extends AbstractASTElement implements 
 		return null;
 	}
 	
-	private @Nullable IRParameterDefinition ir;
-	
 	@Override
-	public IRParameterDefinition getIR() {
-		if (ir != null)
-			return ir;
+	protected IRParameterDefinition calculateIR() {
 		final IRAttributeRedefinition attr = attribute != null ? attribute.get() : null;
 		final ASTConstructor constructor = constructor();
 		assert constructor != null;
 		if (attr == null || attr.results().size() != 1 || !attr.results().get(0).name().equals("result") || !attr.isVariable())
 			return new IRUnknownParameterDefinition(attr != null ? attr.name() : "<unknown name>", new IRUnknownTypeUse(getIRContext()), constructor.getIR(), "Constructor field parameter '" + (attr != null ? attr.name() : "<unknown name>") + "' does not reference a field", this);
-		return ir = new IRBrokkrConstructorFieldParameter(this, attr, constructor.getIR());
+		return new IRBrokkrConstructorFieldParameter(this, attr, constructor.getIR());
 	}
 	
 }

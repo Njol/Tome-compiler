@@ -12,6 +12,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTInterfaces.ASTVariable;
 import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.WordToken;
@@ -28,11 +29,12 @@ import ch.njol.util.StringUtils;
 /**
  * A first-order logic quantifier for contracts, i.e. a 'for all' or 'there exists'.
  */
-public class ASTQuantifier extends AbstractASTElement implements ASTExpression, ASTElementWithVariables {
+public class ASTQuantifier extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression>, ASTElementWithVariables {
+	
 	boolean forall;
 	public final List<ASTQuantifierVars> vars = new ArrayList<>();
-	public @Nullable ASTExpression condition;
-	public @Nullable ASTExpression expression;
+	public @Nullable ASTExpression<?> condition;
+	public @Nullable ASTExpression<?> expression;
 	
 	@Override
 	public String toString() {
@@ -68,12 +70,12 @@ public class ASTQuantifier extends AbstractASTElement implements ASTExpression, 
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		return new IRUnknownExpression("not implemented", this);
 	}
 	
 	public static class ASTQuantifierVars extends AbstractASTElement {
-		public @Nullable ASTTypeUse type;
+		public @Nullable ASTTypeUse<?> type;
 		public final List<ASTQuantifierVar> vars = new ArrayList<>();
 		
 		@Override
@@ -124,7 +126,7 @@ public class ASTQuantifier extends AbstractASTElement implements ASTExpression, 
 			final ASTQuantifierVars vars = (ASTQuantifierVars) parent;
 			if (vars == null)
 				return new IRUnknownTypeUse(getIRContext());
-			final ASTTypeUse type = vars.type;
+			final ASTTypeUse<?> type = vars.type;
 			if (type == null)
 				return new IRUnknownTypeUse(getIRContext());
 			return type.getIR();

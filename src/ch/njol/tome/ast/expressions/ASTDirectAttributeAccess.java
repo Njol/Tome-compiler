@@ -35,7 +35,7 @@ public class ASTDirectAttributeAccess extends AbstractASTElement implements ASTA
 	
 	private static class ASTDirectAttributeAccessLink extends ASTLink<IRAttributeRedefinition> {
 		@Override
-		protected @Nullable IRAttributeRedefinition tryLink(String name) {
+		protected @Nullable IRAttributeRedefinition tryLink(final String name) {
 			final ASTTargettedExpression accessExpression = getParentOfType(ASTTargettedExpression.class);
 			if (accessExpression == null)
 				return null;
@@ -49,7 +49,7 @@ public class ASTDirectAttributeAccess extends AbstractASTElement implements ASTA
 		}
 		
 		@Override
-		protected @Nullable String errorMessage(String name) {
+		protected @Nullable String errorMessage(final String name) {
 			final ASTTargettedExpression accessExpression = getParentOfType(ASTTargettedExpression.class);
 			if (accessExpression == null)
 				return null;
@@ -59,7 +59,7 @@ public class ASTDirectAttributeAccess extends AbstractASTElement implements ASTA
 			return "Cannot find " + name + " in " + type;
 		}
 		
-		private static ASTDirectAttributeAccessLink parse(Parser parent) {
+		private static ASTDirectAttributeAccessLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ASTDirectAttributeAccessLink(), parent);
 		}
 	}
@@ -88,7 +88,7 @@ public class ASTDirectAttributeAccess extends AbstractASTElement implements ASTA
 	
 	@Override
 	public @Nullable IRTypeUse targetType() {
-		ASTAccessExpression accessExpression = getParentOfType(ASTAccessExpression.class);
+		final ASTAccessExpression accessExpression = getParentOfType(ASTAccessExpression.class);
 		return accessExpression != null ? accessExpression.target.getIRType() : null;
 	}
 	
@@ -106,8 +106,7 @@ public class ASTDirectAttributeAccess extends AbstractASTElement implements ASTA
 	}
 	
 	@Override
-	public @Nullable Stream<ContentAssistProposal> getContentAssistProposals(final Token token,
-			final StringMatcher matcher) {
+	public @Nullable Stream<ContentAssistProposal> getContentAssistProposals(final Token token, final StringMatcher matcher) {
 		return parent != null ? parent.getContentAssistProposals(token, matcher) : null;
 	}
 	

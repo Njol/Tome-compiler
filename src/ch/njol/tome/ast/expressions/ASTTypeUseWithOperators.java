@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.ir.uses.IRAndTypeUse;
 import ch.njol.tome.ir.uses.IROrTypeUse;
@@ -14,9 +14,9 @@ import ch.njol.tome.parser.Parser;
 /**
  * An expression with types and operators, currently only & and |.
  */
-public class ASTTypeUseWithOperators extends AbstractASTElement implements ASTTypeExpression {
+public class ASTTypeUseWithOperators extends AbstractASTElementWithIR<IRTypeUse> implements ASTTypeExpression<IRTypeUse> {
 	
-	public List<ASTTypeExpression> types = new ArrayList<>();
+	public List<ASTTypeExpression<?>> types = new ArrayList<>();
 	
 	public List<ASTOperatorLink> operators = new ArrayList<>();
 	
@@ -29,10 +29,10 @@ public class ASTTypeUseWithOperators extends AbstractASTElement implements ASTTy
 		return r;
 	}
 	
-	public static ASTTypeExpression parse(final Parser parent) {
+	public static ASTTypeExpression<?> parse(final Parser parent) {
 		final Parser p = parent.start();
 		final ASTTypeUseWithOperators ast = new ASTTypeUseWithOperators();
-		final ASTTypeExpression first = ASTTypeExpressions.parse(p, false, true, true);
+		final ASTTypeExpression<?> first = ASTTypeExpressions.parse(p, false, true, true);
 		ast.types.add(first);
 		ASTOperatorLink op;
 		while ((op = ASTOperatorLink.tryParse(p, true, '&', '|')) != null) {
@@ -49,7 +49,7 @@ public class ASTTypeUseWithOperators extends AbstractASTElement implements ASTTy
 	// TODO use proper operator order
 	
 	@Override
-	public IRTypeUse getIR() {
+	protected IRTypeUse calculateIR() {
 		IRTypeUse o = types.get(0).getIR();
 		for (int i = 0; i < operators.size(); i++) {
 			final IRTypeUse o2 = types.get(i + 1).getIR();

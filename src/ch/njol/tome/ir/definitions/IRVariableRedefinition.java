@@ -1,8 +1,9 @@
 package ch.njol.tome.ir.definitions;
 
+import ch.njol.tome.compiler.SourceCodeLinkable;
 import ch.njol.tome.ir.uses.IRTypeUse;
 
-public interface IRVariableRedefinition extends IRVariableOrAttributeRedefinition {
+public interface IRVariableRedefinition extends IRVariableOrAttributeRedefinition, SourceCodeLinkable {
 	
 	String name();
 	

@@ -8,7 +8,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.common.Visibility;
@@ -23,19 +23,19 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTSimpleParameter extends AbstractASTElement implements ASTParameter {
+public class ASTSimpleParameter extends AbstractASTElementWithIR<IRParameterRedefinition> implements ASTParameter {
 	
 	private final int index;
 	public @Nullable Visibility visibility;
 	public boolean override;
 	private @Nullable ASTSimpleParameterLink overridden;
-	public @Nullable ASTTypeUse type;
+	public @Nullable ASTTypeUse<?> type;
 	public @Nullable WordToken name;
-	public @Nullable ASTExpression defaultValue;
+	public @Nullable ASTExpression<?> defaultValue;
 	
 	private static class ASTSimpleParameterLink extends ASTLink<IRParameterRedefinition> {
 		@Override
-		protected @Nullable IRParameterRedefinition tryLink(String name) {
+		protected @Nullable IRParameterRedefinition tryLink(final String name) {
 			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
 			if (attribute == null)
 				return null;
@@ -45,12 +45,12 @@ public class ASTSimpleParameter extends AbstractASTElement implements ASTParamet
 			return ((IRAttributeRedefinition) parent).getParameterByName(name);
 		}
 		
-		public static @Nullable ASTSimpleParameterLink parse(Parser parent) {
+		public static @Nullable ASTSimpleParameterLink parse(final Parser parent) {
 			return parseAsAnyIdentifier(new ASTSimpleParameterLink(), parent);
 		}
 	}
 	
-	private ASTSimpleParameter(int index) {
+	private ASTSimpleParameter(final int index) {
 		this.index = index;
 	}
 	
@@ -81,7 +81,7 @@ public class ASTSimpleParameter extends AbstractASTElement implements ASTParamet
 		return getIR().hoverInfo();
 	}
 	
-	public static ASTSimpleParameter parse(final Parser parent, int index) {
+	public static ASTSimpleParameter parse(final Parser parent, final int index) {
 		final Parser p = parent.start();
 		final ASTSimpleParameter ast = new ASTSimpleParameter(index);
 		ast.visibility = Visibility.parse(p);
@@ -114,26 +114,20 @@ public class ASTSimpleParameter extends AbstractASTElement implements ASTParamet
 	
 	@Override
 	public IRTypeUse getIRType() {
-		if (ir != null)
-			return ir.type();
 		if (type != null)
 			return type.getIR();
-		IRParameterRedefinition parent = overridden();
+		final IRParameterRedefinition parent = overridden();
 		if (parent == null)
 			return new IRUnknownTypeUse(getIRContext());
 		return parent.type();
 	}
 	
-	private @Nullable IRParameterRedefinition ir;
-	
 	@Override
-	public IRParameterRedefinition getIR() {
-		if (ir != null)
-			return ir;
-		IRParameterRedefinition parent = overridden();
+	protected IRParameterRedefinition calculateIR() {
+		final IRParameterRedefinition parent = overridden();
 		final ASTAttribute attribute = attribute();
 		assert attribute != null;
-		return ir = (parent != null ? new IRBrokkrNormalParameterRedefinition(this, parent, attribute.getIR())
+		return (parent != null ? new IRBrokkrNormalParameterRedefinition(this, parent, attribute.getIR())
 				: new IRBrokkrNormalParameterDefinition(this, attribute.getIR()));
 	}
 	

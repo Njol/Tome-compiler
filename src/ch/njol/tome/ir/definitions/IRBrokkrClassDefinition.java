@@ -7,7 +7,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 
 public class IRBrokkrClassDefinition extends AbstractIRBrokkrTypeDefinition implements IRClassDefinition {
 	
-	public IRBrokkrClassDefinition(final ASTTypeDeclaration declaration) {
+	public IRBrokkrClassDefinition(final ASTTypeDeclaration<?> declaration) {
 		super(declaration);
 	}
 	

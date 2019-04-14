@@ -12,8 +12,8 @@ import ch.njol.tome.ir.AbstractIRElement;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
-import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRBrokkrTypeDefinition;
+import ch.njol.tome.ir.definitions.IRGenericParameter;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.uses.IRTypeUse;
@@ -65,8 +65,7 @@ public class IRBrokkrTypeClassDefinition extends AbstractIRElement implements IR
 	}
 	
 	@Override
-	public List<IRAttributeRedefinition> positionalGenericParameters() {
-		// TODO has one parameter, but what attribute should it link to?
+	public List<? extends IRGenericParameter> genericParameters() {
 		return Collections.EMPTY_LIST;
 	}
 	

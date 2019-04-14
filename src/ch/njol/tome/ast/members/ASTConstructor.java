@@ -11,11 +11,12 @@ import ch.njol.tome.ast.ASTInterfaces.ASTError;
 import ch.njol.tome.ast.ASTInterfaces.ASTParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTResult;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTBlock;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.WordToken;
+import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRBrokkrConstructor;
 import ch.njol.tome.ir.definitions.IRVariableRedefinition;
 import ch.njol.tome.ir.uses.IRSimpleTypeUse;
@@ -23,7 +24,9 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 import ch.njol.util.StringUtils;
 
-public class ASTConstructor extends AbstractASTElement implements ASTAttribute {
+//TODO make more specific, e.g. AbstractASTElementWithIR<IRAttributeRedefinition, IRBrokkrConstructor>
+public class ASTConstructor extends AbstractASTElementWithIR<IRAttributeRedefinition> implements ASTAttribute {
+	
 	public final ASTMemberModifiers modifiers;
 	
 	public @Nullable LowercaseWordToken name;
@@ -56,7 +59,7 @@ public class ASTConstructor extends AbstractASTElement implements ASTAttribute {
 	}
 	
 	@Override
-	public List<ASTError> declaredErrors() {
+	public List<ASTError<?>> declaredErrors() {
 		return Collections.EMPTY_LIST; // FIXME preconditions are errors too!
 	}
 	
@@ -100,12 +103,9 @@ public class ASTConstructor extends AbstractASTElement implements ASTAttribute {
 		return new IRSimpleTypeUse(getParentOfType(ASTTypeDeclaration.class).getIR());
 	}
 	
-	private @Nullable IRBrokkrConstructor ir;
-	
 	@Override
-	public IRBrokkrConstructor getIR() {
-		if (ir != null)
-			return ir;
-		return ir = new IRBrokkrConstructor(this);
+	public IRAttributeRedefinition calculateIR() {
+		return new IRBrokkrConstructor(this);
 	}
+	
 }

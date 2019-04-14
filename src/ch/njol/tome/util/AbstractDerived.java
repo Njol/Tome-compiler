@@ -1,18 +1,23 @@
 package ch.njol.tome.util;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * This class is thread-safe.
  */
 public abstract class AbstractDerived extends AbstractWatchable implements Derived {
 	
-	private volatile @Nullable List<Watchable> dependencies = null;
+	/**
+	 * <b>When using this constructor, make sure to call {@link #registerDependency(Watchable)} manually!</b>
+	 */
+	protected AbstractDerived() {}
+	
+	public AbstractDerived(Watchable mainSource, Watchable... otherDependencies) {
+		registerDependency(mainSource);
+		registerDependencies(otherDependencies);
+	}
 	
 	/**
 	 * @param dep A dependency to register
@@ -20,13 +25,8 @@ public abstract class AbstractDerived extends AbstractWatchable implements Deriv
 	 */
 	@NonNullByDefault({})
 	protected final synchronized <T extends Watchable> T registerDependency(final T dep) {
-		if (dep != null) {
-			List<Watchable> dependencies = this.dependencies;
-			if (dependencies == null)
-				dependencies = this.dependencies = new ArrayList<>();
-			dependencies.add(dep);
+		if (dep != null)
 			dep.addModificationListener(this);
-		}
 		return dep;
 	}
 	

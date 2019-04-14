@@ -12,6 +12,16 @@ public abstract class AbstractInvalidatable extends AbstractWatchable implements
 	protected void invalidate() {
 		valid = false;
 		modified();
+		modificationListeners = null;
+	}
+	
+	@Override
+	public synchronized void addModificationListener(ModificationListener listener) {
+		if (!valid) {
+			listener.onModification(this);
+			return;
+		}
+		super.addModificationListener(listener);
 	}
 	
 }

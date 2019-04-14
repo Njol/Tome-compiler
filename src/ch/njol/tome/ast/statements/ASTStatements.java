@@ -1,6 +1,7 @@
 package ch.njol.tome.ast.statements;
 
 import ch.njol.tome.ast.ASTElement;
+import ch.njol.tome.ast.ASTInterfaces.ASTElementWithIR;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.expressions.ASTAccessExpression;
@@ -16,7 +17,7 @@ import ch.njol.tome.parser.Parser;
 
 public class ASTStatements {
 	
-	public static interface ASTStatement extends ASTElement {
+	public static interface ASTStatement<IR extends IRStatement> extends ASTElementWithIR<IR> {
 		
 		static ASTElement parse_(final Parser parent, final boolean allowExpressionAtEnd) {
 //			if (parent.peek('{'))
@@ -43,7 +44,7 @@ public class ASTStatements {
 			// TODO tuple variable assignment, e.g. [[ [a,b] = method(); ]] or [[ [a,b] = [b,a]; ]]
 			
 			final Parser p = parent.start();
-			final ASTExpression expr = ASTExpressions.parse(p);
+			final ASTExpression<?> expr = ASTExpressions.parse(p);
 			if (p.peekNext(';'))
 				return ASTExpressionStatement.finishParsing(p, expr);
 			if (allowExpressionAtEnd && p.peekNext() == null) {
@@ -52,7 +53,7 @@ public class ASTStatements {
 			}
 			if (expr instanceof ASTTypeUse) {
 				// variable declaration
-				return ASTVariableDeclarations.finishParsing(p, (ASTTypeUse) expr);
+				return ASTVariableDeclarations.finishParsing(p, (ASTTypeUse<?>) expr);
 			}
 			
 			if (expr instanceof ASTVariableOrUnqualifiedAttributeUse)
@@ -69,16 +70,14 @@ public class ASTStatements {
 			return parse_(parent, true);
 		}
 		
-		public static ASTStatement parse(final Parser parent) {
-			return (ASTStatement) parse_(parent, false);
+		public static ASTStatement<?> parse(final Parser parent) {
+			return (ASTStatement<?>) parse_(parent, false);
 		}
 		
 		// TODO remove
 //		public default void interpret(final InterpreterContext context) {
 //			getIR().interpret(context);
 //		}
-		
-		public IRStatement getIR();
 		
 	}
 	

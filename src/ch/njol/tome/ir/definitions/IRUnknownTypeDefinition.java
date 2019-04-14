@@ -23,7 +23,7 @@ public class IRUnknownTypeDefinition extends AbstractIRUnknown implements IRType
 	}
 	
 	@Override
-	public List<IRAttributeRedefinition> positionalGenericParameters() {
+	public List<? extends IRGenericParameter> genericParameters() {
 		return Collections.EMPTY_LIST;
 	}
 	

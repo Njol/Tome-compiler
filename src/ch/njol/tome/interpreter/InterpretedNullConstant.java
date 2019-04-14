@@ -9,8 +9,8 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
-import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRClassDefinition;
+import ch.njol.tome.ir.definitions.IRGenericParameter;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.uses.IRClassUse;
@@ -89,7 +89,7 @@ public class InterpretedNullConstant implements InterpretedObject {
 		}
 		
 		@Override
-		public List<IRAttributeRedefinition> positionalGenericParameters() {
+		public List<? extends IRGenericParameter> genericParameters() {
 			return Collections.EMPTY_LIST;
 		}
 		

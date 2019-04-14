@@ -8,7 +8,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.tome.ast.ASTInterfaces.ASTError;
 import ch.njol.tome.ast.ASTInterfaces.ASTResult;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTBlock;
 import ch.njol.tome.ast.statements.ASTReturn;
 import ch.njol.tome.compiler.Token;
@@ -21,10 +21,10 @@ import ch.njol.tome.ir.definitions.IRBrokkrAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.definitions.IRVariableRedefinition;
 import ch.njol.tome.parser.Parser;
-import ch.njol.tome.util.Cache;
 import ch.njol.util.StringUtils;
 
-public class ASTAttributeDeclaration extends AbstractASTElement implements ASTAttribute {
+public class ASTAttributeDeclaration extends AbstractASTElementWithIR<IRAttributeRedefinition> implements ASTAttribute {
+	
 	public final ASTMemberModifiers modifiers;
 	
 	public @Nullable WordToken name;
@@ -81,7 +81,7 @@ public class ASTAttributeDeclaration extends AbstractASTElement implements ASTAt
 	}
 	
 	@Override
-	public List<? extends ASTError> declaredErrors() {
+	public List<? extends ASTError<?>> declaredErrors() {
 		return errors;
 	}
 	
@@ -102,7 +102,8 @@ public class ASTAttributeDeclaration extends AbstractASTElement implements ASTAt
 		return getIR().hoverInfo();
 	}
 	
-	private final Cache<IRAttributeRedefinition> ir = new Cache<>(() -> {
+	@Override
+	public IRAttributeRedefinition calculateIR() {
 		final IRMemberRedefinition overridden = modifiers().overridden();
 		if (overridden instanceof IRAttributeRedefinition) {
 			if (body != null)
@@ -117,18 +118,13 @@ public class ASTAttributeDeclaration extends AbstractASTElement implements ASTAt
 			else
 				return new IRBrokkrAttributeDefinition(this);
 		}
-	});
-	
-	@Override
-	public IRAttributeRedefinition getIR() {
-		return ir.get();
 	}
 	
 	public static ASTAttributeDeclaration finishParsing(final Parser p, final ASTMemberModifiers modifiers) {
 		final ASTAttributeDeclaration ast = new ASTAttributeDeclaration(modifiers);
 		
 		// name
-		ast.name = p.oneIdentifierToken();
+		ast.name = p.oneVariableIdentifierToken();
 		
 		// parameters
 		p.tryGroup('(', () -> {
@@ -182,4 +178,5 @@ public class ASTAttributeDeclaration extends AbstractASTElement implements ASTAt
 		
 		return p.done(ast);
 	}
+	
 }

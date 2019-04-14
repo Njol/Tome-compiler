@@ -9,7 +9,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTLocalVariable;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTLink;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.compiler.Token.SymbolToken;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
@@ -24,28 +24,28 @@ import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
 // FIXME think about this some more
-public class ASTErrorHandlingExpression extends AbstractASTElement implements ASTExpression {
+public class ASTErrorHandlingExpression extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
 	
-	public ASTExpression expression;
+	public ASTExpression<?> expression;
 	public boolean negated;
 	private @Nullable ASTErrorHandlingExpressionLink error;
 	
 	private static class ASTErrorHandlingExpressionLink extends ASTLink<IRError> {
 		@Override
-		protected @Nullable IRError tryLink(String name) {
+		protected @Nullable IRError tryLink(final String name) {
 			// TODO Auto-generated method stub
 			return null;
 		}
 		
-		private static ASTErrorHandlingExpressionLink parse(Parser parent) {
+		private static ASTErrorHandlingExpressionLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ASTErrorHandlingExpressionLink(), parent);
 		}
 	}
 	
 	public List<ASTErrorHandlingExpressionParameter> parameters = new ArrayList<>();
-	public @Nullable ASTExpression value;
+	public @Nullable ASTExpression<?> value;
 	
-	public ASTErrorHandlingExpression(final ASTExpression expression, final SymbolToken errorSymbol) {
+	public ASTErrorHandlingExpression(final ASTExpression<?> expression, final SymbolToken errorSymbol) {
 		this.expression = expression;
 	}
 	
@@ -54,7 +54,7 @@ public class ASTErrorHandlingExpression extends AbstractASTElement implements AS
 		return "";
 	}
 	
-	public static ASTErrorHandlingExpression finishParsing(final Parser p, final ASTExpression expression, final SymbolToken errorSymbol) {
+	public static ASTErrorHandlingExpression finishParsing(final Parser p, final ASTExpression<?> expression, final SymbolToken errorSymbol) {
 		final ASTErrorHandlingExpression ast = new ASTErrorHandlingExpression(expression, errorSymbol);
 		ast.negated = p.try_('!');
 		ast.error = ASTErrorHandlingExpressionLink.parse(p);
@@ -75,23 +75,23 @@ public class ASTErrorHandlingExpression extends AbstractASTElement implements AS
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	public IRExpression calculateIR() {
 		return new IRUnknownExpression("not implemented", this);
 	}
 	
-	public static class ASTErrorHandlingExpressionParameter extends AbstractASTElement implements ASTLocalVariable {
+	public static class ASTErrorHandlingExpressionParameter extends AbstractASTElementWithIR<IRVariableRedefinition> implements ASTLocalVariable {
 		
-		public @Nullable ASTTypeUse type;
+		public @Nullable ASTTypeUse<?> type;
 		private @Nullable ASTErrorHandlingExpressionParameterLink parameter;
 		
 		private static class ASTErrorHandlingExpressionParameterLink extends ASTLink<IRParameterRedefinition> {
 			@Override
-			protected @Nullable IRParameterRedefinition tryLink(String name) {
+			protected @Nullable IRParameterRedefinition tryLink(final String name) {
 				// TODO Auto-generated method stub
 				return null;
 			}
 			
-			private static ASTErrorHandlingExpressionParameterLink parse(Parser parent) {
+			private static ASTErrorHandlingExpressionParameterLink parse(final Parser parent) {
 				return parseAsVariableIdentifier(new ASTErrorHandlingExpressionParameterLink(), parent);
 			}
 		}
@@ -127,7 +127,7 @@ public class ASTErrorHandlingExpression extends AbstractASTElement implements AS
 		}
 		
 		@Override
-		public IRVariableRedefinition getIR() {
+		protected IRVariableRedefinition calculateIR() {
 			return new IRBrokkrLocalVariable(this); // TODO correct?
 		}
 		

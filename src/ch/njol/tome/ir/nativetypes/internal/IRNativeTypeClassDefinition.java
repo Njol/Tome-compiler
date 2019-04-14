@@ -13,23 +13,26 @@ import ch.njol.tome.ir.AbstractIRElement;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
-import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
+import ch.njol.tome.ir.definitions.IRGenericParameter;
 import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.nativetypes.IRTypeClassDefinition;
 import ch.njol.tome.ir.uses.IRTypeUse;
 
 /**
  * The class of a native type, e.g. the type of NativeInt8.
+ * TODO why should this be special?
  */
 public class IRNativeTypeClassDefinition extends AbstractIRElement implements IRTypeClassDefinition {
 	
 	private final IRContext irContext;
 	private final Class<? extends InterpretedNativeObject> interpretedType;
 	private final String name;
+	private final IRTypeDefinition tomeInterfaceDefinition;
 	
-	private IRNativeTypeClassDefinition(final IRContext irContext, final Class<? extends InterpretedNativeObject> interpretedType) {
+	private IRNativeTypeClassDefinition(final IRContext irContext, final Class<? extends InterpretedNativeObject> interpretedType, IRTypeDefinition tomeInterfaceDefinition) {
 		this.irContext = irContext;
 		this.interpretedType = interpretedType;
+		this.tomeInterfaceDefinition = tomeInterfaceDefinition;
 		assert interpretedType.getSimpleName().startsWith("Interpreted") : interpretedType;
 		name = "" + interpretedType.getSimpleName().substring("Interpreted".length());
 	}
@@ -47,7 +50,15 @@ public class IRNativeTypeClassDefinition extends AbstractIRElement implements IR
 		IRNativeTypeClassDefinition cached = irContext.nativeTypeClassCache.get(interpretedType);
 		if (cached != null)
 			return cached;
-		cached = new IRNativeTypeClassDefinition(irContext, interpretedType);
+		String tomeInterface;
+		try {
+			tomeInterface = (String) interpretedType.getField("TOME_INTERFACE").get(null);
+		} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+			throw new RuntimeException(e);
+		}
+		int lastDot = tomeInterface.lastIndexOf('.');
+		IRTypeDefinition tomeInterfaceDefinition = irContext.getTypeDefinition(tomeInterface.substring(0, lastDot), tomeInterface.substring(lastDot + 1));
+		cached = new IRNativeTypeClassDefinition(irContext, interpretedType, tomeInterfaceDefinition);
 		irContext.nativeTypeClassCache.put(interpretedType, cached);
 		return cached;
 	}
@@ -69,8 +80,10 @@ public class IRNativeTypeClassDefinition extends AbstractIRElement implements IR
 		if (attributes == null) {
 			attributes = new ArrayList<>();
 			for (final Method m : interpretedType.getDeclaredMethods()) {
-				if (m.getName().startsWith("_"))
-					attributes.add(new IRNativeMethod(m, "" + m.getName().substring(1), irContext));
+				if (m.getName().startsWith("_")) {
+					String tomeName = m.getName().substring(1);
+					attributes.add(new IRNativeMethod(m, tomeName, irContext, tomeInterfaceDefinition.getAttributeByName(tomeName)));
+				}
 			}
 		}
 		return attributes;
@@ -86,14 +99,13 @@ public class IRNativeTypeClassDefinition extends AbstractIRElement implements IR
 		return name.hashCode();
 	}
 	
-	// native classes do not implement any interfaces (not even [Any]?)
 	@Override
 	public Set<? extends IRTypeUse> allInterfaces() {
-		return Collections.EMPTY_SET;
+		return Collections.singleton(tomeInterfaceDefinition.getUse());
 	}
 	
 	@Override
-	public List<IRAttributeRedefinition> positionalGenericParameters() {
+	public List<? extends IRGenericParameter> genericParameters() {
 		return Collections.EMPTY_LIST;
 	}
 	

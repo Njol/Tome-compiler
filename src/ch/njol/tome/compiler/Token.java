@@ -34,6 +34,9 @@ public interface Token extends ASTElementPart {
 		return getClass() == other.getClass() && getCode().equals(other.getCode());
 	}
 	
+	/**
+	 * @return The source code of this token
+	 */
 	public String getCode();
 	
 	public void setAbsoluteRegionStart(int absoluteRegionStart);
@@ -401,7 +404,7 @@ public interface Token extends ASTElementPart {
 		
 		@Override
 		public String toString() {
-			return "$" + parsed.replaceAll("$", "$$") + "$";
+			return "$" + parsed.replace("$", "$$") + "$";
 		}
 		
 		@Override

@@ -7,12 +7,11 @@ import java.util.List;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
-import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.ast.members.ASTMembers;
 import ch.njol.tome.compiler.Token.UppercaseWordToken;
@@ -22,13 +21,14 @@ import ch.njol.tome.ir.definitions.IRUnknownTypeDefinition;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTExtensionDeclaration extends AbstractASTElement implements ASTTypeDeclaration {
+public class ASTExtensionDeclaration extends AbstractASTElementWithIR<IRTypeDefinition> implements ASTTypeDeclaration<IRTypeDefinition> {
+	
 	public final ASTTopLevelElementModifiers modifiers;
 	
 	public @Nullable UppercaseWordToken name;
-	public List<ASTTypeUse> parents = new ArrayList<>();
+	public List<ASTTypeUse<?>> parents = new ArrayList<>();
 	public List<ASTMember> members = new ArrayList<>();
-	public @Nullable ASTTypeExpression extended;
+	public @Nullable ASTTypeExpression<?> extended;
 	
 	public ASTExtensionDeclaration(final ASTTopLevelElementModifiers modifiers) {
 		this.modifiers = modifiers;
@@ -50,7 +50,7 @@ public class ASTExtensionDeclaration extends AbstractASTElement implements ASTTy
 	}
 	
 	@Override
-	public List<? extends ASTGenericParameter> genericParameters() {
+	public List<? extends ASTGenericParameterDeclaration<?>> genericParameters() {
 		return Collections.EMPTY_LIST;
 	}
 	
@@ -79,7 +79,8 @@ public class ASTExtensionDeclaration extends AbstractASTElement implements ASTTy
 	}
 	
 	@Override
-	public IRTypeDefinition getIR() {
+	protected IRTypeDefinition calculateIR() {
 		return new IRUnknownTypeDefinition(getIRContext(), "not implemented", this);
 	}
+	
 }

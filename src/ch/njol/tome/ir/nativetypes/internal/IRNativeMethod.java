@@ -19,7 +19,6 @@ import ch.njol.tome.interpreter.nativetypes.InterpretedNativeObject;
 import ch.njol.tome.ir.AbstractIRElement;
 import ch.njol.tome.ir.IRContext;
 import ch.njol.tome.ir.IRError;
-import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
 import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
@@ -32,22 +31,24 @@ import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.uses.IRSimpleTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
 
-public class IRNativeMethod extends AbstractIRElement implements IRAttributeImplementation, IRAttributeDefinition {
+public class IRNativeMethod extends AbstractIRElement implements IRAttributeImplementation {
 	
 	private final Method method;
 	private final List<IRParameterRedefinition> parameters = new ArrayList<>();
-	private final IRResultRedefinition result;
+	private final @Nullable IRResultRedefinition result;
 	private final String name;
 	private final IRContext irContext;
+	private final IRAttributeRedefinition tomeAttributeRedefinition;
 	
-	public IRNativeMethod(final Method method, final String name, final IRContext irContext) {
+	public IRNativeMethod(final Method method, final String name, final IRContext irContext, IRAttributeRedefinition tomeAttributeRedefinition) {
 		this.method = method;
 		this.name = name;
 		this.irContext = irContext;
+		this.tomeAttributeRedefinition = tomeAttributeRedefinition;
 		final @NonNull Class<?>[] parameterTypes = method.getParameterTypes();
 		for (int i = 0; i < parameterTypes.length; i++)
 			parameters.add(new Parameter(i, IRNativeTypeClassDefinition.get(irContext, checkInterpretedNativeObjectClass(parameterTypes[i]))));
-		result = new Result("result", IRNativeTypeClassDefinition.get(irContext, checkInterpretedNativeObjectClass(method.getReturnType())));
+		result = Void.TYPE.equals(method.getReturnType()) ? null : new Result("result", IRNativeTypeClassDefinition.get(irContext, checkInterpretedNativeObjectClass(method.getReturnType())));
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -107,6 +108,11 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 			return type + " " + name;
 		}
 		
+		@Override
+		public @Nullable ASTElementPart getLinked() {
+			return null;
+		}
+		
 	}
 	
 	private class Result extends AbstractIRElement implements IRResultDefinition {
@@ -149,6 +155,11 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 			return null;
 		}
 		
+		@Override
+		public @Nullable ASTElementPart getLinked() {
+			return null;
+		}
+		
 	}
 	
 	@Override
@@ -158,7 +169,7 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 	
 	@Override
 	public List<IRResultRedefinition> results() {
-		return Collections.singletonList(result);
+		return result != null ? Collections.singletonList(result) : Collections.emptyList();
 	}
 	
 	@Override
@@ -184,13 +195,13 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 	@Override
 	public @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) {
 		assert !allResults;
-		final Object[] args = new Object[method.getParameterCount()];
+		final @Nullable Object[] args = new @Nullable Object[method.getParameterCount()];
 		for (final Entry<IRParameterDefinition, InterpretedObject> e : arguments.entrySet()) {
 			args[Integer.parseInt(e.getKey().name())] = e.getValue(); // TODO native params have names if defined in Brokkr code (or are those redefinitions?)
 		}
 		try {
 			final InterpretedObject o = (InterpretedObject) method.invoke(thisObject, args);
-			assert o != null : method;
+//			assert o != null : method;
 			return o;
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new RuntimeException(e);
@@ -215,7 +226,7 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 	
 	@Override
 	public @Nullable ASTElementPart getLinked() {
-		return null; // TODO find declaration in Brokkr code
+		return tomeAttributeRedefinition.getLinked();
 	}
 	
 	@Override
@@ -235,7 +246,7 @@ public class IRNativeMethod extends AbstractIRElement implements IRAttributeImpl
 	
 	@Override
 	public @Nullable IRAttributeRedefinition parentRedefinition() {
-		return null;
+		return tomeAttributeRedefinition;
 	}
 	
 }

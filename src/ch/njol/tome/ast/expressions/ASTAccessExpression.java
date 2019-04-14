@@ -17,14 +17,15 @@ import ch.njol.tome.ir.expressions.IRUnknownExpression;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
+import ch.njol.tome.util.Cache;
 import ch.njol.tome.util.StringMatcher;
 
-public class ASTAccessExpression extends AbstractASTElement implements ASTExpression {
-	public final ASTExpression target;
+public class ASTAccessExpression extends AbstractASTElement implements ASTExpression<IRExpression> {
+	public final ASTExpression<?> target;
 	public boolean nullSafe, meta;
 	public @Nullable ASTDirectAttributeAccess access;
 	
-	public ASTAccessExpression(final ASTExpression target) {
+	public ASTAccessExpression(final ASTExpression<?> target) {
 		this.target = target;
 	}
 	
@@ -38,9 +39,9 @@ public class ASTAccessExpression extends AbstractASTElement implements ASTExpres
 		return access != null ? access.getIRType() : new IRUnknownTypeUse(getIRContext());
 	}
 	
-	public static @Nullable ASTExpression parse(final Parser parent) {
+	public static @Nullable ASTExpression<?> parse(final Parser parent) {
 		final Parser p = parent.start();
-		final ASTExpression first = ASTAtomicExpression.parse(p);
+		final ASTExpression<?> first = ASTAtomicExpression.parse(p);
 		if (first == null) {
 			p.cancel();
 			return null;
@@ -48,7 +49,7 @@ public class ASTAccessExpression extends AbstractASTElement implements ASTExpres
 		return finishParsing(p, first);
 	}
 	
-	private static ASTExpression finishParsing(final Parser p, final ASTExpression target) {
+	private static ASTExpression<?> finishParsing(final Parser p, final ASTExpression<?> target) {
 		if (!p.peekNextOneOf(".", "?.", "::", "?::")) { // note: must try '?' together with '.' or '::', as it is also used by the ternary operator '? :'
 			p.doneAsChildren();
 			return target;
@@ -62,6 +63,13 @@ public class ASTAccessExpression extends AbstractASTElement implements ASTExpres
 		final Parser parent = p.startNewParent();
 		p.done(ast);
 		return finishParsing(parent, ast);
+	}
+	
+	private final Cache<IRExpression> irCache = new Cache<>(this, this::getIR);
+	
+	@Override
+	public Cache<IRExpression> irChache() {
+		return irCache;
 	}
 	
 	@Override

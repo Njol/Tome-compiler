@@ -25,12 +25,12 @@ public class ASTArgument extends AbstractASTElement {
 	
 	private final int index;
 	public boolean isDots;
-	public @Nullable ASTExpression value;
+	public @Nullable ASTExpression<?> value;
 	public @Nullable ParameterLink parameterLink;
 	
 	public static class ParameterLink extends ASTLink<IRParameterRedefinition> {
 		@Override
-		protected @Nullable IRParameterRedefinition tryLink(String name) {
+		protected @Nullable IRParameterRedefinition tryLink(final String name) {
 			final ASTMethodCall parent = getParentOfType(ASTMethodCall.class);
 			if (parent == null)
 				return null;
@@ -44,7 +44,7 @@ public class ASTArgument extends AbstractASTElement {
 			return null;
 		}
 		
-		private static ParameterLink parse(Parser parent) {
+		private static ParameterLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ParameterLink(), parent);
 		}
 	}
@@ -113,7 +113,7 @@ public class ASTArgument extends AbstractASTElement {
 	public static Map<IRParameterDefinition, IRExpression> makeIRArgumentMap(final IRAttributeDefinition method, final List<ASTArgument> args) {
 		final Map<IRParameterDefinition, IRExpression> r = new HashMap<>();
 		for (final ASTArgument arg : args) {
-			final ASTExpression expression = arg.value;
+			final ASTExpression<?> expression = arg.value;
 			if (expression == null)
 				continue;
 			final IRExpression value = expression.getIR();

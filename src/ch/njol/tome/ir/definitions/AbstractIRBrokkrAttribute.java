@@ -39,7 +39,7 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 		this.ast = registerDependency(ast);
 		assert (overridden == null) == (this instanceof IRAttributeDefinition);
 		this.overridden = registerDependency(overridden);
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
+		final ASTTypeDeclaration<?> type = ast.getParentOfType(ASTTypeDeclaration.class);
 		declaringType = registerDependency(type != null ? type.getIR() : new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (attribute not in type: " + this + ")", ast));
 	}
 	
@@ -93,7 +93,7 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 			return errors;
 		final List<IRError> errors = new ArrayList<>();
 		for (final ASTErrorDeclaration e : ast.errors)
-			errors.add(e.getIRError());
+			errors.add(e.getIR());
 		this.errors = errors;
 		return errors;
 	}
@@ -156,6 +156,7 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 	}
 	
 	protected @Nullable InterpretedObject interpretImplementation(final InterpretedObject thisObject, final Map<IRParameterDefinition, InterpretedObject> arguments, final boolean allResults) throws InterpreterException {
+		System.out.println("Interpreting attribute " + this);
 		if (!(thisObject instanceof InterpretedNormalObject))
 			return null;
 		final InterpreterContext localContext = new InterpreterContext(getIRContext(), (InterpretedNormalObject) thisObject); // new stack frame
@@ -179,7 +180,7 @@ public abstract class AbstractIRBrokkrAttribute extends AbstractIRElement implem
 		final ASTBlock body = ast.body;
 		if (body == null)
 			throw new InterpreterException("Missing method body in " + ast);
-		body.getIR().interpret(localContext);
+		body.getIR().interpretDirectly(localContext);
 		if (allResults) {
 //			final List<IRTupleEntryWithTypeUse> entries = new ArrayList<>();
 			final List<InterpretedObject> values = new ArrayList<>();

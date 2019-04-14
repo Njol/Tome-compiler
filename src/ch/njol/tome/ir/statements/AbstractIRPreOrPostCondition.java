@@ -26,7 +26,7 @@ public abstract class AbstractIRPreOrPostCondition extends AbstractIRStatement {
 	@Override
 	public void interpret(final InterpreterContext context) throws InterpreterException {
 		if (!InterpretedNativeBoolean.getBoolean(context, value.interpret(context)))
-			throw new InterpreterException((this instanceof IRPrecondition ? "Pre" : "Post") + "condition " + (name != null ? name : "<unnamed>") + " of attribute " + attribute + " not satisfied");
+			throw new InterpreterException((this instanceof IRPreconditionDeclaration ? "Pre" : "Post") + "condition " + (name != null ? name : "<unnamed>") + " of attribute " + attribute + " not satisfied");
 	}
 	
 	@Override

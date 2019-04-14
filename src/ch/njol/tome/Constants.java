@@ -12,4 +12,6 @@ public class Constants {
 	public final static String MULTI_LINE_COMMENT_END = "|#";
 	public final static String MULTI_LINE_COMMENT_PRETTIFY_CHARACTER = "|";
 	
+	public final static String CODE_GENERATION_START = "$";
+	
 }

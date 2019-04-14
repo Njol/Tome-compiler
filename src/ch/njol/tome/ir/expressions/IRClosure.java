@@ -36,8 +36,8 @@ public class IRClosure extends AbstractIRExpression {
 		// TODO modifying/nonmodifying
 		return getIRContext().getTypeDefinition("lang", "Function")
 				.getGenericUse(
-						"Arguments", IRValueGenericArgument.fromExpression(parameterTypes, null),
-						"Results", IRValueGenericArgument.fromExpression(value.type(), null),
+						"Arguments", new IRValueGenericArgument(parameterTypes),
+						"Results", new IRValueGenericArgument(value.type()),
 						null);
 	}
 	

@@ -8,35 +8,41 @@ import ch.njol.tome.ast.ASTLink;
 import ch.njol.tome.ast.AbstractASTElement;
 import ch.njol.tome.compiler.Token.WordToken;
 import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
-import ch.njol.tome.ir.uses.IRAttributeUse;
+import ch.njol.tome.ir.definitions.IRGenericParameter;
+import ch.njol.tome.ir.definitions.IRGenericTypeDefinition;
+import ch.njol.tome.ir.definitions.IRMemberRedefinition;
+import ch.njol.tome.ir.uses.IRMemberUse;
 import ch.njol.tome.ir.uses.IRSimpleTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 
 /**
- * A generic argument to a type use.
+ * A generic argument to a {@link ASTTypeWithGenericArguments type use}.
  */
 public class ASTGenericArgument extends AbstractASTElement {
 	
-	public boolean wildcard;
 	public @Nullable ASTGenericArgumentValue value;
 	
-	private @Nullable ASTGenericArgumentLink attribute;
+	private @Nullable ASTGenericArgumentLink parameter;
 	
-	private static class ASTGenericArgumentLink extends ASTLink<IRAttributeRedefinition> {
+	private static class ASTGenericArgumentLink extends ASTLink<IRMemberRedefinition> {
 		
 		@Override
-		protected @Nullable IRAttributeRedefinition tryLink(String name) {
-			ASTTypeWithGenericArguments type = getParentOfType(ASTTypeWithGenericArguments.class);
+		protected @Nullable IRMemberRedefinition tryLink(final String name) {
+			final ASTTypeWithGenericArguments type = getParentOfType(ASTTypeWithGenericArguments.class);
 			if (type == null)
 				return null;
-			final IRAttributeUse attributeUse = type.baseType.getIR().getAttributeByName(name);
-			if (attributeUse == null)
+			IRMemberUse memberUse = type.getIR().getMemberByName(name);
+			if (memberUse == null)
 				return null;
-			return attributeUse.redefinition();
+			IRMemberRedefinition redefinition = memberUse.redefinition();
+			if (redefinition instanceof IRAttributeRedefinition || redefinition instanceof IRGenericTypeDefinition)
+				return redefinition;
+			// TODO warn about wrong type?
+			return null;
 		}
 		
-		private static ASTGenericArgumentLink parse(Parser parent) {
+		private static ASTGenericArgumentLink parse(final Parser parent) {
 			return parseAsAnyIdentifier(new ASTGenericArgumentLink(), parent);
 		}
 		
@@ -44,18 +50,20 @@ public class ASTGenericArgument extends AbstractASTElement {
 	
 	@Override
 	public String toString() {
-		return (attribute != null ? attribute + ": " : "") + value;//(wildcard ? "?" + (extends_ == null ? "" : " extends " + extends_) + (super_ == null ? "" : " super " + super_) : value);
+		return (parameter != null ? parameter + ": " : "") + value;
 	}
 	
-	public @Nullable IRAttributeRedefinition attribute(final IRTypeUse baseType, final int index) {
-		if (attribute != null) {
-			final IRAttributeRedefinition attributeRedefinition = attribute.get();
-			return attributeRedefinition == null ? null : attributeRedefinition;
-		}
+	public boolean hasParameter() {
+		return parameter != null;
+	}
+	
+	public @Nullable IRMemberRedefinition getDefinition(final IRTypeUse baseType, final int index) {
+		if (parameter != null)
+			return parameter.get();
 		if (baseType instanceof IRSimpleTypeUse) {
-			final List<IRAttributeRedefinition> positionalGenericParameters = ((IRSimpleTypeUse) baseType).getDefinition().positionalGenericParameters();
-			if (index < positionalGenericParameters.size())
-				return positionalGenericParameters.get(index);
+			final List<? extends IRGenericParameter> genericParameters = ((IRSimpleTypeUse) baseType).getDefinition().genericParameters();
+			if (index < genericParameters.size())
+				return genericParameters.get(index).definition();
 		}
 		return null;
 	}
@@ -64,10 +72,16 @@ public class ASTGenericArgument extends AbstractASTElement {
 		return parent.one(p -> {
 			final ASTGenericArgument ast = new ASTGenericArgument();
 			if (p.peekNext() instanceof WordToken && p.peekNext(':', 1, true)) {
-				ast.attribute = ASTGenericArgumentLink.parse(p);
+				ast.parameter = ASTGenericArgumentLink.parse(p);
 				p.next(); // skip ':'
 			}
-			ast.value = ASTGenericArgumentValue.parse(p);
+			if (ast.parameter == null && p.peekNext('{')) {
+				ast.value = ASTGenericArgumentPredicateValue.parse(p);
+			} else if (p.peekNext('?')) {
+				ast.value = ASTGenericArgumentTypeBoundValue.parse(p);
+			} else {
+				ast.value = ASTGenericArgumentExpressionValue.parse(p);
+			}
 			return ast;
 		});
 	}

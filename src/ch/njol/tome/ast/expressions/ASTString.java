@@ -1,15 +1,15 @@
 package ch.njol.tome.ast.expressions;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.compiler.Token.StringToken;
-import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRString;
 
 /**
  * A string literal.
  */
-public class ASTString extends AbstractASTElement implements ASTExpression {
+public class ASTString extends AbstractASTElementWithIR<IRString> implements ASTExpression<IRString> {
+	
 	public final String value;
 	
 	public ASTString(final StringToken value) {
@@ -23,7 +23,8 @@ public class ASTString extends AbstractASTElement implements ASTExpression {
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRString calculateIR() {
 		return new IRString(this);
 	}
+	
 }

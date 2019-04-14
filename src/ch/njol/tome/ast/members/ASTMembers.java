@@ -31,9 +31,9 @@ public class ASTMembers {
 			return ASTConstructor.finishParsing(p, modifiers);
 		if (p.peekNext("invariant"))
 			return ASTInvariant.finishParsing(p, modifiers);
-//			if (parent.peekNext("type"))
-//				return parent.one(new ASTGenericTypeDeclaration(modifiers));
-		if (p.peekNext("code") || p.peekNext("member") || p.peekNext("type"))
+		if (parent.peekNext("type"))
+			return ASTGenericTypeDeclaration.finishParsing(p, modifiers);
+		if (p.peekNext("code") || p.peekNext("member") || p.peekNext("type")) // TODO change to 'template' only or think of something else
 			return ASTTemplate.finishParsing(p, modifiers);
 		return ASTAttributeDeclaration.finishParsing(p, modifiers);
 		// TODO constants? e.g. like 'constant Type name = value, name2 = value2;'

@@ -8,15 +8,16 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.ast.members.ASTMembers;
+import ch.njol.tome.ast.toplevel.ASTGenericParameterDeclaration;
 import ch.njol.tome.compiler.Token.WordToken;
 import ch.njol.tome.ir.definitions.IRBrokkrClassDefinition;
+import ch.njol.tome.ir.definitions.IRTypeDefinition;
 import ch.njol.tome.ir.expressions.IRAnonymousObjectCreation;
 import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRUnknownExpression;
@@ -24,9 +25,9 @@ import ch.njol.tome.ir.uses.IRSimpleTypeUse;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
-import ch.njol.tome.util.Cache;
 
-public class ASTAnonymousObject extends AbstractASTElement implements ASTExpression {
+public class ASTAnonymousObject extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
+	
 	public @Nullable ASTAnonymousType type;
 	
 	@Override
@@ -35,8 +36,8 @@ public class ASTAnonymousObject extends AbstractASTElement implements ASTExpress
 	}
 	
 	@Override
-	public int linkEnd() {
-		return type != null ? type.linkEnd() : absoluteRegionEnd();
+	public int linkLength() {
+		return type != null ? type.linkLength() : regionLength();
 	}
 	
 	@Override
@@ -62,15 +63,16 @@ public class ASTAnonymousObject extends AbstractASTElement implements ASTExpress
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		if (type != null)
-			return new IRAnonymousObjectCreation(type.getIR());
+			return new IRAnonymousObjectCreation((IRBrokkrClassDefinition) type.getIR()); // TODO maybe make AbstractASTElementWithIR have two generic parameters so that this cast can be removed?
 		else
 			return new IRUnknownExpression("Syntax error. Proper syntax: [create SomeType { ... }]", this);
 	}
 	
-	public static class ASTAnonymousType extends AbstractASTElement implements ASTTypeDeclaration {
-		public @Nullable ASTTypeUse type;
+	public static class ASTAnonymousType extends AbstractASTElementWithIR<IRTypeDefinition> implements ASTTypeDeclaration<IRTypeDefinition> {
+		
+		public @Nullable ASTTypeUse<?> type;
 		public List<ASTMember> members = new ArrayList<>();
 		
 		@Override
@@ -85,12 +87,12 @@ public class ASTAnonymousObject extends AbstractASTElement implements ASTExpress
 		
 		@Override
 		public int linkStart() {
-			return type != null ? type.absoluteRegionStart() : absoluteRegionStart();
+			return type != null ? type.linkStart() : absoluteRegionStart();
 		}
 		
 		@Override
-		public int linkEnd() {
-			return type != null ? type.absoluteRegionEnd() : absoluteRegionEnd();
+		public int linkLength() {
+			return type != null ? type.linkLength() : regionLength();
 		}
 		
 		@Override
@@ -105,7 +107,7 @@ public class ASTAnonymousObject extends AbstractASTElement implements ASTExpress
 		}
 		
 		@Override
-		public List<? extends ASTGenericParameter> genericParameters() {
+		public List<? extends ASTGenericParameterDeclaration<?>> genericParameters() {
 			return Collections.EMPTY_LIST;
 		}
 		
@@ -125,12 +127,11 @@ public class ASTAnonymousObject extends AbstractASTElement implements ASTExpress
 			});
 		}
 		
-		private final Cache<IRBrokkrClassDefinition> ir = new Cache<>(() -> new IRBrokkrClassDefinition(this));
-		
 		@Override
-		public IRBrokkrClassDefinition getIR() {
-			return ir.get();
+		protected IRTypeDefinition calculateIR() {
+			return new IRBrokkrClassDefinition(this);
 		}
+		
 	}
 	
 }

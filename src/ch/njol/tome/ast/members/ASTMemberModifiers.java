@@ -44,7 +44,7 @@ public class ASTMemberModifiers extends AbstractASTElement {
 	
 	private static class OverriddenFromTypeLink extends ASTLink<IRTypeDefinition> {
 		@Override
-		protected @Nullable IRTypeDefinition tryLink(String name) {
+		protected @Nullable IRTypeDefinition tryLink(final String name) {
 			final ASTSourceFile file = getParentOfType(ASTSourceFile.class);
 			if (file == null)
 				return null;
@@ -52,21 +52,21 @@ public class ASTMemberModifiers extends AbstractASTElement {
 			return module == null ? null : module.getType(name);
 		}
 		
-		private static OverriddenFromTypeLink parse(Parser parent) {
+		private static OverriddenFromTypeLink parse(final Parser parent) {
 			return parseAsTypeIdentifier(new OverriddenFromTypeLink(), parent);
 		}
 	}
 	
 	private static class OverriddenLink extends ASTLink<IRMemberRedefinition> {
 		@Override
-		protected @Nullable IRMemberRedefinition tryLink(String name) {
-			ASTMemberModifiers mm = getParentOfType(ASTMemberModifiers.class);
+		protected @Nullable IRMemberRedefinition tryLink(final String name) {
+			final ASTMemberModifiers mm = getParentOfType(ASTMemberModifiers.class);
 			if (mm == null)
 				return null;
 			return mm.getOverriddenByName(name);
 		}
 		
-		private static OverriddenLink parse(Parser parent) {
+		private static OverriddenLink parse(final Parser parent) {
 			return parseAsAnyIdentifier(new OverriddenLink(), parent);
 		}
 	}
@@ -101,7 +101,7 @@ public class ASTMemberModifiers extends AbstractASTElement {
 		return getOverriddenByName(name);
 	}
 	
-	private @Nullable IRMemberRedefinition getOverriddenByName(String name) {
+	private @Nullable IRMemberRedefinition getOverriddenByName(final String name) {
 		final IRTypeDefinition fromType = overriddenFromType != null ? overriddenFromType.get() : null;
 		if (fromType != null) {
 			// TODO check if actually subtyped (and maybe check interfaces in-between, e.g. A.a overrides C.a, but A extends B extends C and B also defines a)

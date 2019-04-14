@@ -94,6 +94,11 @@ public class IRBrokkrConstructor extends AbstractIRElement implements IRAttribut
 			return IRBrokkrConstructor.this.getIRContext();
 		}
 		
+		@Override
+		public @Nullable ASTElementPart getLinked() {
+			return ast; // just link to contructor. TODO is this OK?
+		}
+		
 	}
 	
 //	private final List<IRError> errors = new ArrayList<>();
@@ -153,7 +158,7 @@ public class IRBrokkrConstructor extends AbstractIRElement implements IRAttribut
 	
 	@Override
 	public @NonNull IRTypeDefinition declaringType() {
-		final ASTTypeDeclaration type = ast.getParentOfType(ASTTypeDeclaration.class);
+		final ASTTypeDeclaration<?> type = ast.getParentOfType(ASTTypeDeclaration.class);
 		if (type == null)
 			return new IRUnknownTypeDefinition(getIRContext(), "Internal compiler error (constructor not in type: " + this + ")", ast);
 		return type.getIR();

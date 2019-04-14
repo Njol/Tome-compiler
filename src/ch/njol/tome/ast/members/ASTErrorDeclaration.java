@@ -8,7 +8,7 @@ import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTError;
 import ch.njol.tome.ast.ASTInterfaces.ASTParameter;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.WordToken;
 import ch.njol.tome.ir.IRError;
@@ -16,7 +16,8 @@ import ch.njol.tome.ir.IRNormalError;
 import ch.njol.tome.ir.IRUnknownError;
 import ch.njol.tome.parser.Parser;
 
-public class ASTErrorDeclaration extends AbstractASTElement implements ASTError {
+public class ASTErrorDeclaration extends AbstractASTElementWithIR<IRError> implements ASTError<IRError> {
+	
 	public @Nullable LowercaseWordToken name;
 	public List<ASTParameter> parameters = new ArrayList<>();
 	
@@ -57,16 +58,12 @@ public class ASTErrorDeclaration extends AbstractASTElement implements ASTError 
 		return p.done(ast);
 	}
 	
-	private @Nullable IRNormalError ir;
-	
 	@Override
-	public IRError getIRError() {
-		if (ir != null)
-			return ir;
+	protected IRError calculateIR() {
 		final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
 		if (attribute == null)
 			return new IRUnknownError("" + name(), "internal compiler error", this);
-		return ir = new IRNormalError("" + name(), parameters.stream().map(p -> p.getIR()).collect(Collectors.toList()), attribute.getIR());
+		return new IRNormalError("" + name(), parameters.stream().map(p -> p.getIR()).collect(Collectors.toList()), attribute.getIR());
 	}
 	
 }

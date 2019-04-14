@@ -17,7 +17,7 @@ public class InterpreterContext {
 	 * topmost context for the call.
 	 * TODO can this be made better (i.e. with direct recursion or such)?
 	 */
-	public boolean isReturning = true;
+	public boolean isReturning = false;
 	
 	public final IRContext irContext;
 	

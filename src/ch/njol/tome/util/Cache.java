@@ -1,10 +1,8 @@
 package ch.njol.tome.util;
 
-import static org.eclipse.jdt.annotation.DefaultLocation.*;
-
+import java.util.function.Function;
 import java.util.function.Supplier;
 
-import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
@@ -12,38 +10,42 @@ import org.eclipse.jdt.annotation.Nullable;
  * <p>
  * This class is thread-safe.
  */
-@NonNullByDefault({PARAMETER, RETURN_TYPE, FIELD, ARRAY_CONTENTS})
-public class Cache<T extends Derived> implements ModificationListener {
+public class Cache<T extends @Nullable Derived> {
 	
 	private final Supplier<T> calculation;
 	private volatile @Nullable T value = null;
 	
-	public Cache(final Supplier<T> calculation) {
+	public <S extends Watchable> Cache(S source, final Function<S, T> calculation) {
+		this(source, () -> calculation.apply(source));
+	}
+	
+	public Cache(Watchable source, final Supplier<T> calculation) {
 		this.calculation = calculation;
+		registerDependency(source);
 	}
 	
-	@Override
-	public void onModification(final Watchable source) {
-		if (value != null) {
-			synchronized (this) {
-				value = null;
+	public void registerDependency(Watchable dependency) {
+		dependency.addModificationListener((s) -> {
+			if (value != null) {
+				synchronized (this) {
+					value = null;
+				}
 			}
-		}
+		});
 	}
 	
-	@SuppressWarnings("null")
 	public T get() {
 		@Nullable
-		T value = this.value;
-		if (value != null)
-			return value;
+		T cachedValue = this.value;
+		if (cachedValue != null)
+			return cachedValue;
 		synchronized (this) {
-			value = this.value;
-			if (value != null)
-				return value;
-			value = calculation.get();
+			cachedValue = this.value;
+			if (cachedValue != null)
+				return cachedValue;
+			final T value = calculation.get();
 			if (value != null) {
-				value.addModificationListener(this);
+				registerDependency(value);
 				this.value = value;
 			}
 			return value;

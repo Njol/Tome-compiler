@@ -10,7 +10,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTElementWithVariables;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTLocalVariable;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
@@ -24,9 +24,10 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTLambda extends AbstractASTElement implements ASTExpression, ASTElementWithVariables {
+public class ASTLambda extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression>, ASTElementWithVariables {
+	
 	public final List<ASTLambdaParameter> parameters = new ArrayList<>();
-	public @Nullable ASTExpression code;
+	public @Nullable ASTExpression<?> code;
 	
 	public ASTLambda(final @Nullable ASTLambdaParameter param) {
 		if (param != null)
@@ -70,13 +71,14 @@ public class ASTLambda extends AbstractASTElement implements ASTExpression, ASTE
 	}
 	
 	@Override
-	public IRExpression getIR() {
-		final ASTExpression code = this.code;
+	protected IRExpression calculateIR() {
+		final ASTExpression<?> code = this.code;
 		return new IRClosure(parameters.stream().map(p -> p.getIR()).collect(Collectors.toList()), code == null ? new IRUnknownExpression("missing expression for lambda function", this) : code.getIR());
 	}
 	
-	public static class ASTLambdaParameter extends AbstractASTElement implements ASTLocalVariable {
-		public @Nullable ASTTypeUse type;
+	public static class ASTLambdaParameter extends AbstractASTElementWithIR<IRVariableRedefinition> implements ASTLocalVariable {
+		
+		public @Nullable ASTTypeUse<?> type;
 		public @Nullable LowercaseWordToken name;
 		
 		@Override
@@ -84,7 +86,7 @@ public class ASTLambda extends AbstractASTElement implements ASTExpression, ASTE
 			return name;
 		}
 		
-		public ASTLambdaParameter(final @Nullable ASTTypeUse type) {
+		public ASTLambdaParameter(final @Nullable ASTTypeUse<?> type) {
 			this.type = type;
 		}
 		
@@ -95,20 +97,20 @@ public class ASTLambda extends AbstractASTElement implements ASTExpression, ASTE
 		
 		public static ASTLambdaParameter parse(final Parser parent, final boolean withType) {
 			final Parser p = parent.start();
-			ASTTypeUse type = null;
+			ASTTypeUse<?> type = null;
 			if (withType && !p.try_("var"))
 				type = ASTTypeExpressions.parse(p, false, false);
 			return finishParsing(p, type);
 		}
 		
-		public static ASTLambdaParameter finishParsing(final Parser p, final @Nullable ASTTypeUse type) {
+		public static ASTLambdaParameter finishParsing(final Parser p, final @Nullable ASTTypeUse<?> type) {
 			final ASTLambdaParameter ast = new ASTLambdaParameter(type);
 			ast.name = p.oneVariableIdentifierToken();
 			return p.done(ast);
 		}
 		
 		@Override
-		public IRVariableRedefinition getIR() {
+		protected IRVariableRedefinition calculateIR() {
 			return new IRBrokkrLocalVariable(this);
 		}
 		

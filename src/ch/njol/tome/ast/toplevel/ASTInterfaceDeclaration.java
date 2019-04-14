@@ -4,14 +4,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTElement;
-import ch.njol.tome.ast.ASTInterfaces.ASTGenericParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTMember;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeDeclaration;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions.ASTTypeExpressions;
 import ch.njol.tome.ast.members.ASTMemberModifiers;
 import ch.njol.tome.ast.members.ASTMembers;
@@ -25,12 +25,13 @@ import ch.njol.tome.parser.Parser;
 
 // TODO make generics refer to an attribute instead (just a name, or an alias)
 // then generics can easily be much more general, e.g. Matrix<rows, columns, NumberType> becomes possible
-public class ASTInterfaceDeclaration extends AbstractASTElement implements ASTTypeDeclaration, ASTMember {
+public class ASTInterfaceDeclaration extends AbstractASTElementWithIR<IRBrokkrInterfaceDefinition> implements ASTTypeDeclaration<IRBrokkrInterfaceDefinition>, ASTMember {
+	
 	public final ASTMemberModifiers modifiers;
 	
 	public @Nullable WordToken name;
-	public List<ASTGenericParameterDeclaration> genericParameters = new ArrayList<>();
-	public List<ASTTypeUse> parents = new ArrayList<>();
+	public List<ASTGenericParameterDeclaration<?>> genericParameters = new ArrayList<>();
+	public List<ASTTypeUse<?>> parents = new ArrayList<>();
 	public List<ASTMember> members = new ArrayList<>();
 	
 	public ASTInterfaceDeclaration(final ASTMemberModifiers modifiers) {
@@ -57,21 +58,22 @@ public class ASTInterfaceDeclaration extends AbstractASTElement implements ASTTy
 	 * @param parents
 	 * @return The parent types of this type, or null if this represents the Any type which has no further parents
 	 */
-	public final static @Nullable IRTypeUse parentTypes(final ASTElement e, final List<? extends ASTTypeUse> parents) {
+	public final static @Nullable IRTypeUse parentTypes(final ASTElement e, final List<? extends ASTTypeUse<?>> parents) {
 		if (parents.isEmpty()) {
 			if (e instanceof ASTInterfaceDeclaration && "Any".equals(((ASTInterfaceDeclaration) e).name())) {
 				final ASTSourceFile file = e.getParentOfType(ASTSourceFile.class);
-				ASTModuleDeclaration md;
-				if (file != null && (md = file.moduleDeclaration) != null && new ModuleIdentifier("lang").equals(md.module))
+				ASTModuleDeclaration md = file != null ? file.moduleDeclaration : null;
+				ASTModuleIdentifier mi = md != null ? md.module : null;
+				if (mi != null && new ModuleIdentifier("lang").equals(mi.identifier))
 					return null; // only [lang.Any] has no parent
 			}
 			return e.getIRContext().getTypeUse("lang", "Any");
 		}
-		return parents.stream().map(t -> t.getIR()).reduce((t1, t2) -> IRAndTypeUse.makeNew(t1, t2)).get();
+		return parents.stream().map(t -> (@NonNull IRTypeUse) t.getIR()).reduce((t1, t2) -> IRAndTypeUse.makeNew(t1, t2)).get();
 	}
 	
 	@Override
-	public List<? extends ASTGenericParameter> genericParameters() {
+	public List<? extends ASTGenericParameterDeclaration<?>> genericParameters() {
 		return genericParameters;
 	}
 	
@@ -87,7 +89,9 @@ public class ASTInterfaceDeclaration extends AbstractASTElement implements ASTTy
 			ast.name = p.oneTypeIdentifierToken();
 			p.tryGroup('<', () -> {
 				do {
-					ast.genericParameters.add(ASTGenericParameterDeclaration.parse(p));
+					final ASTGenericParameterDeclaration<?> genericParameterDeclaration = ASTGenericParameterDeclaration.parse(p);
+					if (genericParameterDeclaration != null)
+						ast.genericParameters.add(genericParameterDeclaration);
 				} while (p.try_(','));
 			}, '>');
 			if (p.try_("extends")) {
@@ -103,13 +107,9 @@ public class ASTInterfaceDeclaration extends AbstractASTElement implements ASTTy
 		return p.done(ast);
 	}
 	
-	private @Nullable IRBrokkrInterfaceDefinition ir = null;
-	
 	@Override
-	public IRBrokkrInterfaceDefinition getIR() {
-		if (ir != null)
-			return ir;
-		return ir = new IRBrokkrInterfaceDefinition(this);
+	public IRBrokkrInterfaceDefinition calculateIR() {
+		return new IRBrokkrInterfaceDefinition(this);
 	}
 	
 	@Override
@@ -121,4 +121,5 @@ public class ASTInterfaceDeclaration extends AbstractASTElement implements ASTTy
 	public boolean isInherited() {
 		return false; // TODO allow to inherit non-private inner types?
 	}
+	
 }

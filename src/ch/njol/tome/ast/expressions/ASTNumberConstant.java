@@ -6,15 +6,15 @@ import java.util.Locale;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.compiler.Token;
 import ch.njol.tome.compiler.Token.NumberToken;
-import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRNumberConstant;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTNumberConstant extends AbstractASTElement implements ASTExpression {
+public class ASTNumberConstant extends AbstractASTElementWithIR<IRNumberConstant> implements ASTExpression<IRNumberConstant> {
+	
 	public final BigDecimal value;
 	
 	private ASTNumberConstant(final NumberToken token) {
@@ -50,7 +50,8 @@ public class ASTNumberConstant extends AbstractASTElement implements ASTExpressi
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRNumberConstant calculateIR() {
 		return new IRNumberConstant(this);
 	}
+	
 }

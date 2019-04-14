@@ -54,4 +54,9 @@ public class IRUnknownParameterDefinition extends AbstractIRUnknown implements I
 		return errorMessage;
 	}
 	
+	@Override
+	public @Nullable ASTElementPart getLinked() {
+		return null;
+	}
+	
 }

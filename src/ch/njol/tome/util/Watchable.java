@@ -1,12 +1,12 @@
 package ch.njol.tome.util;
 
 /**
- * Object of this type may change, and can inform listeners of that fact.
+ * Objects of this type may change, and can inform listeners of that fact.
  */
 public interface Watchable {
 	
 	/**
-	 * Registers a listener to be notified when this object becomes invalid.
+	 * Registers a listener to be notified when this object changes.
 	 * 
 	 * @param listener
 	 */

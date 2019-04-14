@@ -2,7 +2,7 @@ package ch.njol.tome.ast.expressions;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ir.expressions.IRArgumentsKeyword;
 import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRUnknownExpression;
@@ -13,7 +13,7 @@ import ch.njol.tome.parser.Parser;
 /**
  * The keyword 'arguments', representing a tuple of all arguments to the current method.
  */
-public class ASTArgumentsKeyword extends AbstractASTElement implements ASTExpression {
+public class ASTArgumentsKeyword extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
 	
 	@Override
 	public String toString() {
@@ -35,7 +35,7 @@ public class ASTArgumentsKeyword extends AbstractASTElement implements ASTExpres
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		final ASTAttribute attribute = getParentOfType(ASTAttribute.class);
 		if (attribute == null)
 			return new IRUnknownExpression("Internal compiler error", this);

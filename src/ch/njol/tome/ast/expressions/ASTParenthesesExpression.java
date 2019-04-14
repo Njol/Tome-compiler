@@ -3,17 +3,17 @@ package ch.njol.tome.ast.expressions;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRUnknownExpression;
 import ch.njol.tome.parser.Parser;
 
-public class ASTParenthesesExpression extends AbstractASTElement implements ASTExpression {
+public class ASTParenthesesExpression extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
 	
-	private @Nullable ASTExpression expression;
+	private @Nullable ASTExpression<?> expression;
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		return expression != null ? expression.getIR() : new IRUnknownExpression("Missing expression after opening bracket '('", this);
 	}
 	

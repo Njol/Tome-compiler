@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Brokkr Compiler
-Bundle-SymbolicName: ch.njol.tome.compiler
+Bundle-SymbolicName: ch.njol.tome.compiler;singleton:=true
 Automatic-Module-Name: ch.njol.tome.compiler
 Bundle-Version: 0.1
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
@@ -14,8 +14,11 @@ Export-Package: ch.njol.tome,
  ch.njol.tome.ast.toplevel,
  ch.njol.tome.common,
  ch.njol.tome.compiler,
+ ch.njol.tome.interpreter,
+ ch.njol.tome.interpreter.nativetypes,
  ch.njol.tome.ir,
  ch.njol.tome.ir.definitions,
+ ch.njol.tome.ir.uses,
  ch.njol.tome.moduleast,
  ch.njol.tome.parser,
  ch.njol.tome.util,

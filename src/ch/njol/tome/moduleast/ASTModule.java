@@ -68,12 +68,12 @@ public class ASTModule extends ASTModuleFileElement {
 	public Map<ModuleIdentifier, List<ASTImport>> imports = new HashMap<>();
 	
 	public final static class ASTImport extends ASTModuleFileElement {
-		public ASTImportLink type;
-		public String alias;
+		public @Nullable ASTImportLink type;
+		public @Nullable String alias;
 		
 		private static class ASTImportLink extends ASTLink<IRTypeDefinition> {
 			@Override
-			protected @Nullable IRTypeDefinition tryLink(String name) {
+			protected @Nullable IRTypeDefinition tryLink(final String name) {
 				final ASTModule module = getParentOfType(ASTModule.class);
 				final ASTImport importStatement = getParentOfType(ASTImport.class);
 				assert module != null;
@@ -86,12 +86,11 @@ public class ASTModule extends ASTModuleFileElement {
 				return null;
 			}
 			
-			private static @Nullable ASTImportLink tryParse(Parser parent) {
+			private static @Nullable ASTImportLink tryParse(final Parser parent) {
 				return tryParse(new ASTImportLink(), parent, Parser::oneTypeIdentifierToken);
 			}
 		}
 		
-		@SuppressWarnings({"null", "unused"})
 		private ASTImport() {}
 		
 		public ASTImport(final WordToken type, final @Nullable String alias) {
@@ -101,15 +100,14 @@ public class ASTModule extends ASTModuleFileElement {
 		
 		@Override
 		public String toString() {
-			return type.getName() + (alias.equals(type.getName()) ? "" : " as " + alias);
+			return type != null ? type.getName() + (alias != null && type != null ? (alias.equals(type.getName()) ? "" : " as " + alias) : "") : "<error>";
 		}
 		
-		@SuppressWarnings("null")
 		@Override
 		public ASTModuleFileElement parse(final Parser parent) {
 			final Parser p = parent.start();
 			final ASTImport ast = new ASTImport();
-			ASTImportLink type = ASTImportLink.tryParse(p);
+			final ASTImportLink type = ASTImportLink.tryParse(p);
 			if (type == null)
 				return p.done(ast);
 			ast.type = type;
@@ -182,8 +180,8 @@ public class ASTModule extends ASTModuleFileElement {
 			return declaredType;
 		for (final Entry<ModuleIdentifier, List<ASTImport>> e : imports.entrySet()) {
 			for (final ASTImport i : e.getValue()) {
-				if (i.alias.equals(name)) {
-					final IRTypeDefinition t = i.type.get();
+				if (i.alias != null && i.alias.equals(name)) {
+					final IRTypeDefinition t = i.type != null ? i.type.get() : null;
 					if (t != null)
 						addModificationListener(t); // if this module is modified, any types accessed this way must be re-checked
 					return t;
@@ -227,7 +225,8 @@ public class ASTModule extends ASTModuleFileElement {
 	public void save(final Writer out) throws IOException {
 		for (final List<ASTImport> l : imports.values()) {
 			l.sort((i1, i2) -> {
-				final String n1 = i1.type.getName(), n2 = i2.type.getName();
+				final String n1 = i1.type != null ? i1.type.getName() : null,
+						n2 = i2.type != null ? i2.type.getName() : null;
 				return n1 == null ? 0 : n1.compareTo(n2);
 			});
 		}

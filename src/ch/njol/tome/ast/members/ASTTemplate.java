@@ -11,7 +11,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.tome.ast.ASTInterfaces.ASTError;
 import ch.njol.tome.ast.ASTInterfaces.ASTParameter;
 import ch.njol.tome.ast.ASTInterfaces.ASTResult;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTBlock;
 import ch.njol.tome.compiler.Token.LowercaseWordToken;
 import ch.njol.tome.compiler.Token.WordToken;
@@ -22,7 +22,8 @@ import ch.njol.tome.ir.nativetypes.IRTuple.IRTypeTuple;
 import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTTemplate extends AbstractASTElement implements ASTAttribute {
+public class ASTTemplate extends AbstractASTElementWithIR<IRAttributeRedefinition> implements ASTAttribute {
+	
 	public final ASTMemberModifiers modifiers;
 	
 	public @Nullable TemplateType templateType;
@@ -59,7 +60,7 @@ public class ASTTemplate extends AbstractASTElement implements ASTAttribute {
 	}
 	
 	@Override
-	public List<ASTError> declaredErrors() {
+	public List<ASTError<?>> declaredErrors() {
 		return Collections.EMPTY_LIST; // FIXME preconditions are errors too!
 	}
 	
@@ -96,7 +97,8 @@ public class ASTTemplate extends AbstractASTElement implements ASTAttribute {
 	}
 	
 	@Override
-	public IRAttributeRedefinition getIR() {
+	protected IRAttributeRedefinition calculateIR() {
 		return new IRBrokkrTemplate(this);
 	}
+	
 }

@@ -19,7 +19,8 @@ import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.parser.Parser;
 
 public class ASTCodeGenerationCallMember extends AbstractASTElement implements ASTMember {
-	public @Nullable ASTExpression code;
+	
+	public @Nullable ASTExpression<?> code;
 	
 	@Override
 	public boolean isInherited() {
@@ -44,7 +45,7 @@ public class ASTCodeGenerationCallMember extends AbstractASTElement implements A
 	// TODO make sure to prevent infinite recursion with other types!
 	@Override
 	public List<IRMemberRedefinition> getIRMembers() {
-		final ASTExpression code = this.code;
+		final ASTExpression<?> code = this.code;
 		if (code == null)
 			return Arrays.asList();
 		try {
@@ -56,4 +57,5 @@ public class ASTCodeGenerationCallMember extends AbstractASTElement implements A
 			return Collections.EMPTY_LIST; // Collections.singletonList(new IRUnknownMember("" + e.getMessage(), this));
 		}
 	}
+	
 }

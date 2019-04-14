@@ -5,14 +5,15 @@ import java.util.Locale;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
-import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.common.Kleenean;
 import ch.njol.tome.compiler.Token.WordOrSymbols;
 import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.expressions.IRKleeneanConstant;
 import ch.njol.tome.parser.Parser;
 
-public class ASTKleeneanConstant extends AbstractASTElement implements ASTExpression {
+public class ASTKleeneanConstant extends AbstractASTElementWithIR<IRExpression> implements ASTExpression<IRExpression> {
+	
 	public final Kleenean value;
 	
 	private ASTKleeneanConstant(final Kleenean value) {
@@ -36,7 +37,7 @@ public class ASTKleeneanConstant extends AbstractASTElement implements ASTExpres
 	}
 	
 	@Override
-	public IRExpression getIR() {
+	protected IRExpression calculateIR() {
 		return new IRKleeneanConstant(this);
 	}
 	

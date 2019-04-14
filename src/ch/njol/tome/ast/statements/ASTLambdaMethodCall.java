@@ -15,6 +15,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTTargettedExpression;
 import ch.njol.tome.ast.ASTInterfaces.ASTTypeUse;
 import ch.njol.tome.ast.ASTLink;
 import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTAccessExpression;
 import ch.njol.tome.ast.expressions.ASTBlock;
 import ch.njol.tome.ast.expressions.ASTDirectAttributeAccess;
@@ -42,9 +43,10 @@ import ch.njol.tome.ir.uses.IRTypeUse;
 import ch.njol.tome.ir.uses.IRUnknownTypeUse;
 import ch.njol.tome.parser.Parser;
 
-public class ASTLambdaMethodCall extends AbstractASTElement implements ASTStatement, ASTTargettedExpression {
-	public @Nullable ASTExpression target;
-	private @Nullable ASTLink<? extends IRVariableOrAttributeRedefinition> method;
+public class ASTLambdaMethodCall extends AbstractASTElementWithIR<IRStatement> implements ASTStatement<IRStatement>, ASTTargettedExpression {
+	
+	public @Nullable ASTExpression<?> target;
+	private @Nullable final ASTLink<? extends IRVariableOrAttributeRedefinition> method;
 	public List<ASTLambdaMethodCallPart> parts = new ArrayList<>();
 	
 	public ASTLambdaMethodCall(final ASTVariableOrUnqualifiedAttributeUse method) {
@@ -65,7 +67,7 @@ public class ASTLambdaMethodCall extends AbstractASTElement implements ASTStatem
 	
 	@Override
 	public @Nullable IRTypeUse targetType() {
-		return this.target != null ? this.target.getIRType() : IRSelfTypeUse.makeNew(this);
+		return target != null ? target.getIRType() : IRSelfTypeUse.makeNew(this);
 	}
 	
 	public static ASTLambdaMethodCall finishParsing(final Parser p, final ASTVariableOrUnqualifiedAttributeUse method, final boolean withSemicolon) {
@@ -86,7 +88,7 @@ public class ASTLambdaMethodCall extends AbstractASTElement implements ASTStatem
 	}
 	
 	@Override
-	public IRStatement getIR() {
+	protected IRStatement calculateIR() {
 		final IRExpression target = this.target != null ? this.target.getIR() : IRThis.makeNew(this);
 		final IRVariableOrAttributeRedefinition attribute = method != null ? method.get() : null;
 		if (!(attribute instanceof IRAttributeRedefinition)) {
@@ -108,22 +110,22 @@ public class ASTLambdaMethodCall extends AbstractASTElement implements ASTStatem
 	
 	// TODO allow to combine multiple parts? (e.g. x {} y, z {}') (useful for switch statements)
 	public static class ASTLambdaMethodCallPart extends AbstractASTElement implements ASTElementWithVariables {
-		@Nullable
-		public ASTLink<IRParameterRedefinition> parameter;
+		
+		public @Nullable ASTLink<IRParameterRedefinition> parameter;
 		public List<ASTLambdaMethodCallPartParameter> parameters = new ArrayList<>();
-		public @Nullable ASTExpression expression;
+		public @Nullable ASTExpression<?> expression;
 		
 		public static class ASTLambdaMethodCallPartLink extends ASTLink<IRParameterRedefinition> {
 			@Override
-			protected @Nullable IRParameterRedefinition tryLink(String name) {
-				ASTLambdaMethodCall call = getParentOfType(ASTLambdaMethodCall.class);
+			protected @Nullable IRParameterRedefinition tryLink(final String name) {
+				final ASTLambdaMethodCall call = getParentOfType(ASTLambdaMethodCall.class);
 				if (call == null)
 					return null;
 				final IRVariableOrAttributeRedefinition method = call.method != null ? call.method.get() : null;
 				return method == null || !(method instanceof IRAttributeRedefinition) ? null : ((IRAttributeRedefinition) method).getParameterByName(name);
 			}
 			
-			private static ASTLambdaMethodCallPartLink parse(Parser parent) {
+			private static ASTLambdaMethodCallPartLink parse(final Parser parent) {
 				return parseAsVariableIdentifier(new ASTLambdaMethodCallPartLink(), parent);
 			}
 		}
@@ -166,18 +168,19 @@ public class ASTLambdaMethodCall extends AbstractASTElement implements ASTStatem
 	 * TODO what exactly is this? and is it a parameter? or just a link to one (in which case the interface might need to be removed - still should be a linkable local variable
 	 * though, as it is now a variable in scope (and maybe has a different name too))
 	 */
-	public static class ASTLambdaMethodCallPartParameter extends AbstractASTElement implements ASTLocalVariable {
+	public static class ASTLambdaMethodCallPartParameter extends AbstractASTElementWithIR<IRVariableRedefinition> implements ASTLocalVariable {
+		
 		private @Nullable ASTLink<IRParameterRedefinition> parameter;
-		public @Nullable ASTTypeUse type;
+		public @Nullable ASTTypeUse<?> type;
 		
 		private static class ASTLambdaMethodCallPartParameterLink extends ASTLink<IRParameterRedefinition> {
 			@Override
-			protected @Nullable IRParameterRedefinition tryLink(String name) {
+			protected @Nullable IRParameterRedefinition tryLink(final String name) {
 				// TODO parameter named like this link, or parameter with same position as this parameter (either from left or right, depending on where the dots are (if any)).
 				return null;
 			}
 			
-			private static ASTLambdaMethodCallPartParameterLink parse(Parser parent) {
+			private static ASTLambdaMethodCallPartParameterLink parse(final Parser parent) {
 				return parseAsVariableIdentifier(new ASTLambdaMethodCallPartParameterLink(), parent);
 			}
 		}
@@ -212,7 +215,7 @@ public class ASTLambdaMethodCall extends AbstractASTElement implements ASTStatem
 		}
 		
 		@Override
-		public IRVariableRedefinition getIR() {
+		protected IRVariableRedefinition calculateIR() {
 			return new IRBrokkrLocalVariable(this);
 		}
 		

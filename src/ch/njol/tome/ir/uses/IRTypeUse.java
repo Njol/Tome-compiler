@@ -3,7 +3,6 @@ package ch.njol.tome.ir.uses;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNull;
@@ -12,8 +11,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.tome.interpreter.InterpretedTypeUse;
 import ch.njol.tome.interpreter.InterpreterContext;
 import ch.njol.tome.interpreter.InterpreterException;
-import ch.njol.tome.ir.IRGenericArgument;
-import ch.njol.tome.ir.definitions.IRAttributeDefinition;
+import ch.njol.tome.ir.IRGenericArguments;
 import ch.njol.tome.ir.definitions.IRMemberDefinition;
 import ch.njol.tome.ir.expressions.IRExpression;
 import ch.njol.tome.ir.nativetypes.IRTuple.IRTypeTuple;
@@ -48,7 +46,7 @@ public interface IRTypeUse extends IRExpression, Comparable<IRTypeUse> {
 	 * For internal use only.
 	 */
 	final static List<Class<? extends IRTypeUse>> TYPE_USE_CLASS_ORDER = Collections.unmodifiableList(Arrays.asList(
-			IRUnknownTypeUse.class, IRGenericTypeAccess.class, IRGenericTypeUse.class, IRSimpleTypeUse.class, IRTypeUseClassUse.class, IRSelfTypeUse.class, IRTypeTuple.class, IRAndTypeUse.class, IROrTypeUse.class));
+			IRUnknownTypeUse.class, IRGenericTypeAccess.class, IRTypeUseWithGenerics.class, IRSimpleTypeUse.class, IRTypeUseClassUse.class, IRSelfTypeUse.class, IRTypeTuple.class, IRAndTypeUse.class, IROrTypeUse.class));
 	
 	/**
 	 * Used to uniquely order different IRTypeUse classes. Must not be called with objects of the same type - use the following as the implementation of
@@ -106,13 +104,18 @@ public interface IRTypeUse extends IRExpression, Comparable<IRTypeUse> {
 		return member instanceof IRAttributeUse ? (IRAttributeUse) member : null;
 	}
 	
+	public default @Nullable IRGenericTypeUse getGenericTypeByName(final String name) {
+		final IRMemberUse member = getMemberByName(name);
+		return member instanceof IRGenericTypeUse ? (IRGenericTypeUse) member : null;
+	}
+	
 	@Override
 	public @NonNull InterpretedTypeUse interpret(InterpreterContext context) throws InterpreterException;
 	
-	public default IRTypeUse getGenericUse(final Map<IRAttributeDefinition, IRGenericArgument> genericAttributes) {
+	public default IRTypeUse getGenericUse(final IRGenericArguments genericAttributes) {
 		if (genericAttributes.isEmpty())
 			return this;
-		return new IRGenericTypeUse(this, genericAttributes);
+		return new IRTypeUseWithGenerics(this, genericAttributes);
 	}
 	
 }

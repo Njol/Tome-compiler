@@ -9,6 +9,7 @@ import ch.njol.tome.ast.ASTInterfaces.ASTAttribute;
 import ch.njol.tome.ast.ASTInterfaces.ASTExpression;
 import ch.njol.tome.ast.ASTLink;
 import ch.njol.tome.ast.AbstractASTElement;
+import ch.njol.tome.ast.AbstractASTElementWithIR;
 import ch.njol.tome.ast.expressions.ASTExpressions;
 import ch.njol.tome.ast.members.ASTAttributeDeclaration;
 import ch.njol.tome.ast.statements.ASTStatements.ASTStatement;
@@ -23,18 +24,19 @@ import ch.njol.tome.ir.statements.IRStatementList;
 import ch.njol.tome.parser.Parser;
 import ch.njol.util.StringUtils;
 
-public class ASTReturn extends AbstractASTElement implements ASTStatement {
+public class ASTReturn extends AbstractASTElementWithIR<IRStatement> implements ASTStatement<IRStatement> {
+	
 	private final List<ASTReturnResult> results = new ArrayList<>();
 	private @Nullable ASTReturnErrorLink error;
 	
 	private static class ASTReturnErrorLink extends ASTLink<IRResultRedefinition> {
 		@Override
-		protected @Nullable IRResultRedefinition tryLink(String name) {
+		protected @Nullable IRResultRedefinition tryLink(final String name) {
 			final ASTAttributeDeclaration attribute = getParentOfType(ASTAttributeDeclaration.class);
 			return attribute == null ? null : attribute.getResult(name);
 		}
 		
-		private static ASTReturnErrorLink parse(Parser parent) {
+		private static ASTReturnErrorLink parse(final Parser parent) {
 			return parseAsVariableIdentifier(new ASTReturnErrorLink(), parent);
 		}
 	}
@@ -67,14 +69,14 @@ public class ASTReturn extends AbstractASTElement implements ASTStatement {
 	}
 	
 	@Override
-	public IRStatement getIR() {
+	protected IRStatement calculateIR() {
 		if (error != null) {
 			// TODO
 		}
 		final List<IRStatement> statements = new ArrayList<>();
 		for (final ASTReturnResult r : results) {
 			final IRResultRedefinition result = r.result != null ? r.result.get() : null;
-			final ASTExpression value = r.value;
+			final ASTExpression<?> value = r.value;
 			if (result != null && value != null) {
 				statements.add(new IRExpressionStatement(new IRVariableAssignment(result.definition(), value.getIR())));
 			}
@@ -85,11 +87,11 @@ public class ASTReturn extends AbstractASTElement implements ASTStatement {
 	
 	public static class ASTReturnResult extends AbstractASTElement {
 		private @Nullable ASTReturnResultLink result;
-		public @Nullable ASTExpression value;
+		public @Nullable ASTExpression<?> value;
 		
 		private static class ASTReturnResultLink extends ASTLink<IRResultRedefinition> {
 			@Override
-			protected @Nullable IRResultRedefinition tryLink(String name) {
+			protected @Nullable IRResultRedefinition tryLink(final String name) {
 				final ASTAttribute fa = getParentOfType(ASTAttribute.class);
 				if (fa == null)
 					return null;
@@ -97,7 +99,7 @@ public class ASTReturn extends AbstractASTElement implements ASTStatement {
 				return attribute.getResultByName(name);
 			}
 			
-			private static ASTReturnResultLink parse(Parser parent) {
+			private static ASTReturnResultLink parse(final Parser parent) {
 				return parseAsVariableIdentifier(new ASTReturnResultLink(), parent);
 			}
 		}

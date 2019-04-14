@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
+import ch.njol.tome.ast.ASTElementPart;
 import ch.njol.tome.interpreter.InterpretedNormalObject;
 import ch.njol.tome.interpreter.InterpretedObject;
 import ch.njol.tome.interpreter.InterpretedTuple;
@@ -26,6 +27,7 @@ import ch.njol.tome.ir.definitions.IRAttributeDefinition;
 import ch.njol.tome.ir.definitions.IRAttributeImplementation;
 import ch.njol.tome.ir.definitions.IRAttributeRedefinition;
 import ch.njol.tome.ir.definitions.IRClassDefinition;
+import ch.njol.tome.ir.definitions.IRGenericParameter;
 import ch.njol.tome.ir.definitions.IRMemberRedefinition;
 import ch.njol.tome.ir.definitions.IRParameterDefinition;
 import ch.njol.tome.ir.definitions.IRParameterRedefinition;
@@ -243,6 +245,11 @@ public abstract class IRTuple extends AbstractIRElement implements IRExpression 
 			public @Nullable IRExpression defaultValue() {
 				return null;
 			}
+			
+			@Override
+			public @Nullable ASTElementPart getLinked() {
+				return null;
+			}
 		}
 		
 		@Override
@@ -391,9 +398,10 @@ public abstract class IRTuple extends AbstractIRElement implements IRExpression 
 		}
 		
 		@Override
-		public List<IRAttributeRedefinition> positionalGenericParameters() {
+		public List<? extends IRGenericParameter> genericParameters() {
 			return Collections.EMPTY_LIST;
 		}
+		
 	}
 	
 	/**

@@ -25,7 +25,7 @@ public class Interpreter {
 	}
 	
 	public IRTypeUse getTypeUse(final String module, final String name) throws InterpreterException {
-		return getType(module, name).getGenericUse(Collections.EMPTY_MAP);
+		return getType(module, name).getUse();
 	}
 	
 	public IRBrokkrInterfaceDefinition getInterface(final String module, final String name) throws InterpreterException {
